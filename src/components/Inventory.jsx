@@ -9,7 +9,8 @@ const Inventory = ({ inventory, setInventory }) => {
   const [filterQC, setFilterQC] = useState('All');
   const [filterBilling, setFilterBilling] = useState('All');
   const [filterItem, setFilterItem] = useState('All');
-  const [filterDate, setFilterDate] = useState('');
+  const [filterStartDate, setFilterStartDate] = useState('');
+  const [filterEndDate, setFilterEndDate] = useState('');
   const [filterLocation, setFilterLocation] = useState('All');
   const [filterQtyStatus, setFilterQtyStatus] = useState('All');
 
@@ -67,7 +68,14 @@ const Inventory = ({ inventory, setInventory }) => {
     const matchesBilling = filterBilling === 'All' || item.billingStatus === filterBilling;
     const matchesItem = filterItem === 'All' || item.itemName === filterItem;
 
-    const matchesDate = !filterDate || item.date === filterDate;
+    let matchesDate = true;
+    if (filterStartDate) {
+      matchesDate = matchesDate && item.date >= filterStartDate;
+    }
+    if (filterEndDate) {
+      matchesDate = matchesDate && item.date <= filterEndDate;
+    }
+
     const matchesLocation = filterLocation === 'All' || item.location === filterLocation;
     
     let matchesQtyStatus = true;
@@ -98,7 +106,7 @@ const Inventory = ({ inventory, setInventory }) => {
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
-        {(searchTerm || filterQC !== 'All' || filterBilling !== 'All' || filterItem !== 'All' || filterDate || filterLocation !== 'All' || filterQtyStatus !== 'All') && (
+        {(searchTerm || filterQC !== 'All' || filterBilling !== 'All' || filterItem !== 'All' || filterStartDate || filterEndDate || filterLocation !== 'All' || filterQtyStatus !== 'All') && (
           <button 
             className="btn btn-secondary" 
             style={{ padding: '0.4rem 0.8rem', fontSize: '0.75rem' }}
@@ -107,7 +115,8 @@ const Inventory = ({ inventory, setInventory }) => {
               setFilterQC('All');
               setFilterBilling('All');
               setFilterItem('All');
-              setFilterDate('');
+              setFilterStartDate('');
+              setFilterEndDate('');
               setFilterLocation('All');
               setFilterQtyStatus('All');
             }}
@@ -121,15 +130,24 @@ const Inventory = ({ inventory, setInventory }) => {
         <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '1100px' }}>
           <thead>
             <tr style={{ textAlign: 'left', borderBottom: '1px solid var(--glass-border)', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-              <th style={{ padding: '1rem' }}>
+              <th style={{ padding: '1rem', minWidth: '220px' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                  <span>วันที่รับ</span>
-                  <input 
-                    type="date" 
-                    value={filterDate} 
-                    onChange={(e) => setFilterDate(e.target.value)} 
-                    style={{ padding: '0.2rem', fontSize: '0.7rem', height: '24px', width: '110px', background: '#111827', color: '#f9fafb', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px' }} 
-                  />
+                  <span>วันที่รับ (ช่วง)</span>
+                  <div style={{ display: 'flex', gap: '0.2rem', alignItems: 'center' }}>
+                    <input 
+                      type="date" 
+                      value={filterStartDate} 
+                      onChange={(e) => setFilterStartDate(e.target.value)} 
+                      style={{ padding: '0.2rem', fontSize: '0.65rem', height: '24px', width: '95px', background: '#111827', color: '#f9fafb', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px' }} 
+                    />
+                    <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>-</span>
+                    <input 
+                      type="date" 
+                      value={filterEndDate} 
+                      onChange={(e) => setFilterEndDate(e.target.value)} 
+                      style={{ padding: '0.2rem', fontSize: '0.65rem', height: '24px', width: '95px', background: '#111827', color: '#f9fafb', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px' }} 
+                    />
+                  </div>
                 </div>
               </th>
               <th style={{ padding: '1rem' }}>
