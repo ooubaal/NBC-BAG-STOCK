@@ -9,6 +9,9 @@ const Inventory = ({ inventory, setInventory }) => {
   const [filterQC, setFilterQC] = useState('All');
   const [filterBilling, setFilterBilling] = useState('All');
   const [filterItem, setFilterItem] = useState('All');
+  const [filterDate, setFilterDate] = useState('');
+  const [filterLocation, setFilterLocation] = useState('All');
+  const [filterQtyStatus, setFilterQtyStatus] = useState('All');
 
   // Edit States for expanded row
   const [editQC, setEditQC] = useState('');
@@ -20,6 +23,8 @@ const Inventory = ({ inventory, setInventory }) => {
 
   // Get unique items for filter dropdown
   const uniqueItems = Array.from(new Set(inventory.map(i => i.itemName)));
+  // Get unique locations for filter dropdown
+  const uniqueLocations = Array.from(new Set(inventory.map(i => i.location).filter(Boolean)));
 
   const handleUpdateStatus = (id) => {
     setInventory(prev => prev.map(item => {
@@ -62,7 +67,17 @@ const Inventory = ({ inventory, setInventory }) => {
     const matchesBilling = filterBilling === 'All' || item.billingStatus === filterBilling;
     const matchesItem = filterItem === 'All' || item.itemName === filterItem;
 
-    return matchesSearch && matchesQC && matchesBilling && matchesItem;
+    const matchesDate = !filterDate || item.date === filterDate;
+    const matchesLocation = filterLocation === 'All' || item.location === filterLocation;
+    
+    let matchesQtyStatus = true;
+    if (filterQtyStatus === 'InStock') {
+      matchesQtyStatus = Number(item.remainingQty) > 0;
+    } else if (filterQtyStatus === 'OutOfStock') {
+      matchesQtyStatus = Number(item.remainingQty) <= 0;
+    }
+
+    return matchesSearch && matchesQC && matchesBilling && matchesItem && matchesDate && matchesLocation && matchesQtyStatus;
   });
 
   return (
@@ -83,7 +98,7 @@ const Inventory = ({ inventory, setInventory }) => {
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
-        {(searchTerm || filterQC !== 'All' || filterBilling !== 'All' || filterItem !== 'All') && (
+        {(searchTerm || filterQC !== 'All' || filterBilling !== 'All' || filterItem !== 'All' || filterDate || filterLocation !== 'All' || filterQtyStatus !== 'All') && (
           <button 
             className="btn btn-secondary" 
             style={{ padding: '0.4rem 0.8rem', fontSize: '0.75rem' }}
@@ -92,6 +107,9 @@ const Inventory = ({ inventory, setInventory }) => {
               setFilterQC('All');
               setFilterBilling('All');
               setFilterItem('All');
+              setFilterDate('');
+              setFilterLocation('All');
+              setFilterQtyStatus('All');
             }}
           >
             ล้างตัวกรองทั้งหมด
@@ -103,14 +121,24 @@ const Inventory = ({ inventory, setInventory }) => {
         <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '1100px' }}>
           <thead>
             <tr style={{ textAlign: 'left', borderBottom: '1px solid var(--glass-border)', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-              <th style={{ padding: '1rem' }}>วันที่รับ</th>
+              <th style={{ padding: '1rem' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                  <span>วันที่รับ</span>
+                  <input 
+                    type="date" 
+                    value={filterDate} 
+                    onChange={(e) => setFilterDate(e.target.value)} 
+                    style={{ padding: '0.2rem', fontSize: '0.7rem', height: '24px', width: '110px', background: '#111827', color: '#f9fafb', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px' }} 
+                  />
+                </div>
+              </th>
               <th style={{ padding: '1rem' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
                   <span>รายการสินค้า</span>
                   <select 
                     value={filterItem} 
                     onChange={(e) => setFilterItem(e.target.value)}
-                    style={{ padding: '0.2rem', fontSize: '0.7rem', height: '24px' }}
+                    style={{ padding: '0.2rem', fontSize: '0.7rem', height: '24px', background: '#111827', color: '#f9fafb', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px' }}
                   >
                     <option value="All">ทั้งหมด</option>
                     {uniqueItems.map(name => <option key={name} value={name}>{name}</option>)}
@@ -124,7 +152,7 @@ const Inventory = ({ inventory, setInventory }) => {
                   <select 
                     value={filterQC} 
                     onChange={(e) => setFilterQC(e.target.value)}
-                    style={{ padding: '0.2rem', fontSize: '0.7rem', height: '24px' }}
+                    style={{ padding: '0.2rem', fontSize: '0.7rem', height: '24px', background: '#111827', color: '#f9fafb', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px' }}
                   >
                     <option value="All">ทั้งหมด</option>
                     <option value="Pass">Pass</option>
@@ -133,15 +161,40 @@ const Inventory = ({ inventory, setInventory }) => {
                   </select>
                 </div>
               </th>
-              <th style={{ padding: '1rem' }}>ที่เก็บ</th>
-              <th style={{ padding: '1rem' }}>จำนวนรับ / คงเหลือ</th>
+              <th style={{ padding: '1rem' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                  <span>ที่เก็บ</span>
+                  <select 
+                    value={filterLocation} 
+                    onChange={(e) => setFilterLocation(e.target.value)}
+                    style={{ padding: '0.2rem', fontSize: '0.7rem', height: '24px', background: '#111827', color: '#f9fafb', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px' }}
+                  >
+                    <option value="All">ทั้งหมด</option>
+                    {uniqueLocations.map(loc => <option key={loc} value={loc}>{loc}</option>)}
+                  </select>
+                </div>
+              </th>
+              <th style={{ padding: '1rem' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                  <span>จำนวนรับ / คงเหลือ</span>
+                  <select 
+                    value={filterQtyStatus} 
+                    onChange={(e) => setFilterQtyStatus(e.target.value)}
+                    style={{ padding: '0.2rem', fontSize: '0.7rem', height: '24px', background: '#111827', color: '#f9fafb', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px' }}
+                  >
+                    <option value="All">ทั้งหมด</option>
+                    <option value="InStock">มีคงเหลือ (&gt; 0)</option>
+                    <option value="OutOfStock">สินค้าหมด (= 0)</option>
+                  </select>
+                </div>
+              </th>
               <th style={{ padding: '1rem' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
                   <span>วางบิล</span>
                   <select 
                     value={filterBilling} 
                     onChange={(e) => setFilterBilling(e.target.value)}
-                    style={{ padding: '0.2rem', fontSize: '0.7rem', height: '24px' }}
+                    style={{ padding: '0.2rem', fontSize: '0.7rem', height: '24px', background: '#111827', color: '#f9fafb', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px' }}
                   >
                     <option value="All">ทั้งหมด</option>
                     <option value="Pending">Pending</option>
