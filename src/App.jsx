@@ -87,7 +87,7 @@ function App() {
       case 'inventory':
         return <Inventory inventory={inventory} setInventory={setInventory} items={items} />;
       case 'inbound':
-        return <Inbound setInventory={setInventory} items={items} />;
+        return <Inbound setInventory={setInventory} items={items} inventory={inventory} />;
       case 'withdrawal':
         return <Withdrawal inventory={inventory} setInventory={setInventory} items={items} />;
       case 'analytics':
