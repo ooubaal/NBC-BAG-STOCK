@@ -141,6 +141,16 @@ const NCP = ({ inventory, items }) => {
     reader.readAsDataURL(file);
   };
 
+  const handleRemoveNewClaimImage = (step) => {
+    setNewClaim(prev => ({
+      ...prev,
+      images: {
+        ...prev.images,
+        [step]: null
+      }
+    }));
+  };
+
   const saveClaim = () => {
     if (!newClaim.itemName || !newClaim.lotNo || !newClaim.quantity) {
       alert("กรุณากรอกชื่อสินค้า, Lot no. และจำนวนที่พบปัญหา");
@@ -214,6 +224,18 @@ const NCP = ({ inventory, items }) => {
       });
     };
     reader.readAsDataURL(file);
+  };
+
+  const handleRemoveImage = (id, step) => {
+    setClaims(claims.map(c => {
+      if (c.id === id) {
+        return {
+          ...c,
+          images: { ...c.images, [step]: null }
+        };
+      }
+      return c;
+    }));
   };
 
   return (
@@ -292,6 +314,7 @@ const NCP = ({ inventory, items }) => {
               label="รูปภาพ NCP ที่พบ" 
               image={newClaim.images.found} 
               onUpload={(file) => handleImageUpload('found', file)} 
+              onRemove={() => handleRemoveNewClaimImage('found')}
             />
           </div>
 
@@ -422,6 +445,7 @@ const NCP = ({ inventory, items }) => {
                     image={claim.images?.found} 
                     uniqueId={`thumb-found-${claim.id}`} 
                     onUpdate={(file) => handleUpdateImage(claim.id, 'found', file)} 
+                    onRemove={() => handleRemoveImage(claim.id, 'found')}
                     onClick={() => claim.images?.found && setActiveLightbox({ image: claim.images.found, label: "1. ภาพพัสดุที่พบปัญหา" })}
                   />
                   <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textAlign: 'center', marginTop: '0.25rem' }}>
@@ -435,6 +459,7 @@ const NCP = ({ inventory, items }) => {
                     image={claim.images?.claim} 
                     uniqueId={`thumb-claim-${claim.id}`} 
                     onUpdate={(file) => handleUpdateImage(claim.id, 'claim', file)} 
+                    onRemove={() => handleRemoveImage(claim.id, 'claim')}
                     onClick={() => claim.images?.claim && setActiveLightbox({ image: claim.images.claim, label: "2. ภาพขณะดำเนินการเคลม" })}
                   />
                   <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textAlign: 'center', marginTop: '0.25rem' }}>
@@ -448,6 +473,7 @@ const NCP = ({ inventory, items }) => {
                     image={claim.images?.returned} 
                     uniqueId={`thumb-returned-${claim.id}`} 
                     onUpdate={(file) => handleUpdateImage(claim.id, 'returned', file)} 
+                    onRemove={() => handleRemoveImage(claim.id, 'returned')}
                     onClick={() => claim.images?.returned && setActiveLightbox({ image: claim.images.returned, label: "3. ภาพขารับคืนเรียบร้อย" })}
                   />
                   <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textAlign: 'center', marginTop: '0.25rem' }}>
@@ -630,11 +656,57 @@ const StatusBadge = ({ status }) => {
   );
 };
 
-const ImageUploader = ({ label, image, onUpload }) => (
-  <div style={{ border: '1px dashed var(--glass-border)', borderRadius: '8px', padding: '1rem', textAlign: 'center' }}>
+const ImageUploader = ({ label, image, onUpload, onRemove }) => (
+  <div style={{ border: '1px dashed var(--glass-border)', borderRadius: '8px', padding: '1rem', textAlign: 'center', position: 'relative' }}>
     <div style={{ fontSize: '0.8rem', marginBottom: '0.5rem', color: 'var(--text-muted)' }}>{label}</div>
     {image ? (
-      <img src={image} alt="preview" style={{ width: '100%', height: '100px', objectFit: 'cover', borderRadius: '4px' }} />
+      <div style={{ position: 'relative', width: '100%', height: '100px', borderRadius: '4px', overflow: 'hidden' }}>
+        <img src={image} alt="preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        <div style={{ 
+          position: 'absolute', 
+          inset: 0, 
+          background: 'rgba(0, 0, 0, 0.6)', 
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'center', 
+          gap: '0.5rem',
+          opacity: 1
+        }}>
+          <input type="file" accept="image/*" style={{ display: 'none' }} id={`change-${label}`} onChange={e => onUpload(e.target.files[0])} />
+          <label htmlFor={`change-${label}`} style={{ 
+            cursor: 'pointer', 
+            background: 'var(--accent-color)', 
+            color: '#000', 
+            padding: '0.4rem', 
+            borderRadius: '50%', 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+            transition: 'transform 0.2s'
+          }} title="เปลี่ยนรูป" className="hover-scale">
+            <RefreshCcw size={14} />
+          </label>
+          <button 
+            type="button"
+            onClick={onRemove}
+            style={{ 
+              background: 'var(--danger)', 
+              color: '#fff', 
+              border: 'none', 
+              padding: '0.4rem', 
+              borderRadius: '50%', 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+              cursor: 'pointer',
+              transition: 'transform 0.2s'
+            }} title="ลบรูป" className="hover-scale">
+            <Trash2 size={14} />
+          </button>
+        </div>
+      </div>
     ) : (
       <div style={{ height: '100px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
         <Camera size={24} color="var(--text-muted)" />
@@ -645,37 +717,121 @@ const ImageUploader = ({ label, image, onUpload }) => (
   </div>
 );
 
-const ImageThumb = ({ label, image, uniqueId, onUpdate, onClick }) => (
-  <div style={{ textAlign: 'center' }}>
-    <div style={{ fontSize: '0.7rem', marginBottom: '0.3rem', color: 'var(--text-muted)' }}>{label}</div>
-    <div 
-      style={{ 
-        height: '80px', 
-        background: 'rgba(255,255,255,0.05)', 
-        borderRadius: '4px', 
-        position: 'relative', 
-        overflow: 'hidden',
-        cursor: image ? 'zoom-in' : 'pointer'
-      }}
-      onClick={() => {
-        if (image && onClick) onClick();
-      }}
-    >
-      {image ? (
-        <img src={image} alt="thumb" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-      ) : (
-        <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <ImageIcon size={20} color="var(--text-muted)" />
-        </div>
-      )}
-      {!image && (
-        <>
-          <input type="file" accept="image/*" style={{ display: 'none' }} id={uniqueId} onChange={e => onUpdate(e.target.files[0])} />
-          <label htmlFor={uniqueId} style={{ position: 'absolute', inset: 0, cursor: 'pointer' }}></label>
-        </>
-      )}
+const ImageThumb = ({ label, image, uniqueId, onUpdate, onRemove, onClick }) => {
+  const fileInputId = `replace-${uniqueId}`;
+  return (
+    <div style={{ textAlign: 'center' }}>
+      <div style={{ fontSize: '0.7rem', marginBottom: '0.3rem', color: 'var(--text-muted)' }}>{label}</div>
+      <div 
+        style={{ 
+          height: '80px', 
+          background: 'rgba(255,255,255,0.05)', 
+          borderRadius: '6px', 
+          position: 'relative', 
+          overflow: 'hidden',
+          border: '1px solid var(--glass-border)',
+          cursor: image ? 'zoom-in' : 'pointer',
+          transition: 'all 0.2s ease'
+        }}
+        onClick={() => {
+          if (image && onClick) onClick();
+        }}
+      >
+        {image ? (
+          <>
+            <img src={image} alt="thumb" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            
+            {/* Control buttons in the bottom right corner */}
+            <div style={{
+              position: 'absolute',
+              bottom: '4px',
+              right: '4px',
+              display: 'flex',
+              gap: '4px',
+              zIndex: 10
+            }}>
+              {/* Replace Button */}
+              <input 
+                type="file" 
+                accept="image/*" 
+                style={{ display: 'none' }} 
+                id={fileInputId} 
+                onChange={e => {
+                  if (e.target.files[0]) {
+                    onUpdate(e.target.files[0]);
+                  }
+                }} 
+              />
+              <label 
+                htmlFor={fileInputId}
+                onClick={e => e.stopPropagation()}
+                style={{ 
+                  background: 'var(--accent-color)', 
+                  color: '#000', 
+                  border: 'none', 
+                  borderRadius: '4px', 
+                  width: '24px', 
+                  height: '24px', 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center', 
+                  cursor: 'pointer',
+                  boxShadow: '0 2px 6px rgba(0,0,0,0.4)',
+                  transition: 'transform 0.2s'
+                }}
+                title="เปลี่ยนรูป"
+                className="hover-scale"
+              >
+                <RefreshCcw size={12} />
+              </label>
+
+              {/* Delete Button */}
+              <button 
+                type="button"
+                onClick={e => {
+                  e.stopPropagation();
+                  if (window.confirm('คุณต้องการลบรูปภาพนี้ใช่หรือไม่?')) {
+                    onRemove();
+                  }
+                }}
+                style={{ 
+                  background: 'var(--danger)', 
+                  color: '#fff', 
+                  border: 'none', 
+                  borderRadius: '4px', 
+                  width: '24px', 
+                  height: '24px', 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center', 
+                  cursor: 'pointer',
+                  boxShadow: '0 2px 6px rgba(0,0,0,0.4)',
+                  transition: 'transform 0.2s'
+                }}
+                title="ลบรูป"
+                className="hover-scale"
+              >
+                <Trash2 size={12} />
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
+              <Camera size={18} color="var(--text-muted)" />
+              <span style={{ fontSize: '0.6rem', color: 'var(--accent-color)' }}>อัพโหลด</span>
+            </div>
+            <input type="file" accept="image/*" style={{ display: 'none' }} id={uniqueId} onChange={e => {
+              if (e.target.files[0]) {
+                onUpdate(e.target.files[0]);
+              }
+            }} />
+            <label htmlFor={uniqueId} style={{ position: 'absolute', inset: 0, cursor: 'pointer' }}></label>
+          </>
+        )}
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 export default NCP;
