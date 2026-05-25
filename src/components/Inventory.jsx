@@ -428,7 +428,7 @@ const Inventory = ({ inventory, setInventory }) => {
                                 </div>
                               </div>
                               <div style={{ background: 'rgba(255,255,255,0.03)', padding: '0.8rem', borderRadius: '8px' }}>
-                                <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'block', marginBottom: '0.5rem' }}>หมายเหตุการรับเข้า</label>
+                                <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'block', marginBottom: '0.5rem' }}>หมายเหตุ</label>
                                 <textarea 
                                   placeholder="พิมพ์หมายเหตุหรือข้อมูลบันทึกเพิ่มเติมที่นี่..."
                                   value={editRemarks}
@@ -490,7 +490,7 @@ const Inventory = ({ inventory, setInventory }) => {
                           </div>
                         </div>
                         <div style={{ marginTop: '1.5rem', padding: '1rem', borderTop: '1px solid var(--glass-border)', fontSize: '0.85rem' }}>
-                          <span style={{ color: 'var(--text-muted)' }}>หมายเหตุการรับเข้า:</span> {item.remarks || 'ไม่มีหมายเหตุ'}
+                          <span style={{ color: 'var(--text-muted)' }}>หมายเหตุ:</span> {item.remarks || 'ไม่มีหมายเหตุ'}
                         </div>
                       </td>
                     </tr>
