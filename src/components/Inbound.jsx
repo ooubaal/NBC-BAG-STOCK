@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Trash2, Save, X, Printer } from 'lucide-react';
+import { Plus, Trash2, Save, X, Printer, Copy } from 'lucide-react';
 const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
   const [inboundTab, setInboundTab] = useState('draft'); // 'draft' or 'history'
   const [historySearch, setHistorySearch] = useState('');
@@ -52,6 +52,29 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
       billingStatus: 'Pending',
       remarks: '',
       agreementId: ''
+    }]);
+  };
+
+  const addCopiedEntry = () => {
+    if (entries.length === 0) {
+      addEntry();
+      return;
+    }
+    const lastEntry = entries[entries.length - 1];
+    setEntries([...entries, {
+      id: Date.now() + Math.random(),
+      date: lastEntry.date,
+      itemName: lastEntry.itemName,
+      unit: lastEntry.unit,
+      agreementId: lastEntry.agreementId || '',
+      supplierLot: '',
+      inhouseLot: '',
+      qcStatus: lastEntry.qcStatus || 'Quarantine',
+      packSize: lastEntry.packSize || '',
+      quantity: '',
+      location: lastEntry.location || '',
+      billingStatus: lastEntry.billingStatus || 'Pending',
+      remarks: lastEntry.remarks || '',
     }]);
   };
 
@@ -614,8 +637,16 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
               <button className="btn btn-secondary" onClick={printPDF} style={{ background: 'rgba(14, 165, 233, 0.1)', color: '#0ea5e9', border: '1px solid rgba(14, 165, 233, 0.2)' }}>
                 <Printer size={18} /> พิมพ์ใบพัสดุ (PDF)
               </button>
-              <button className="btn btn-secondary" onClick={addEntry}>
-                <Plus size={18} /> เพิ่มแถว
+              <button className="btn btn-secondary" onClick={addEntry} title="เพิ่มแถวใหม่แบบค่าเริ่มต้น">
+                <Plus size={18} /> เพิ่มแถวปกติ
+              </button>
+              <button 
+                className="btn btn-secondary" 
+                onClick={addCopiedEntry}
+                style={{ background: 'rgba(245, 158, 11, 0.1)', color: 'var(--accent-color)', border: '1px solid rgba(245, 158, 11, 0.2)' }}
+                title="เพิ่มแถวโดยคัดลอกค่า วันที่, สินค้า, สัญญา, Pack Size, QC, ที่เก็บ และการวางบิล จากแถวล่าสุด (เว้นว่าง Lot และจำนวน)"
+              >
+                <Copy size={18} /> คัดลอกแถวบน
               </button>
               <button className="btn btn-primary" onClick={handleSave}>
                 <Save size={18} /> บันทึกทั้งหมด
