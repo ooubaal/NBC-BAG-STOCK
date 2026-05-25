@@ -35,6 +35,7 @@ const Inventory = ({ inventory, setInventory }) => {
   const [filterLocation, setFilterLocation] = useState('All');
   const [filterQtyStatus, setFilterQtyStatus] = useState('All');
   const [sortOrder, setSortOrder] = useState('none'); // 'none', 'asc', 'desc'
+  const [dateSortOrder, setDateSortOrder] = useState('newest'); // 'newest', 'oldest'
 
   // Edit States for expanded row
   const [editQC, setEditQC] = useState('');
@@ -117,6 +118,15 @@ const Inventory = ({ inventory, setInventory }) => {
     if (sortOrder === 'desc') {
       return b.itemName.localeCompare(a.itemName, 'th');
     }
+    // Date sorting
+    const dateA = new Date(a.date || 0).getTime();
+    const dateB = new Date(b.date || 0).getTime();
+    if (dateSortOrder === 'newest') {
+      return dateB - dateA;
+    }
+    if (dateSortOrder === 'oldest') {
+      return dateA - dateB;
+    }
     return 0;
   });
 
@@ -138,7 +148,7 @@ const Inventory = ({ inventory, setInventory }) => {
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
-        {(searchTerm || filterQC !== 'All' || filterAcceptance !== 'All' || filterItem !== 'All' || filterStartDate || filterEndDate || filterLocation !== 'All' || filterQtyStatus !== 'All' || sortOrder !== 'none') && (
+        {(searchTerm || filterQC !== 'All' || filterAcceptance !== 'All' || filterItem !== 'All' || filterStartDate || filterEndDate || filterLocation !== 'All' || filterQtyStatus !== 'All' || sortOrder !== 'none' || dateSortOrder !== 'newest') && (
           <button 
             className="btn btn-secondary" 
             style={{ padding: '0.4rem 0.8rem', fontSize: '0.75rem' }}
@@ -152,6 +162,7 @@ const Inventory = ({ inventory, setInventory }) => {
               setFilterLocation('All');
               setFilterQtyStatus('All');
               setSortOrder('none');
+              setDateSortOrder('newest');
             }}
           >
             ล้างตัวกรองทั้งหมด
@@ -165,7 +176,28 @@ const Inventory = ({ inventory, setInventory }) => {
             <tr style={{ textAlign: 'left', borderBottom: '1px solid var(--glass-border)', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
               <th style={{ padding: '1rem', minWidth: '220px' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                  <span>วันที่รับ (ช่วง)</span>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem' }}>
+                    <span>วันที่รับ (ช่วง)</span>
+                    <select 
+                      value={dateSortOrder} 
+                      onChange={(e) => setDateSortOrder(e.target.value)}
+                      style={{ 
+                        width: 'auto', 
+                        padding: '0 0.2rem', 
+                        fontSize: '0.65rem', 
+                        height: '20px', 
+                        background: '#111827', 
+                        color: 'var(--accent-secondary)', 
+                        border: '1px solid rgba(255,255,255,0.1)', 
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontWeight: 'bold'
+                      }}
+                    >
+                      <option value="newest">ล่าสุด 🔽</option>
+                      <option value="oldest">เก่าสุด 🔼</option>
+                    </select>
+                  </div>
                   <div style={{ display: 'flex', gap: '0.2rem', alignItems: 'center' }}>
                     <input 
                       type="date" 
