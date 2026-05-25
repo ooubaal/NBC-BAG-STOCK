@@ -623,75 +623,100 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
             </div>
           </div>
 
-          <div className="glass card" style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '1450px' }}>
+          <div className="glass card" style={{ overflowX: 'hidden', padding: '1rem' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
               <thead>
-                <tr style={{ textAlign: 'left', borderBottom: '1px solid var(--glass-border)' }}>
-                  <th style={{ padding: '1rem', minWidth: '150px' }}>วันที่รับ</th>
-                  <th style={{ padding: '1rem', minWidth: '240px' }}>รายการสินค้า</th>
-                  <th style={{ padding: '1rem', minWidth: '160px' }}>สัญญาจัดซื้อ</th>
-                  <th style={{ padding: '1rem', minWidth: '130px' }}>Supplier Lot</th>
-                  <th style={{ padding: '1rem', minWidth: '140px' }}>Inhouse Lot</th>
-                  <th style={{ padding: '1rem', minWidth: '140px' }}>สถานะ QC</th>
-                  <th style={{ padding: '1rem', minWidth: '110px' }}>Pack Size</th>
-                  <th style={{ padding: '1rem', minWidth: '100px' }}>จำนวน</th>
-                  <th style={{ padding: '1rem', minWidth: '85px' }}>หน่วย</th>
-                  <th style={{ padding: '1rem', minWidth: '100px' }}>ที่เก็บ</th>
-                  <th style={{ padding: '1rem', minWidth: '120px' }}>การวางบิล</th>
-                  <th style={{ padding: '1rem', minWidth: '50px' }}></th>
+                <tr style={{ textAlign: 'left', borderBottom: '1px solid var(--glass-border)', color: 'var(--text-muted)' }}>
+                  <th style={{ padding: '0.5rem 0.25rem', fontSize: '0.72rem', width: '9%' }}>วันที่รับ</th>
+                  <th style={{ padding: '0.5rem 0.25rem', fontSize: '0.72rem', width: '18%' }}>รายการสินค้า</th>
+                  <th style={{ padding: '0.5rem 0.25rem', fontSize: '0.72rem', width: '11%' }}>สัญญาจัดซื้อ</th>
+                  <th style={{ padding: '0.5rem 0.25rem', fontSize: '0.72rem', width: '9%' }}>Supplier Lot</th>
+                  <th style={{ padding: '0.5rem 0.25rem', fontSize: '0.72rem', width: '11%' }}>Inhouse Lot</th>
+                  <th style={{ padding: '0.5rem 0.25rem', fontSize: '0.72rem', width: '9%' }}>สถานะ QC</th>
+                  <th style={{ padding: '0.5rem 0.25rem', fontSize: '0.72rem', width: '7%' }}>Pack Size</th>
+                  <th style={{ padding: '0.5rem 0.25rem', fontSize: '0.72rem', width: '6%' }}>จำนวน</th>
+                  <th style={{ padding: '0.5rem 0.25rem', fontSize: '0.72rem', width: '5%' }}>หน่วย</th>
+                  <th style={{ padding: '0.5rem 0.25rem', fontSize: '0.72rem', width: '5%' }}>ที่เก็บ</th>
+                  <th style={{ padding: '0.5rem 0.25rem', fontSize: '0.72rem', width: '8%' }}>การวางบิล</th>
+                  <th style={{ padding: '0.5rem 0.25rem', fontSize: '0.72rem', width: '4%' }}></th>
                 </tr>
               </thead>
               <tbody>
                 {entries.map((entry) => (
                   <tr key={entry.id} style={{ borderBottom: '1px solid var(--glass-border)' }}>
-                    <td style={{ padding: '0.6rem 0.4rem' }}>
+                    <td style={{ padding: '0.5rem 0.25rem', verticalAlign: 'top' }}>
                       <input 
                         type="date" 
-                        style={{ fontSize: '0.85rem', padding: '0.5rem 0.6rem' }} 
+                        style={{ fontSize: '0.78rem', padding: '0.4rem 0.3rem', width: '100%' }} 
                         value={entry.date} 
                         onChange={(e) => updateEntry(entry.id, 'date', e.target.value)} 
                       />
                     </td>
-                    <td style={{ padding: '0.6rem 0.4rem' }}>
+                    <td style={{ padding: '0.5rem 0.25rem', verticalAlign: 'top' }}>
                       <select 
-                        style={{ fontSize: '0.85rem', padding: '0.5rem 0.6rem' }} 
+                        style={{ fontSize: '0.78rem', padding: '0.4rem 0.3rem', width: '100%' }} 
                         value={entry.itemName} 
                         onChange={(e) => updateEntry(entry.id, 'itemName', e.target.value)}
                       >
                         {items.map(item => <option key={item.name} value={item.name}>{item.name}</option>)}
                       </select>
+                      <div style={{ 
+                        fontSize: '0.68rem', 
+                        color: 'var(--text-secondary)', 
+                        marginTop: '0.25rem',
+                        whiteSpace: 'normal',
+                        wordBreak: 'break-word',
+                        lineHeight: '1.2'
+                      }}>
+                        {entry.itemName}
+                      </div>
                     </td>
-                    <td style={{ padding: '0.6rem 0.4rem' }}>
+                    <td style={{ padding: '0.5rem 0.25rem', verticalAlign: 'top' }}>
                       <select 
                         value={entry.agreementId || ''} 
                         onChange={(e) => updateEntry(entry.id, 'agreementId', e.target.value)}
-                        style={{ fontSize: '0.85rem', padding: '0.5rem 0.6rem' }}
+                        style={{ fontSize: '0.78rem', padding: '0.4rem 0.3rem', width: '100%' }}
                       >
                         <option value="">-- ไม่ระบุ --</option>
                         {agreements
                           .filter(ag => ag.itemName === entry.itemName && ag.status !== 'Completed')
                           .map(ag => (
                             <option key={ag.id} value={ag.id}>
-                              {ag.id} ({ag.supplier})
+                              {ag.id}
                             </option>
                           ))
                         }
                       </select>
+                      {entry.agreementId && (
+                        <div style={{ 
+                          fontSize: '0.68rem', 
+                          color: 'var(--text-muted)', 
+                          marginTop: '0.25rem',
+                          whiteSpace: 'normal',
+                          wordBreak: 'break-word',
+                          lineHeight: '1.2'
+                        }}>
+                          {(() => {
+                            const ag = agreements.find(a => a.id === entry.agreementId);
+                            return ag ? `${ag.id} (${ag.supplier})` : '';
+                          })()}
+                        </div>
+                      )}
                     </td>
-                    <td style={{ padding: '0.6rem 0.4rem' }}>
+                    <td style={{ padding: '0.5rem 0.25rem', verticalAlign: 'top' }}>
                       <input 
                         type="text" 
                         placeholder="Lot no." 
-                        style={{ fontSize: '0.85rem', padding: '0.5rem 0.6rem' }} 
+                        style={{ fontSize: '0.78rem', padding: '0.4rem 0.3rem', width: '100%' }} 
                         value={entry.supplierLot} 
                         onChange={(e) => updateEntry(entry.id, 'supplierLot', e.target.value)} 
                       />
                     </td>
-                    <td style={{ padding: '0.6rem 0.4rem' }}>
+                    <td style={{ padding: '0.5rem 0.25rem', verticalAlign: 'top' }}>
                       <input 
                         type="text" 
                         placeholder="Inhouse no." 
-                        style={{ fontSize: '0.85rem', padding: '0.5rem 0.6rem' }} 
+                        style={{ fontSize: '0.78rem', padding: '0.4rem 0.3rem', width: '100%' }} 
                         value={entry.inhouseLot} 
                         onChange={(e) => updateEntry(entry.id, 'inhouseLot', e.target.value)} 
                       />
@@ -700,7 +725,7 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
                         return (
                           <div 
                             style={{ 
-                              fontSize: '0.72rem', 
+                              fontSize: '0.68rem', 
                               color: latest !== '-' ? 'var(--accent-secondary, #0ea5e9)' : 'var(--text-muted, #888)', 
                               marginTop: '0.25rem',
                               fontWeight: '500',
@@ -722,9 +747,9 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
                         );
                       })()}
                     </td>
-                    <td style={{ padding: '0.6rem 0.4rem' }}>
+                    <td style={{ padding: '0.5rem 0.25rem', verticalAlign: 'top' }}>
                       <select 
-                        style={{ fontSize: '0.85rem', padding: '0.5rem 0.6rem' }} 
+                        style={{ fontSize: '0.78rem', padding: '0.4rem 0.3rem', width: '100%' }} 
                         value={entry.qcStatus} 
                         onChange={(e) => updateEntry(entry.id, 'qcStatus', e.target.value)}
                       >
@@ -732,52 +757,62 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
                         <option value="Quarantine">Quarantine</option>
                         <option value="Reject">Reject</option>
                       </select>
+                      <div style={{ 
+                        fontSize: '0.68rem', 
+                        color: entry.qcStatus === 'Pass' ? 'var(--success)' : entry.qcStatus === 'Reject' ? 'var(--danger)' : 'var(--quarantine)',
+                        marginTop: '0.25rem',
+                        fontWeight: 'bold',
+                        textAlign: 'center'
+                      }}>
+                        {entry.qcStatus}
+                      </div>
                     </td>
-                    <td style={{ padding: '0.6rem 0.4rem' }}>
+                    <td style={{ padding: '0.5rem 0.25rem', verticalAlign: 'top' }}>
                       <input 
                         type="text" 
                         placeholder="เช่น 25kg" 
-                        style={{ fontSize: '0.85rem', padding: '0.5rem 0.6rem' }} 
+                        style={{ fontSize: '0.78rem', padding: '0.4rem 0.3rem', width: '100%' }} 
                         value={entry.packSize} 
                         onChange={(e) => updateEntry(entry.id, 'packSize', e.target.value)} 
                       />
                     </td>
-                    <td style={{ padding: '0.6rem 0.4rem' }}>
+                    <td style={{ padding: '0.5rem 0.25rem', verticalAlign: 'top' }}>
                       <input 
                         type="number" 
                         placeholder="0" 
-                        style={{ fontSize: '0.85rem', padding: '0.5rem 0.6rem' }} 
+                        style={{ fontSize: '0.78rem', padding: '0.4rem 0.3rem', width: '100%' }} 
                         value={entry.quantity} 
                         onChange={(e) => updateEntry(entry.id, 'quantity', e.target.value)} 
                       />
                     </td>
-                    <td style={{ padding: '0.6rem 0.4rem' }}>
+                    <td style={{ padding: '0.5rem 0.25rem', verticalAlign: 'top' }}>
                       <input 
                         type="text" 
                         value={entry.unit} 
                         disabled 
                         style={{ 
-                          fontSize: '0.85rem', 
-                          padding: '0.5rem 0.6rem', 
+                          fontSize: '0.78rem', 
+                          padding: '0.4rem 0.3rem', 
                           background: 'rgba(255,255,255,0.02)', 
                           color: 'var(--text-secondary)', 
                           cursor: 'not-allowed', 
-                          textAlign: 'center' 
+                          textAlign: 'center',
+                          width: '100%'
                         }} 
                       />
                     </td>
-                    <td style={{ padding: '0.6rem 0.4rem' }}>
+                    <td style={{ padding: '0.5rem 0.25rem', verticalAlign: 'top' }}>
                       <input 
                         type="text" 
                         placeholder="A1, B2" 
-                        style={{ fontSize: '0.85rem', padding: '0.5rem 0.6rem' }} 
+                        style={{ fontSize: '0.78rem', padding: '0.4rem 0.3rem', width: '100%' }} 
                         value={entry.location} 
                         onChange={(e) => updateEntry(entry.id, 'location', e.target.value)} 
                       />
                     </td>
-                    <td style={{ padding: '0.6rem 0.4rem' }}>
+                    <td style={{ padding: '0.5rem 0.25rem', verticalAlign: 'top' }}>
                       <select 
-                        style={{ fontSize: '0.85rem', padding: '0.5rem 0.6rem' }} 
+                        style={{ fontSize: '0.78rem', padding: '0.4rem 0.3rem', width: '100%' }} 
                         value={entry.billingStatus} 
                         onChange={(e) => updateEntry(entry.id, 'billingStatus', e.target.value)}
                       >
@@ -785,7 +820,7 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
                         <option value="Completed">Completed</option>
                       </select>
                     </td>
-                    <td style={{ padding: '0.6rem 0.4rem', textAlign: 'center' }}>
+                    <td style={{ padding: '0.5rem 0.25rem', textAlign: 'center', verticalAlign: 'middle' }}>
                       <button 
                         onClick={() => removeEntry(entry.id)} 
                         style={{ 
@@ -795,10 +830,11 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
                           cursor: 'pointer',
                           display: 'inline-flex',
                           alignItems: 'center',
-                          justifyContent: 'center'
+                          justifyContent: 'center',
+                          padding: '0.2rem'
                         }}
                       >
-                        <Trash2 size={18} />
+                        <Trash2 size={16} />
                       </button>
                     </td>
                   </tr>
