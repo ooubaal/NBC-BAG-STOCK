@@ -13,6 +13,7 @@ const Inventory = ({ inventory, setInventory }) => {
   const [filterEndDate, setFilterEndDate] = useState('');
   const [filterLocation, setFilterLocation] = useState('All');
   const [filterQtyStatus, setFilterQtyStatus] = useState('All');
+  const [sortOrder, setSortOrder] = useState('none'); // 'none', 'asc', 'desc'
 
   // Edit States for expanded row
   const [editQC, setEditQC] = useState('');
@@ -88,6 +89,16 @@ const Inventory = ({ inventory, setInventory }) => {
     return matchesSearch && matchesQC && matchesBilling && matchesItem && matchesDate && matchesLocation && matchesQtyStatus;
   });
 
+  const sortedInventory = [...filteredInventory].sort((a, b) => {
+    if (sortOrder === 'asc') {
+      return a.itemName.localeCompare(b.itemName, 'th');
+    }
+    if (sortOrder === 'desc') {
+      return b.itemName.localeCompare(a.itemName, 'th');
+    }
+    return 0;
+  });
+
   return (
     <div className="fade-in">
       <div className="page-header">
@@ -106,7 +117,7 @@ const Inventory = ({ inventory, setInventory }) => {
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
-        {(searchTerm || filterQC !== 'All' || filterBilling !== 'All' || filterItem !== 'All' || filterStartDate || filterEndDate || filterLocation !== 'All' || filterQtyStatus !== 'All') && (
+        {(searchTerm || filterQC !== 'All' || filterBilling !== 'All' || filterItem !== 'All' || filterStartDate || filterEndDate || filterLocation !== 'All' || filterQtyStatus !== 'All' || sortOrder !== 'none') && (
           <button 
             className="btn btn-secondary" 
             style={{ padding: '0.4rem 0.8rem', fontSize: '0.75rem' }}
@@ -119,6 +130,7 @@ const Inventory = ({ inventory, setInventory }) => {
               setFilterEndDate('');
               setFilterLocation('All');
               setFilterQtyStatus('All');
+              setSortOrder('none');
             }}
           >
             ล้างตัวกรองทั้งหมด
@@ -152,7 +164,29 @@ const Inventory = ({ inventory, setInventory }) => {
               </th>
               <th style={{ padding: '1rem' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                  <span>รายการสินค้า</span>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem' }}>
+                    <span>รายการสินค้า</span>
+                    <select 
+                      value={sortOrder} 
+                      onChange={(e) => setSortOrder(e.target.value)}
+                      style={{ 
+                        width: 'auto', 
+                        padding: '0 0.2rem', 
+                        fontSize: '0.65rem', 
+                        height: '20px', 
+                        background: '#111827', 
+                        color: 'var(--accent-color)', 
+                        border: '1px solid rgba(255,255,255,0.1)', 
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontWeight: 'bold'
+                      }}
+                    >
+                      <option value="none">เรียงปกติ ↕️</option>
+                      <option value="asc">ก-ฮ / A-Z 🔼</option>
+                      <option value="desc">ฮ-ก / Z-A 🔽</option>
+                    </select>
+                  </div>
                   <select 
                     value={filterItem} 
                     onChange={(e) => setFilterItem(e.target.value)}
@@ -224,10 +258,10 @@ const Inventory = ({ inventory, setInventory }) => {
             </tr>
           </thead>
           <tbody>
-            {filteredInventory.length === 0 ? (
+            {sortedInventory.length === 0 ? (
               <tr><td colSpan="8" style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>ไม่มีข้อมูลพัสดุ</td></tr>
             ) : (
-              filteredInventory.map((item) => (
+              sortedInventory.map((item) => (
                 <React.Fragment key={item.id}>
                   <tr style={{ borderBottom: '1px solid var(--glass-border)', cursor: 'pointer' }}>
                     <td style={{ padding: '1rem' }}>{item.date}</td>
