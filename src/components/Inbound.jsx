@@ -660,16 +660,6 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
                       >
                         {items.map(item => <option key={item.name} value={item.name}>{item.name}</option>)}
                       </select>
-                      <div style={{ 
-                        fontSize: '0.68rem', 
-                        color: 'var(--text-secondary)', 
-                        marginTop: '0.25rem',
-                        whiteSpace: 'normal',
-                        wordBreak: 'break-word',
-                        lineHeight: '1.2'
-                      }}>
-                        {entry.itemName}
-                      </div>
                     </td>
                     <td style={{ padding: '0.5rem 0.25rem', verticalAlign: 'top' }}>
                       <select 
@@ -687,21 +677,6 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
                           ))
                         }
                       </select>
-                      {entry.agreementId && (
-                        <div style={{ 
-                          fontSize: '0.68rem', 
-                          color: 'var(--text-muted)', 
-                          marginTop: '0.25rem',
-                          whiteSpace: 'normal',
-                          wordBreak: 'break-word',
-                          lineHeight: '1.2'
-                        }}>
-                          {(() => {
-                            const ag = agreements.find(a => a.id === entry.agreementId);
-                            return ag ? `${ag.id} (${ag.supplier})` : '';
-                          })()}
-                        </div>
-                      )}
                     </td>
                     <td style={{ padding: '0.5rem 0.25rem', verticalAlign: 'top' }}>
                       <input 
@@ -757,15 +732,6 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
                         <option value="Quarantine">Quarantine</option>
                         <option value="Reject">Reject</option>
                       </select>
-                      <div style={{ 
-                        fontSize: '0.68rem', 
-                        color: entry.qcStatus === 'Pass' ? 'var(--success)' : entry.qcStatus === 'Reject' ? 'var(--danger)' : 'var(--quarantine)',
-                        marginTop: '0.25rem',
-                        fontWeight: 'bold',
-                        textAlign: 'center'
-                      }}>
-                        {entry.qcStatus}
-                      </div>
                     </td>
                     <td style={{ padding: '0.5rem 0.25rem', verticalAlign: 'top' }}>
                       <input 
