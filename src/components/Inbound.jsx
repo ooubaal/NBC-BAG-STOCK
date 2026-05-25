@@ -32,7 +32,6 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
     packSize: '',
     quantity: '',
     location: '',
-    billingStatus: 'Pending',
     remarks: '',
     agreementId: ''
   }]);
@@ -49,7 +48,6 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
       packSize: '',
       quantity: '',
       location: '',
-      billingStatus: 'Pending',
       remarks: '',
       agreementId: ''
     }]);
@@ -73,7 +71,6 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
       packSize: lastEntry.packSize || '',
       quantity: '',
       location: lastEntry.location || '',
-      billingStatus: lastEntry.billingStatus || 'Pending',
       remarks: lastEntry.remarks || '',
     }]);
   };
@@ -127,7 +124,6 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
       packSize: '',
       quantity: '',
       location: '',
-      billingStatus: 'Pending',
       remarks: '',
       agreementId: ''
     }]);
@@ -659,17 +655,16 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
               <thead>
                 <tr style={{ textAlign: 'left', borderBottom: '1px solid var(--glass-border)', color: 'var(--text-muted)' }}>
                   <th style={{ padding: '0.5rem 0.25rem', fontSize: '0.72rem', width: '9%' }}>วันที่รับ</th>
-                  <th style={{ padding: '0.5rem 0.25rem', fontSize: '0.72rem', width: '18%' }}>รายการสินค้า</th>
-                  <th style={{ padding: '0.5rem 0.25rem', fontSize: '0.72rem', width: '11%' }}>สัญญาจัดซื้อ</th>
-                  <th style={{ padding: '0.5rem 0.25rem', fontSize: '0.72rem', width: '9%' }}>Supplier Lot</th>
+                  <th style={{ padding: '0.5rem 0.25rem', fontSize: '0.72rem', width: '20%' }}>รายการสินค้า</th>
+                  <th style={{ padding: '0.5rem 0.25rem', fontSize: '0.72rem', width: '12%' }}>สัญญาจัดซื้อ</th>
+                  <th style={{ padding: '0.5rem 0.25rem', fontSize: '0.72rem', width: '10%' }}>Supplier Lot</th>
                   <th style={{ padding: '0.5rem 0.25rem', fontSize: '0.72rem', width: '11%' }}>Inhouse Lot</th>
                   <th style={{ padding: '0.5rem 0.25rem', fontSize: '0.72rem', width: '9%' }}>สถานะ QC</th>
-                  <th style={{ padding: '0.5rem 0.25rem', fontSize: '0.72rem', width: '7%' }}>Pack Size</th>
-                  <th style={{ padding: '0.5rem 0.25rem', fontSize: '0.72rem', width: '6%' }}>จำนวน</th>
+                  <th style={{ padding: '0.5rem 0.25rem', fontSize: '0.72rem', width: '8%' }}>Pack Size</th>
+                  <th style={{ padding: '0.5rem 0.25rem', fontSize: '0.72rem', width: '7%' }}>จำนวน</th>
                   <th style={{ padding: '0.5rem 0.25rem', fontSize: '0.72rem', width: '5%' }}>หน่วย</th>
-                  <th style={{ padding: '0.5rem 0.25rem', fontSize: '0.72rem', width: '5%' }}>ที่เก็บ</th>
-                  <th style={{ padding: '0.5rem 0.25rem', fontSize: '0.72rem', width: '8%' }}>การวางบิล</th>
-                  <th style={{ padding: '0.5rem 0.25rem', fontSize: '0.72rem', width: '4%' }}></th>
+                  <th style={{ padding: '0.5rem 0.25rem', fontSize: '0.72rem', width: '6%' }}>ที่เก็บ</th>
+                  <th style={{ padding: '0.5rem 0.25rem', fontSize: '0.72rem', width: '3%' }}></th>
                 </tr>
               </thead>
               <tbody>
@@ -807,16 +802,7 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
                         onChange={(e) => updateEntry(entry.id, 'location', e.target.value)} 
                       />
                     </td>
-                    <td style={{ padding: '0.5rem 0.25rem', verticalAlign: 'top' }}>
-                      <select 
-                        style={{ fontSize: '0.78rem', padding: '0.4rem 0.3rem', width: '100%' }} 
-                        value={entry.billingStatus} 
-                        onChange={(e) => updateEntry(entry.id, 'billingStatus', e.target.value)}
-                      >
-                        <option value="Pending">Pending</option>
-                        <option value="Completed">Completed</option>
-                      </select>
-                    </td>
+
                     <td style={{ padding: '0.5rem 0.25rem', textAlign: 'center', verticalAlign: 'middle' }}>
                       <button 
                         onClick={() => removeEntry(entry.id)} 

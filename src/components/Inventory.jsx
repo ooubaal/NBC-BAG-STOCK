@@ -1,13 +1,34 @@
 import React, { useState } from 'react';
 import { Search, ChevronDown, ChevronUp, History, MinusCircle, Settings, Save } from 'lucide-react';
 
+const AcceptanceBadge = ({ status }) => {
+  const normalizedStatus = status || '';
+  const styles = {
+    '': { bg: 'rgba(255, 255, 255, 0.05)', text: 'var(--text-muted, #888)', label: 'ยังไม่ได้วางบิล' },
+    'Pending': { bg: 'rgba(245, 158, 11, 0.15)', text: '#f59e0b', label: 'รอการตรวจรับ' },
+    'Accepted': { bg: 'rgba(16, 185, 129, 0.15)', text: '#10b981', label: 'ตรวจรับผ่าน' },
+    'Rejected': { bg: 'rgba(239, 68, 68, 0.15)', text: '#ef4444', label: 'ปฏิเสธการรับ' }
+  };
+  const current = styles[normalizedStatus] || styles[''];
+  return (
+    <span style={{ 
+      padding: '0.15rem 0.5rem', 
+      borderRadius: '4px', 
+      fontSize: '0.7rem', 
+      fontWeight: 600, 
+      backgroundColor: current.bg, 
+      color: current.text 
+    }}>{current.label}</span>
+  );
+};
+
 const Inventory = ({ inventory, setInventory }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [expandedRow, setExpandedRow] = useState(null);
   
   // Filter States
   const [filterQC, setFilterQC] = useState('All');
-  const [filterBilling, setFilterBilling] = useState('All');
+  const [filterAcceptance, setFilterAcceptance] = useState('All');
   const [filterItem, setFilterItem] = useState('All');
   const [filterStartDate, setFilterStartDate] = useState('');
   const [filterEndDate, setFilterEndDate] = useState('');
@@ -17,10 +38,10 @@ const Inventory = ({ inventory, setInventory }) => {
 
   // Edit States for expanded row
   const [editQC, setEditQC] = useState('');
-  const [editBilling, setEditBilling] = useState('');
+  const [editAcceptance, setEditAcceptance] = useState('');
   const [editLocation, setEditLocation] = useState('');
   const [editQCDate, setEditQCDate] = useState('');
-  const [editBillingDate, setEditBillingDate] = useState('');
+  const [editAcceptanceDate, setEditAcceptanceDate] = useState('');
   const [editLocationDate, setEditLocationDate] = useState('');
 
   // Get unique items for filter dropdown
@@ -34,10 +55,10 @@ const Inventory = ({ inventory, setInventory }) => {
         return {
           ...item,
           qcStatus: editQC,
-          billingStatus: editBilling,
+          acceptanceStatus: editAcceptance,
           location: editLocation,
           qcUpdateDate: editQCDate,
-          billingUpdateDate: editBillingDate,
+          acceptanceUpdateDate: editAcceptanceDate,
           locationUpdateDate: editLocationDate
         };
       }
@@ -52,10 +73,10 @@ const Inventory = ({ inventory, setInventory }) => {
     } else {
       setExpandedRow(item.id);
       setEditQC(item.qcStatus);
-      setEditBilling(item.billingStatus);
+      setEditAcceptance(item.acceptanceStatus || '');
       setEditLocation(item.location);
       setEditQCDate(item.qcUpdateDate || new Date().toISOString().split('T')[0]);
-      setEditBillingDate(item.billingUpdateDate || new Date().toISOString().split('T')[0]);
+      setEditAcceptanceDate(item.acceptanceUpdateDate || new Date().toISOString().split('T')[0]);
       setEditLocationDate(item.locationUpdateDate || new Date().toISOString().split('T')[0]);
     }
   };
@@ -66,7 +87,7 @@ const Inventory = ({ inventory, setInventory }) => {
                         item.inhouseLot.toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesQC = filterQC === 'All' || item.qcStatus === filterQC;
-    const matchesBilling = filterBilling === 'All' || item.billingStatus === filterBilling;
+    const matchesAcceptance = filterAcceptance === 'All' || (item.acceptanceStatus || '') === filterAcceptance;
     const matchesItem = filterItem === 'All' || item.itemName === filterItem;
 
     let matchesDate = true;
@@ -86,7 +107,7 @@ const Inventory = ({ inventory, setInventory }) => {
       matchesQtyStatus = Number(item.remainingQty) <= 0;
     }
 
-    return matchesSearch && matchesQC && matchesBilling && matchesItem && matchesDate && matchesLocation && matchesQtyStatus;
+    return matchesSearch && matchesQC && matchesAcceptance && matchesItem && matchesDate && matchesLocation && matchesQtyStatus;
   });
 
   const sortedInventory = [...filteredInventory].sort((a, b) => {
@@ -117,14 +138,14 @@ const Inventory = ({ inventory, setInventory }) => {
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
-        {(searchTerm || filterQC !== 'All' || filterBilling !== 'All' || filterItem !== 'All' || filterStartDate || filterEndDate || filterLocation !== 'All' || filterQtyStatus !== 'All' || sortOrder !== 'none') && (
+        {(searchTerm || filterQC !== 'All' || filterAcceptance !== 'All' || filterItem !== 'All' || filterStartDate || filterEndDate || filterLocation !== 'All' || filterQtyStatus !== 'All' || sortOrder !== 'none') && (
           <button 
             className="btn btn-secondary" 
             style={{ padding: '0.4rem 0.8rem', fontSize: '0.75rem' }}
             onClick={() => {
               setSearchTerm('');
               setFilterQC('All');
-              setFilterBilling('All');
+              setFilterAcceptance('All');
               setFilterItem('All');
               setFilterStartDate('');
               setFilterEndDate('');
@@ -242,15 +263,17 @@ const Inventory = ({ inventory, setInventory }) => {
               </th>
               <th style={{ padding: '1rem' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                  <span>วางบิล</span>
+                  <span>สถานะจัดซื้อ / วางบิล</span>
                   <select 
-                    value={filterBilling} 
-                    onChange={(e) => setFilterBilling(e.target.value)}
+                    value={filterAcceptance} 
+                    onChange={(e) => setFilterAcceptance(e.target.value)}
                     style={{ padding: '0.2rem', fontSize: '0.7rem', height: '24px', background: '#111827', color: '#f9fafb', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px' }}
                   >
                     <option value="All">ทั้งหมด</option>
-                    <option value="Pending">Pending</option>
-                    <option value="Completed">Completed</option>
+                    <option value="">ยังไม่ได้วางบิล</option>
+                    <option value="Pending">รอการตรวจรับ</option>
+                    <option value="Accepted">ตรวจรับผ่าน</option>
+                    <option value="Rejected">ปฏิเสธการรับ</option>
                   </select>
                 </div>
               </th>
@@ -285,8 +308,8 @@ const Inventory = ({ inventory, setInventory }) => {
                       </div>
                     </td>
                     <td style={{ padding: '1rem' }}>
-                      <div>{item.billingStatus}</div>
-                      {item.billingUpdateDate && <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>Update: {item.billingUpdateDate}</div>}
+                      <AcceptanceBadge status={item.acceptanceStatus} />
+                      {item.acceptanceUpdateDate && <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>Update: {item.acceptanceUpdateDate}</div>}
                     </td>
                     <td style={{ padding: '1rem' }}>
                       <button 
@@ -332,20 +355,22 @@ const Inventory = ({ inventory, setInventory }) => {
                               </div>
 
                               <div style={{ background: 'rgba(255,255,255,0.03)', padding: '0.8rem', borderRadius: '8px' }}>
-                                <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'block', marginBottom: '0.5rem' }}>ส่วนจัดการการวางบิล</label>
+                                <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'block', marginBottom: '0.5rem' }}>ส่วนจัดการสถานะจัดซื้อ / ตรวจรับ</label>
                                 <div style={{ display: 'flex', gap: '0.5rem' }}>
                                   <select 
-                                    value={editBilling} 
-                                    onChange={(e) => setEditBilling(e.target.value)}
+                                    value={editAcceptance} 
+                                    onChange={(e) => setEditAcceptance(e.target.value)}
                                     style={{ flex: 1 }}
                                   >
-                                    <option value="Pending">Pending</option>
-                                    <option value="Completed">Completed</option>
+                                    <option value="">ยังไม่ได้วางบิล</option>
+                                    <option value="Pending">รอการตรวจรับ</option>
+                                    <option value="Accepted">ตรวจรับผ่าน</option>
+                                    <option value="Rejected">ปฏิเสธการรับ</option>
                                   </select>
                                   <input 
                                     type="date" 
-                                    value={editBillingDate} 
-                                    onChange={(e) => setEditBillingDate(e.target.value)}
+                                    value={editAcceptanceDate} 
+                                    onChange={(e) => setEditAcceptanceDate(e.target.value)}
                                     style={{ flex: 1.2, fontSize: '0.8rem' }}
                                   />
                                 </div>
