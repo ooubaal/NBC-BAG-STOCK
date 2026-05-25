@@ -11,7 +11,8 @@ import {
   ArrowUpRight,
   ShieldCheck,
   PackageOpen,
-  MinusCircle
+  MinusCircle,
+  ClipboardList
 } from 'lucide-react';
 import './App.css';
 
@@ -23,6 +24,7 @@ import NCP from './components/NCP';
 import ProductRegistry from './components/ProductRegistry';
 import Withdrawal from './components/Withdrawal';
 import SettingsTab from './components/Settings';
+import Agreements from './components/Agreements';
 import { initFirebase } from './firebase';
 import { doc, setDoc, collection, onSnapshot, deleteDoc } from 'firebase/firestore';
 
@@ -70,6 +72,16 @@ function App() {
       return item;
     });
     return parsedInventory;
+  });
+
+  const [agreements, setAgreements] = useState(() => {
+    try {
+      const saved = localStorage.getItem('wms_agreements');
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      console.error(e);
+      return [];
+    }
   });
 
   // 1. Firebase Configuration State
@@ -139,6 +151,26 @@ function App() {
     return () => unsubscribe();
   }, [db]);
 
+  // 4b. Real-time synchronisation for Agreements
+  useEffect(() => {
+    if (!db) return;
+
+    const agreementsRef = collection(db, 'agreements');
+    const unsubscribe = onSnapshot(agreementsRef, (snapshot) => {
+      const list = [];
+      snapshot.forEach(docSnap => {
+        list.push(docSnap.data());
+      });
+      if (list.length > 0) {
+        setAgreements(list);
+      }
+    }, (error) => {
+      console.error("Error listening to agreements:", error);
+    });
+
+    return () => unsubscribe();
+  }, [db]);
+
   // Save data to LocalStorage as cache
   useEffect(() => {
     localStorage.setItem('wms_inventory', JSON.stringify(inventory));
@@ -147,6 +179,10 @@ function App() {
   useEffect(() => {
     localStorage.setItem('wms_items', JSON.stringify(items));
   }, [items]);
+
+  useEffect(() => {
+    localStorage.setItem('wms_agreements', JSON.stringify(agreements));
+  }, [agreements]);
 
   // 5. Intercept state updates to sync with Firestore
   const updateItems = (newItemsOrFunc) => {
@@ -186,6 +222,31 @@ function App() {
     });
   };
 
+  const updateAgreements = (newAgreementsOrFunc) => {
+    setAgreements(prev => {
+      const next = typeof newAgreementsOrFunc === 'function' ? newAgreementsOrFunc(prev) : newAgreementsOrFunc;
+      
+      if (db) {
+        next.forEach(agreement => {
+          const prevAgreement = prev.find(p => p.id === agreement.id);
+          if (!prevAgreement || JSON.stringify(prevAgreement) !== JSON.stringify(agreement)) {
+            setDoc(doc(db, 'agreements', String(agreement.id)), agreement)
+              .catch(err => console.error("Error syncing agreement:", err));
+          }
+        });
+        
+        prev.forEach(prevAgreement => {
+          const stillExists = next.some(n => n.id === prevAgreement.id);
+          if (!stillExists) {
+            deleteDoc(doc(db, 'agreements', String(prevAgreement.id)))
+              .catch(err => console.error("Error deleting agreement:", err));
+          }
+        });
+      }
+      return next;
+    });
+  };
+
   // 6. Migration and Sync Helpers for SettingsTab
   const [isMigrating, setIsMigrating] = useState(false);
 
@@ -201,6 +262,11 @@ function App() {
       // Upload Inventory
       for (const lot of inventory) {
         await setDoc(doc(db, 'inventory', String(lot.id)), lot);
+      }
+      
+      // Upload Agreements
+      for (const ag of agreements) {
+        await setDoc(doc(db, 'agreements', String(ag.id)), ag);
       }
       
       // Upload Claims from local storage
@@ -227,7 +293,8 @@ function App() {
     return {
       localItems: items.length,
       localInventory: inventory.length,
-      localClaims
+      localClaims,
+      localAgreements: agreements.length
     };
   };
 
@@ -240,13 +307,15 @@ function App() {
       case 'inventory':
         return <Inventory inventory={inventory} setInventory={updateInventory} items={items} />;
       case 'inbound':
-        return <Inbound setInventory={updateInventory} items={items} inventory={inventory} />;
+        return <Inbound setInventory={updateInventory} items={items} inventory={inventory} agreements={agreements} />;
       case 'withdrawal':
         return <Withdrawal inventory={inventory} setInventory={updateInventory} items={items} />;
       case 'analytics':
         return <Analytics inventory={inventory} items={items} />;
       case 'ncp':
         return <NCP inventory={inventory} items={items} db={db} />;
+      case 'agreements':
+        return <Agreements agreements={agreements} setAgreements={updateAgreements} inventory={inventory} setInventory={updateInventory} items={items} />;
       case 'settings':
         return (
           <SettingsTab 
@@ -322,6 +391,12 @@ function App() {
             onClick={() => setActiveTab('ncp')}
             icon={<AlertOctagon size={20} />}
             label="เคลมสินค้า NCP (Mod 4)"
+          />
+          <NavItem 
+            active={activeTab === 'agreements'} 
+            onClick={() => setActiveTab('agreements')}
+            icon={<ClipboardList size={20} />}
+            label="สัญญาจัดซื้อ (Mod 5)"
           />
         </nav>
 

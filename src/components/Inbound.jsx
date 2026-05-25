@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Plus, Trash2, Save, X, Printer } from 'lucide-react';
-const Inbound = ({ setInventory, items, inventory = [] }) => {
+const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
   const [inboundTab, setInboundTab] = useState('draft'); // 'draft' or 'history'
   const [historySearch, setHistorySearch] = useState('');
   const [selectedHistoryIds, setSelectedHistoryIds] = useState([]);
@@ -17,7 +17,8 @@ const Inbound = ({ setInventory, items, inventory = [] }) => {
     quantity: '',
     location: '',
     billingStatus: 'Pending',
-    remarks: ''
+    remarks: '',
+    agreementId: ''
   }]);
 
   const addEntry = () => {
@@ -33,7 +34,8 @@ const Inbound = ({ setInventory, items, inventory = [] }) => {
       quantity: '',
       location: '',
       billingStatus: 'Pending',
-      remarks: ''
+      remarks: '',
+      agreementId: ''
     }]);
   };
 
@@ -68,7 +70,8 @@ const Inbound = ({ setInventory, items, inventory = [] }) => {
       ...e,
       remainingQty: Number(e.quantity),
       withdrawals: [], // Array for Mod 1 requirements
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      acceptanceStatus: e.agreementId ? 'Pending' : ''
     }));
 
     setInventory(prev => [...prev, ...newRecords]);
@@ -86,7 +89,8 @@ const Inbound = ({ setInventory, items, inventory = [] }) => {
       quantity: '',
       location: '',
       billingStatus: 'Pending',
-      remarks: ''
+      remarks: '',
+      agreementId: ''
     }]);
   };
 
@@ -609,6 +613,7 @@ const Inbound = ({ setInventory, items, inventory = [] }) => {
                 <tr style={{ textAlign: 'left', borderBottom: '1px solid var(--glass-border)' }}>
                   <th style={{ padding: '1rem' }}>วันที่รับ</th>
                   <th style={{ padding: '1rem' }}>รายการสินค้า</th>
+                  <th style={{ padding: '1rem' }}>สัญญาจัดซื้อ</th>
                   <th style={{ padding: '1rem' }}>Supplier Lot</th>
                   <th style={{ padding: '1rem' }}>Inhouse Lot</th>
                   <th style={{ padding: '1rem' }}>สถานะ QC</th>
@@ -629,6 +634,23 @@ const Inbound = ({ setInventory, items, inventory = [] }) => {
                     <td style={{ padding: '0.5rem' }}>
                       <select value={entry.itemName} onChange={(e) => updateEntry(entry.id, 'itemName', e.target.value)}>
                         {items.map(item => <option key={item.name} value={item.name}>{item.name}</option>)}
+                      </select>
+                    </td>
+                    <td style={{ padding: '0.5rem' }}>
+                      <select 
+                        value={entry.agreementId || ''} 
+                        onChange={(e) => updateEntry(entry.id, 'agreementId', e.target.value)}
+                        style={{ fontSize: '0.8rem', padding: '0.4rem', width: '130px' }}
+                      >
+                        <option value="">-- ไม่ระบุ --</option>
+                        {agreements
+                          .filter(ag => ag.itemName === entry.itemName && ag.status !== 'Completed')
+                          .map(ag => (
+                            <option key={ag.id} value={ag.id}>
+                              {ag.id} ({ag.supplier})
+                            </option>
+                          ))
+                        }
                       </select>
                     </td>
                     <td style={{ padding: '0.5rem' }}>
