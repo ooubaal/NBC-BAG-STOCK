@@ -34,8 +34,7 @@ const Inventory = ({ inventory, setInventory }) => {
   const [filterEndDate, setFilterEndDate] = useState('');
   const [filterLocation, setFilterLocation] = useState('All');
   const [filterQtyStatus, setFilterQtyStatus] = useState('All');
-  const [sortOrder, setSortOrder] = useState('none'); // 'none', 'asc', 'desc'
-  const [dateSortOrder, setDateSortOrder] = useState('newest'); // 'newest', 'oldest'
+  const [sortType, setSortType] = useState('date-desc'); // 'date-desc', 'date-asc', 'name-asc', 'name-desc'
 
   // Edit States for expanded row
   const [editQC, setEditQC] = useState('');
@@ -112,20 +111,17 @@ const Inventory = ({ inventory, setInventory }) => {
   });
 
   const sortedInventory = [...filteredInventory].sort((a, b) => {
-    if (sortOrder === 'asc') {
+    if (sortType === 'name-asc') {
       return a.itemName.localeCompare(b.itemName, 'th');
     }
-    if (sortOrder === 'desc') {
+    if (sortType === 'name-desc') {
       return b.itemName.localeCompare(a.itemName, 'th');
     }
-    // Date sorting
-    const dateA = new Date(a.date || 0).getTime();
-    const dateB = new Date(b.date || 0).getTime();
-    if (dateSortOrder === 'newest') {
-      return dateB - dateA;
+    if (sortType === 'date-asc') {
+      return (a.date || '').localeCompare(b.date || '');
     }
-    if (dateSortOrder === 'oldest') {
-      return dateA - dateB;
+    if (sortType === 'date-desc') {
+      return (b.date || '').localeCompare(a.date || '');
     }
     return 0;
   });
@@ -148,7 +144,7 @@ const Inventory = ({ inventory, setInventory }) => {
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
-        {(searchTerm || filterQC !== 'All' || filterAcceptance !== 'All' || filterItem !== 'All' || filterStartDate || filterEndDate || filterLocation !== 'All' || filterQtyStatus !== 'All' || sortOrder !== 'none' || dateSortOrder !== 'newest') && (
+        {(searchTerm || filterQC !== 'All' || filterAcceptance !== 'All' || filterItem !== 'All' || filterStartDate || filterEndDate || filterLocation !== 'All' || filterQtyStatus !== 'All' || sortType !== 'date-desc') && (
           <button 
             className="btn btn-secondary" 
             style={{ padding: '0.4rem 0.8rem', fontSize: '0.75rem' }}
@@ -161,8 +157,7 @@ const Inventory = ({ inventory, setInventory }) => {
               setFilterEndDate('');
               setFilterLocation('All');
               setFilterQtyStatus('All');
-              setSortOrder('none');
-              setDateSortOrder('newest');
+              setSortType('date-desc');
             }}
           >
             ล้างตัวกรองทั้งหมด
@@ -174,28 +169,28 @@ const Inventory = ({ inventory, setInventory }) => {
         <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '1100px' }}>
           <thead>
             <tr style={{ textAlign: 'left', borderBottom: '1px solid var(--glass-border)', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-              <th style={{ padding: '1rem', minWidth: '220px' }}>
+              <th style={{ padding: '1rem', minWidth: '225px' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span>วันที่รับ (ช่วง)</span>
                     <select 
-                      value={dateSortOrder} 
-                      onChange={(e) => setDateSortOrder(e.target.value)}
+                      value={sortType.startsWith('date-') ? sortType : 'date-desc'} 
+                      onChange={(e) => setSortType(e.target.value)}
                       style={{ 
                         width: 'auto', 
                         padding: '0 0.2rem', 
                         fontSize: '0.65rem', 
                         height: '20px', 
                         background: '#111827', 
-                        color: 'var(--accent-secondary)', 
+                        color: 'var(--accent-color)', 
                         border: '1px solid rgba(255,255,255,0.1)', 
                         borderRadius: '4px',
                         cursor: 'pointer',
                         fontWeight: 'bold'
                       }}
                     >
-                      <option value="newest">ล่าสุด 🔽</option>
-                      <option value="oldest">เก่าสุด 🔼</option>
+                      <option value="date-desc">ล่าสุดอยู่บน 🔽</option>
+                      <option value="date-asc">เก่าสุดอยู่บน 🔼</option>
                     </select>
                   </div>
                   <div style={{ display: 'flex', gap: '0.2rem', alignItems: 'center' }}>
@@ -220,8 +215,11 @@ const Inventory = ({ inventory, setInventory }) => {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem' }}>
                     <span>รายการสินค้า</span>
                     <select 
-                      value={sortOrder} 
-                      onChange={(e) => setSortOrder(e.target.value)}
+                      value={sortType.startsWith('name-') ? sortType : 'none'} 
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setSortType(val === 'none' ? 'date-desc' : val);
+                      }}
                       style={{ 
                         width: 'auto', 
                         padding: '0 0.2rem', 
@@ -236,8 +234,8 @@ const Inventory = ({ inventory, setInventory }) => {
                       }}
                     >
                       <option value="none">เรียงปกติ ↕️</option>
-                      <option value="asc">ก-ฮ / A-Z 🔼</option>
-                      <option value="desc">ฮ-ก / Z-A 🔽</option>
+                      <option value="name-asc">ก-ฮ / A-Z 🔼</option>
+                      <option value="name-desc">ฮ-ก / Z-A 🔽</option>
                     </select>
                   </div>
                   <select 
