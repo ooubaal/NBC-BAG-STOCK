@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { doc, setDoc, collection, onSnapshot, deleteDoc } from 'firebase/firestore';
 import { Camera, AlertCircle, RefreshCcw, CheckCircle, Image as ImageIcon, Plus, Download, Edit2, Trash2, X } from 'lucide-react';
 
 const compressImage = (base64Str, maxWidth = 800, maxHeight = 800) => {
@@ -65,9 +66,9 @@ const modalContentStyle = {
   position: 'relative'
 };
 
-const NCP = ({ inventory, items }) => {
+const NCP = ({ inventory, items, db }) => {
   // Use lazy state initialization to load claims immediately, preventing race condition on initial render
-  const [claims, setClaims] = useState(() => {
+  const [claims, rawSetClaims] = useState(() => {
     try {
       const savedClaims = localStorage.getItem('wms_claims');
       return savedClaims ? JSON.parse(savedClaims) : [];
@@ -76,6 +77,51 @@ const NCP = ({ inventory, items }) => {
       return [];
     }
   });
+
+  // Custom wrapper to update both state and Firestore
+  const setClaims = (newClaimsOrFunc) => {
+    rawSetClaims(prev => {
+      const next = typeof newClaimsOrFunc === 'function' ? newClaimsOrFunc(prev) : newClaimsOrFunc;
+      
+      if (db) {
+        next.forEach(claim => {
+          const prevClaim = prev.find(p => p.id === claim.id);
+          if (!prevClaim || JSON.stringify(prevClaim) !== JSON.stringify(claim)) {
+            setDoc(doc(db, 'claims', String(claim.id)), claim)
+              .catch(err => console.error("Error syncing claim:", err));
+          }
+        });
+        
+        prev.forEach(prevClaim => {
+          const stillExists = next.some(n => n.id === prevClaim.id);
+          if (!stillExists) {
+            deleteDoc(doc(db, 'claims', String(prevClaim.id))).catch(err => console.error("Error deleting claim:", err));
+          }
+        });
+      }
+      return next;
+    });
+  };
+
+  // Real-time claims sync from Firestore when connected
+  useEffect(() => {
+    if (!db) return;
+
+    const claimsRef = collection(db, 'claims');
+    const unsubscribe = onSnapshot(claimsRef, (snapshot) => {
+      const list = [];
+      snapshot.forEach(docSnap => {
+        list.push(docSnap.data());
+      });
+      if (list.length > 0) {
+        rawSetClaims(list);
+      }
+    }, (error) => {
+      console.error("Error listening to claims:", error);
+    });
+
+    return () => unsubscribe();
+  }, [db]);
 
   const [ncpTab, setNcpTab] = useState('active'); // 'all', 'active', 'completed'
   const [isAdding, setIsAdding] = useState(false);

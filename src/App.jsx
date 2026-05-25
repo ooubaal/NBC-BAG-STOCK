@@ -22,6 +22,9 @@ import Analytics from './components/Analytics';
 import NCP from './components/NCP';
 import ProductRegistry from './components/ProductRegistry';
 import Withdrawal from './components/Withdrawal';
+import SettingsTab from './components/Settings';
+import { initFirebase } from './firebase';
+import { doc, setDoc, collection, onSnapshot, deleteDoc } from 'firebase/firestore';
 
 const INITIAL_ITEMS = [
   { name: "Raw Material A", unit: "kg" },
@@ -69,7 +72,74 @@ function App() {
     return parsedInventory;
   });
 
-  // Save data to LocalStorage
+  // 1. Firebase Configuration State
+  const [firebaseConfig, setFirebaseConfig] = useState(() => {
+    try {
+      const saved = localStorage.getItem('wms_firebase_config');
+      return saved ? JSON.parse(saved) : null;
+    } catch (e) {
+      console.error(e);
+      return null;
+    }
+  });
+
+  const [db, setDb] = useState(null);
+
+  // 2. Initialize Firebase dynamically on boot or when config changes
+  useEffect(() => {
+    if (firebaseConfig) {
+      const res = initFirebase(firebaseConfig);
+      if (res && res.db) {
+        setDb(res.db);
+      } else {
+        setDb(null);
+      }
+    } else {
+      setDb(null);
+    }
+  }, [firebaseConfig]);
+
+  // 3. Real-time synchronisation for Items
+  useEffect(() => {
+    if (!db) return;
+
+    const itemsRef = collection(db, 'items');
+    const unsubscribe = onSnapshot(itemsRef, (snapshot) => {
+      const list = [];
+      snapshot.forEach(docSnap => {
+        list.push(docSnap.data());
+      });
+      if (list.length > 0) {
+        setItems(list);
+      }
+    }, (error) => {
+      console.error("Error listening to items:", error);
+    });
+
+    return () => unsubscribe();
+  }, [db]);
+
+  // 4. Real-time synchronisation for Inventory
+  useEffect(() => {
+    if (!db) return;
+
+    const invRef = collection(db, 'inventory');
+    const unsubscribe = onSnapshot(invRef, (snapshot) => {
+      const list = [];
+      snapshot.forEach(docSnap => {
+        list.push(docSnap.data());
+      });
+      if (list.length > 0) {
+        setInventory(list);
+      }
+    }, (error) => {
+      console.error("Error listening to inventory:", error);
+    });
+
+    return () => unsubscribe();
+  }, [db]);
+
+  // Save data to LocalStorage as cache
   useEffect(() => {
     localStorage.setItem('wms_inventory', JSON.stringify(inventory));
   }, [inventory]);
@@ -78,22 +148,125 @@ function App() {
     localStorage.setItem('wms_items', JSON.stringify(items));
   }, [items]);
 
+  // 5. Intercept state updates to sync with Firestore
+  const updateItems = (newItemsOrFunc) => {
+    setItems(prev => {
+      const next = typeof newItemsOrFunc === 'function' ? newItemsOrFunc(prev) : newItemsOrFunc;
+      
+      if (db) {
+        next.forEach(item => {
+          setDoc(doc(db, 'items', item.name), item)
+            .catch(err => console.error("Error syncing item:", err));
+        });
+      }
+      return next;
+    });
+  };
+
+  const updateInventory = (newInvOrFunc) => {
+    setInventory(prev => {
+      const next = typeof newInvOrFunc === 'function' ? newInvOrFunc(prev) : newInvOrFunc;
+      
+      if (db) {
+        next.forEach(item => {
+          const prevItem = prev.find(p => p.id === item.id);
+          if (!prevItem || JSON.stringify(prevItem) !== JSON.stringify(item)) {
+            setDoc(doc(db, 'inventory', String(item.id)), item)
+              .catch(err => console.error("Error syncing inventory:", err));
+          }
+        });
+        prev.forEach(prevItem => {
+          const stillExists = next.some(n => n.id === prevItem.id);
+          if (!stillExists) {
+            deleteDoc(doc(db, 'inventory', String(prevItem.id))).catch(err => console.error("Error deleting doc:", err));
+          }
+        });
+      }
+      return next;
+    });
+  };
+
+  // 6. Migration and Sync Helpers for SettingsTab
+  const [isMigrating, setIsMigrating] = useState(false);
+
+  const handleMigrate = async () => {
+    if (!db) return;
+    setIsMigrating(true);
+    try {
+      // Upload Items
+      for (const item of items) {
+        await setDoc(doc(db, 'items', item.name), item);
+      }
+      
+      // Upload Inventory
+      for (const lot of inventory) {
+        await setDoc(doc(db, 'inventory', String(lot.id)), lot);
+      }
+      
+      // Upload Claims from local storage
+      const savedClaimsText = localStorage.getItem('wms_claims');
+      if (savedClaimsText) {
+        const savedClaims = JSON.parse(savedClaimsText);
+        for (const claim of savedClaims) {
+          await setDoc(doc(db, 'claims', String(claim.id)), claim);
+        }
+      }
+      
+      alert("ย้ายข้อมูลขึ้นฐานข้อมูลคลาวด์สำเร็จเรียบร้อยแล้ว ทุกเครื่องจะเห็นข้อมูลใหม่นี้ทันที!");
+    } catch (error) {
+      console.error("Migration failed:", error);
+      alert("การย้ายข้อมูลล้มเหลว: " + error.message);
+    } finally {
+      setIsMigrating(false);
+    }
+  };
+
+  const getSyncStats = () => {
+    const savedClaimsText = localStorage.getItem('wms_claims');
+    const localClaims = savedClaimsText ? JSON.parse(savedClaimsText).length : 0;
+    return {
+      localItems: items.length,
+      localInventory: inventory.length,
+      localClaims
+    };
+  };
+
   const renderContent = () => {
     switch (activeTab) {
       case 'dashboard':
         return <Dashboard inventory={inventory} setActiveTab={setActiveTab} />;
       case 'items':
-        return <ProductRegistry items={items} setItems={setItems} />;
+        return <ProductRegistry items={items} setItems={updateItems} />;
       case 'inventory':
-        return <Inventory inventory={inventory} setInventory={setInventory} items={items} />;
+        return <Inventory inventory={inventory} setInventory={updateInventory} items={items} />;
       case 'inbound':
-        return <Inbound setInventory={setInventory} items={items} inventory={inventory} />;
+        return <Inbound setInventory={updateInventory} items={items} inventory={inventory} />;
       case 'withdrawal':
-        return <Withdrawal inventory={inventory} setInventory={setInventory} items={items} />;
+        return <Withdrawal inventory={inventory} setInventory={updateInventory} items={items} />;
       case 'analytics':
         return <Analytics inventory={inventory} items={items} />;
       case 'ncp':
-        return <NCP inventory={inventory} items={items} />;
+        return <NCP inventory={inventory} items={items} db={db} />;
+      case 'settings':
+        return (
+          <SettingsTab 
+            config={firebaseConfig} 
+            onSaveConfig={(newConfig) => {
+              localStorage.setItem('wms_firebase_config', JSON.stringify(newConfig));
+              setFirebaseConfig(newConfig);
+              alert("บันทึกการตั้งค่าและเชื่อมต่อ Firebase สำเร็จ!");
+            }}
+            onDisconnect={() => {
+              if (window.confirm("คุณต้องการตัดการเชื่อมต่อคลาวด์และกลับมาใช้งานแบบในเครื่อง (Local) ใช่หรือไม่?")) {
+                localStorage.removeItem('wms_firebase_config');
+                setFirebaseConfig(null);
+              }
+            }}
+            onMigrate={handleMigrate}
+            syncStats={getSyncStats()}
+            isMigrating={isMigrating}
+          />
+        );
       default:
         return <Dashboard inventory={inventory} setActiveTab={setActiveTab} />;
     }
@@ -153,7 +326,12 @@ function App() {
         </nav>
 
         <div style={{ marginTop: 'auto', paddingTop: '2rem' }}>
-          <NavItem icon={<Settings size={20} />} label="ตั้งค่า" />
+          <NavItem 
+            active={activeTab === 'settings'} 
+            onClick={() => setActiveTab('settings')}
+            icon={<Settings size={20} />} 
+            label="ตั้งค่าแชร์คลาวด์" 
+          />
         </div>
       </aside>
 
