@@ -40,6 +40,7 @@ const Inventory = ({ inventory, setInventory }) => {
   const [editQC, setEditQC] = useState('');
   const [editAcceptance, setEditAcceptance] = useState('');
   const [editLocation, setEditLocation] = useState('');
+  const [editRemarks, setEditRemarks] = useState('');
   const [editQCDate, setEditQCDate] = useState('');
   const [editAcceptanceDate, setEditAcceptanceDate] = useState('');
   const [editLocationDate, setEditLocationDate] = useState('');
@@ -57,6 +58,7 @@ const Inventory = ({ inventory, setInventory }) => {
           qcStatus: editQC,
           acceptanceStatus: editAcceptance,
           location: editLocation,
+          remarks: editRemarks,
           qcUpdateDate: editQCDate,
           acceptanceUpdateDate: editAcceptanceDate,
           locationUpdateDate: editLocationDate
@@ -75,6 +77,7 @@ const Inventory = ({ inventory, setInventory }) => {
       setEditQC(item.qcStatus);
       setEditAcceptance(item.acceptanceStatus || '');
       setEditLocation(item.location);
+      setEditRemarks(item.remarks || '');
       setEditQCDate(item.qcUpdateDate || new Date().toISOString().split('T')[0]);
       setEditAcceptanceDate(item.acceptanceUpdateDate || new Date().toISOString().split('T')[0]);
       setEditLocationDate(item.locationUpdateDate || new Date().toISOString().split('T')[0]);
@@ -423,6 +426,27 @@ const Inventory = ({ inventory, setInventory }) => {
                                     style={{ flex: 1.2, fontSize: '0.8rem' }}
                                   />
                                 </div>
+                              </div>
+                              <div style={{ background: 'rgba(255,255,255,0.03)', padding: '0.8rem', borderRadius: '8px' }}>
+                                <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'block', marginBottom: '0.5rem' }}>หมายเหตุการรับเข้า</label>
+                                <textarea 
+                                  placeholder="พิมพ์หมายเหตุหรือข้อมูลบันทึกเพิ่มเติมที่นี่..."
+                                  value={editRemarks}
+                                  onChange={(e) => setEditRemarks(e.target.value)}
+                                  rows={2}
+                                  style={{ 
+                                    width: '100%', 
+                                    background: '#111827', 
+                                    color: '#f9fafb', 
+                                    border: '1px solid rgba(255,255,255,0.1)', 
+                                    borderRadius: '4px',
+                                    padding: '0.5rem',
+                                    fontSize: '0.8rem',
+                                    resize: 'vertical',
+                                    outline: 'none',
+                                    fontFamily: 'inherit'
+                                  }}
+                                />
                               </div>
                               <button 
                                 className="btn btn-primary" 
