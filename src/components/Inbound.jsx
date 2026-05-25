@@ -5,6 +5,22 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
   const [historySearch, setHistorySearch] = useState('');
   const [selectedHistoryIds, setSelectedHistoryIds] = useState([]);
 
+  const getLatestInhouseLot = (itemName) => {
+    if (!itemName) return '-';
+    const matches = inventory.filter(item => 
+      item.itemName === itemName && 
+      item.inhouseLot && 
+      item.inhouseLot.trim() !== ''
+    );
+    if (matches.length === 0) return '-';
+    matches.sort((a, b) => {
+      const dateA = a.createdAt ? new Date(a.createdAt).getTime() : (a.id || 0);
+      const dateB = b.createdAt ? new Date(b.createdAt).getTime() : (b.id || 0);
+      return dateB - dateA;
+    });
+    return matches[0].inhouseLot;
+  };
+
   const [entries, setEntries] = useState([{
     id: Date.now(),
     date: new Date().toISOString().split('T')[0],
@@ -657,7 +673,38 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
                       <input type="text" placeholder="Lot no." value={entry.supplierLot} onChange={(e) => updateEntry(entry.id, 'supplierLot', e.target.value)} />
                     </td>
                     <td style={{ padding: '0.5rem' }}>
-                      <input type="text" placeholder="Inhouse no." value={entry.inhouseLot} onChange={(e) => updateEntry(entry.id, 'inhouseLot', e.target.value)} />
+                      <input 
+                        type="text" 
+                        placeholder="Inhouse no." 
+                        value={entry.inhouseLot} 
+                        onChange={(e) => updateEntry(entry.id, 'inhouseLot', e.target.value)} 
+                      />
+                      {(() => {
+                        const latest = getLatestInhouseLot(entry.itemName);
+                        return (
+                          <div 
+                            style={{ 
+                              fontSize: '0.75rem', 
+                              color: latest !== '-' ? 'var(--accent-secondary, #0ea5e9)' : 'var(--text-muted, #888)', 
+                              marginTop: '0.25rem',
+                              fontWeight: '500',
+                              cursor: latest !== '-' ? 'pointer' : 'default',
+                              display: 'inline-block',
+                              textDecoration: latest !== '-' ? 'underline' : 'none',
+                              textDecorationStyle: 'dashed',
+                              textUnderlineOffset: '2px'
+                            }}
+                            onClick={() => {
+                              if (latest !== '-') {
+                                updateEntry(entry.id, 'inhouseLot', latest);
+                              }
+                            }}
+                            title={latest !== '-' ? "คลิกเพื่อใช้ค่านี้" : undefined}
+                          >
+                            ล่าสุด: {latest}
+                          </div>
+                        );
+                      })()}
                     </td>
                     <td style={{ padding: '0.5rem' }}>
                       <select value={entry.qcStatus} onChange={(e) => updateEntry(entry.id, 'qcStatus', e.target.value)}>
