@@ -30,7 +30,8 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
             supplierLot: item.supplierLot,
             inhouseLot: item.inhouseLot,
             unit: item.unit || 'ชิ้น',
-            location: item.location
+            location: item.location,
+            isCancelled: w.isCancelled || false
           });
         });
       }
@@ -123,6 +124,54 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
       setSelectedHistoryIds(filteredWithdrawals.map(w => w.id));
     } else {
       setSelectedHistoryIds([]);
+    }
+  };
+
+  const handleCancelWithdrawal = (withdrawalId) => {
+    // Find the lot containing this withdrawal
+    let targetLot = null;
+    let targetW = null;
+    
+    for (const lot of inventory) {
+      if (lot.withdrawals && lot.withdrawals.length > 0) {
+        const found = lot.withdrawals.find(w => w.id === withdrawalId);
+        if (found) {
+          targetLot = lot;
+          targetW = found;
+          break;
+        }
+      }
+    }
+
+    if (!targetLot || !targetW) {
+      alert("ไม่พบข้อมูลการตัดจ่ายนี้");
+      return;
+    }
+
+    if (targetW.isCancelled) {
+      alert("รายการนี้ถูกยกเลิกไปแล้ว");
+      return;
+    }
+
+    if (window.confirm(`คุณแน่ใจหรือไม่ที่จะยกเลิกการตัดจ่ายพัสดุจำนวน -${targetW.amount} ${targetLot.unit || 'ชิ้น'} ของ Lot: ${targetLot.supplierLot}?\nการยกเลิกจะคืนจำนวนพัสดุนี้เข้าคลังคงเหลือ และทำเครื่องหมายสถานะเป็น "ยกเลิก"`)) {
+      setInventory(prev => prev.map(item => {
+        if (item.id === targetLot.id) {
+          const updatedWithdrawals = item.withdrawals.map(w => {
+            if (w.id === withdrawalId) {
+              return { ...w, isCancelled: true };
+            }
+            return w;
+          });
+          const refundedQty = Math.min(item.quantity, item.remainingQty + targetW.amount);
+          return {
+            ...item,
+            remainingQty: refundedQty,
+            withdrawals: updatedWithdrawals
+          };
+        }
+        return item;
+      }));
+      alert("ยกเลิกการตัดจ่ายสำเร็จ และคืนยอดคงคลังเรียบร้อยแล้ว");
     }
   };
 
@@ -272,20 +321,22 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
             </thead>
             <tbody>
               ${withdrawalList.map(w => `
-                <tr>
+                <tr style="${w.isCancelled ? 'opacity: 0.55; text-decoration: line-through;' : ''}">
                   <td>${w.date}</td>
                   <td style="font-weight: 600;">${w.itemName}</td>
                   <td>${w.supplierLot}</td>
                   <td>${w.inhouseLot || '-'}</td>
-                  <td style="font-weight: 700; color: #dc2626; text-align: right;">-${w.amount}</td>
+                  <td style="font-weight: 700; color: #dc2626; text-align: right;">
+                    ${w.isCancelled ? `<s>-${w.amount}</s> <span style="font-size: 10px; color: #ef4444; display: block;">(ยกเลิกแล้ว)</span>` : `-${w.amount}`}
+                  </td>
                   <td>${w.unit}</td>
                   <td>${w.location || '-'}</td>
-                  <td>${w.reason || '-'}</td>
+                  <td>${w.isCancelled ? `(ยกเลิกการตัดจ่าย) ${w.reason || ''}` : (w.reason || '-')}</td>
                 </tr>
               `).join('')}
               <tr class="total-row">
                 <td colspan="4" style="text-align: right;">รวมจำนวนตัดจ่ายทั้งสิ้น:</td>
-                <td style="color: #dc2626; text-align: right;">-${withdrawalList.reduce((sum, w) => sum + w.amount, 0)}</td>
+                <td style="color: #dc2626; text-align: right;">-${withdrawalList.reduce((sum, w) => sum + (w.isCancelled ? 0 : w.amount), 0)}</td>
                 <td colspan="3">หน่วย</td>
               </tr>
             </tbody>
@@ -468,20 +519,22 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
             </thead>
             <tbody>
               ${reportList.map(w => `
-                <tr>
+                <tr style="${w.isCancelled ? 'opacity: 0.55; text-decoration: line-through;' : ''}">
                   <td>${w.date}</td>
                   <td style="font-weight: 600;">${w.itemName}</td>
                   <td>${w.supplierLot}</td>
                   <td>${w.inhouseLot || '-'}</td>
-                  <td style="font-weight: 700; color: #dc2626; text-align: right;">-${w.amount.toLocaleString()}</td>
+                  <td style="font-weight: 700; color: #dc2626; text-align: right;">
+                    ${w.isCancelled ? `<s>-${w.amount.toLocaleString()}</s> <span style="font-size: 10px; color: #ef4444; display: block;">(ยกเลิกแล้ว)</span>` : `-${w.amount.toLocaleString()}`}
+                  </td>
                   <td>${w.unit}</td>
                   <td>${w.location || '-'}</td>
-                  <td>${w.reason || '-'}</td>
+                  <td>${w.isCancelled ? `(ยกเลิกการตัดจ่าย) ${w.reason || ''}` : (w.reason || '-')}</td>
                 </tr>
               `).join('')}
               <tr class="total-row">
                 <td colspan="4" style="text-align: right;">รวมจำนวนตัดจ่ายทั้งสิ้น:</td>
-                <td style="color: #dc2626; text-align: right;">-${reportList.reduce((sum, w) => sum + w.amount, 0).toLocaleString()}</td>
+                <td style="color: #dc2626; text-align: right;">-${reportList.reduce((sum, w) => sum + (w.isCancelled ? 0 : w.amount), 0).toLocaleString()}</td>
                 <td colspan="3">หน่วยตามรายการ</td>
               </tr>
             </tbody>
@@ -811,7 +864,7 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
                   </tr>
                 ) : (
                   filteredWithdrawals.map(w => (
-                    <tr key={w.id} style={{ borderBottom: '1px solid var(--glass-border)' }}>
+                    <tr key={w.id} style={{ borderBottom: '1px solid var(--glass-border)', opacity: w.isCancelled ? 0.55 : 1 }}>
                       <td style={{ padding: '1rem' }}>
                         <input 
                           type="checkbox" 
@@ -826,18 +879,59 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
                         <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{w.inhouseLot || '-'}</div>
                       </td>
                       <td style={{ padding: '1rem', fontWeight: 700, color: 'var(--danger)' }}>
-                        -{w.amount} <span style={{ fontSize: '0.8rem', fontWeight: 400, color: 'var(--text-muted)' }}>{w.unit}</span>
+                        {w.isCancelled ? (
+                          <span style={{ textDecoration: 'line-through', opacity: 0.6 }}>-{w.amount}</span>
+                        ) : (
+                          `-${w.amount}`
+                        )}{' '}
+                        <span style={{ fontSize: '0.8rem', fontWeight: 400, color: 'var(--text-muted)' }}>{w.unit}</span>
                       </td>
                       <td style={{ padding: '1rem' }}>{w.location || '-'}</td>
-                      <td style={{ padding: '1rem' }}>{w.reason || '-'}</td>
                       <td style={{ padding: '1rem' }}>
-                        <button 
-                          className="btn btn-secondary"
-                          style={{ padding: '0.4rem 0.8rem', fontSize: '0.75rem', background: 'rgba(234, 88, 12, 0.1)', color: '#ea580c', border: '1px solid rgba(234, 88, 12, 0.2)' }}
-                          onClick={() => printWithdrawalPDF([w])}
-                        >
-                          <Printer size={14} /> พิมพ์ใบตัดจ่าย (PDF)
-                        </button>
+                        {w.isCancelled ? (
+                          <span style={{ color: '#ef4444', fontWeight: '500' }}>
+                            (ยกเลิกการตัดจ่าย) {w.reason || ''}
+                          </span>
+                        ) : (
+                          w.reason || '-'
+                        )}
+                      </td>
+                      <td style={{ padding: '1rem' }}>
+                        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                          <button 
+                            className="btn btn-secondary"
+                            style={{ padding: '0.4rem 0.8rem', fontSize: '0.75rem', background: 'rgba(234, 88, 12, 0.1)', color: '#ea580c', border: '1px solid rgba(234, 88, 12, 0.2)' }}
+                            onClick={() => printWithdrawalPDF([w])}
+                          >
+                            <Printer size={14} /> พิมพ์ใบตัดจ่าย (PDF)
+                          </button>
+                          {w.isCancelled ? (
+                            <span style={{ 
+                              fontSize: '0.75rem', 
+                              fontWeight: 'bold', 
+                              color: '#ef4444', 
+                              padding: '0.4rem 0.8rem',
+                              background: 'rgba(239, 68, 68, 0.1)',
+                              borderRadius: '4px' 
+                            }}>
+                              ยกเลิกแล้ว
+                            </span>
+                          ) : (
+                            <button 
+                              className="btn" 
+                              style={{ 
+                                padding: '0.4rem 0.8rem', 
+                                fontSize: '0.75rem', 
+                                background: 'rgba(239, 68, 68, 0.1)', 
+                                color: '#ef4444',
+                                border: '1px solid rgba(239, 68, 68, 0.2)' 
+                              }}
+                              onClick={() => handleCancelWithdrawal(w.id)}
+                            >
+                              ยกเลิกการตัดจ่าย
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))

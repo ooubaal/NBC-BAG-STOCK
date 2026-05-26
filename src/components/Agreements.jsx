@@ -87,7 +87,7 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
   const processedAgreements = useMemo(() => {
     return agreements.map(ag => {
       // Find all inventory lots linked to this agreement
-      const deliveries = inventory.filter(lot => lot.agreementId === ag.id);
+      const deliveries = inventory.filter(lot => lot.agreementId === ag.id && !lot.isCancelled);
 
       const acceptedQty = deliveries
         .filter(lot => lot.acceptanceStatus === 'Accepted')

@@ -378,6 +378,31 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
     }
   };
 
+  const handleCancelInbound = (lotId) => {
+    const lot = inventory.find(item => item.id === lotId);
+    if (!lot) return;
+
+    const hasWithdrawals = (lot.withdrawals && lot.withdrawals.length > 0) || (Number(lot.remainingQty) < Number(lot.quantity));
+    if (hasWithdrawals) {
+      alert("ไม่สามารถยกเลิกรายการรับนี้ได้ เนื่องจากมีการตัดจ่ายพัสดุจาก Lot นี้ไปแล้ว");
+      return;
+    }
+
+    if (window.confirm(`คุณแน่ใจหรือไม่ที่จะยกเลิกการรับเข้าพัสดุของ Lot: ${lot.supplierLot || lot.id}?\nการยกเลิกจะไม่ลบประวัติ แต่จะตั้งสถานะเป็น "ยกเลิก" และยอดคงเหลือในคลังจะเป็น 0`)) {
+      setInventory(prev => prev.map(item => {
+        if (item.id === lotId) {
+          return {
+            ...item,
+            isCancelled: true,
+            remainingQty: 0
+          };
+        }
+        return item;
+      }));
+      alert("ยกเลิกรายการรับเข้าสำเร็จ");
+    }
+  };
+
   const printHistoricalPDF = (itemsToPrint) => {
     const today = new Date().toLocaleDateString('th-TH', {
       year: 'numeric',
@@ -531,18 +556,19 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
             </thead>
             <tbody>
               ${itemsToPrint.map(e => `
-                <tr>
+                <tr style="${e.isCancelled ? 'opacity: 0.55; text-decoration: line-through;' : ''}">
                   <td>${e.date || "-"}</td>
                   <td style="font-weight: 600;">${e.itemName || "-"}</td>
                   <td>${e.supplierLot || "-"}</td>
                   <td>${e.inhouseLot || "-"}</td>
                   <td>
+                    ${e.isCancelled ? '<span style="color: #ef4444; font-weight: bold;">ยกเลิกแล้ว</span>' : `
                     <span class="status-badge ${
                       e.qcStatus === 'Pass' ? 'status-pass' :
                       e.qcStatus === 'Reject' ? 'status-reject' : 'status-quarantine'
                     }">
                       ${e.qcStatus}
-                    </span>
+                    </span>`}
                   </td>
                   <td>${e.packSize || "-"}</td>
                   <td style="font-weight: 700; text-align: right;">${e.quantity || "0"}</td>
@@ -553,7 +579,7 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
               <tr class="total-row">
                 <td colspan="6" style="text-align: right;">รวมจำนวนรับเข้าทั้งสิ้น</td>
                 <td style="text-align: right; font-size: 1.05rem;">
-                  ${itemsToPrint.reduce((sum, e) => sum + Number(e.quantity || 0), 0)}
+                  ${itemsToPrint.reduce((sum, e) => sum + (e.isCancelled ? 0 : Number(e.quantity || 0)), 0)}
                 </td>
                 <td colspan="2">หน่วย</td>
               </tr>
@@ -757,18 +783,19 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
             </thead>
             <tbody>
               ${reportList.map(item => `
-                <tr>
+                <tr style="${item.isCancelled ? 'opacity: 0.55; text-decoration: line-through;' : ''}">
                   <td>${item.date}</td>
                   <td style="font-weight: 600;">${item.itemName}</td>
                   <td>${item.supplierLot || '-'}</td>
                   <td>${item.inhouseLot || '-'}</td>
                   <td>
+                    ${item.isCancelled ? '<span style="color: #ef4444; font-weight: bold;">ยกเลิกแล้ว</span>' : `
                     <span class="status-badge ${
                       item.qcStatus === 'Pass' ? 'status-pass' :
                       item.qcStatus === 'Reject' ? 'status-reject' : 'status-quarantine'
                     }">
                       ${item.qcStatus}
-                    </span>
+                    </span>`}
                   </td>
                   <td style="font-weight: 600;">${item.location || '-'}</td>
                   <td style="font-weight: 700; text-align: right;">${item.quantity.toLocaleString()}</td>
@@ -777,7 +804,7 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
               `).join('')}
               <tr class="total-row">
                 <td colspan="6" style="text-align: right;">รวมจำนวนรับเข้าทั้งสิ้น:</td>
-                <td style="color: #003366; text-align: right;">${reportList.reduce((sum, item) => sum + Number(item.quantity), 0).toLocaleString()}</td>
+                <td style="color: #003366; text-align: right;">${reportList.reduce((sum, item) => sum + (item.isCancelled ? 0 : Number(item.quantity)), 0).toLocaleString()}</td>
                 <td>หน่วยตามรายการ</td>
               </tr>
             </tbody>
@@ -1175,7 +1202,7 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
                   </tr>
                 ) : (
                   filteredHistory.map((item) => (
-                    <tr key={item.id} style={{ borderBottom: '1px solid var(--glass-border)' }}>
+                    <tr key={item.id} style={{ borderBottom: '1px solid var(--glass-border)', opacity: item.isCancelled ? 0.55 : 1 }}>
                       <td style={{ padding: '1rem' }}>
                         <input 
                           type="checkbox" 
@@ -1191,22 +1218,61 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
                         <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{item.inhouseLot || '-'}</div>
                       </td>
                       <td style={{ padding: '1rem' }}>
-                        <span className={`status-badge status-${item.qcStatus.toLowerCase()}`}>
-                          {item.qcStatus}
-                        </span>
+                        {item.isCancelled ? (
+                          <span className="status-badge" style={{ backgroundColor: 'rgba(239, 68, 68, 0.15)', color: '#ef4444' }}>
+                            ยกเลิกแล้ว
+                          </span>
+                        ) : (
+                          <span className={`status-badge status-${item.qcStatus.toLowerCase()}`}>
+                            {item.qcStatus}
+                          </span>
+                        )}
                       </td>
                       <td style={{ padding: '1rem', fontWeight: 600 }}>{item.location || '-'}</td>
                       <td style={{ padding: '1rem', fontWeight: 700 }}>
-                        {item.quantity} <span style={{ fontSize: '0.8rem', fontWeight: 400, color: 'var(--text-muted)' }}>{item.unit || 'ชิ้น'}</span>
+                        {item.isCancelled ? (
+                          <span style={{ textDecoration: 'line-through', opacity: 0.6 }}>{item.quantity}</span>
+                        ) : (
+                          item.quantity
+                        )}{' '}
+                        <span style={{ fontSize: '0.8rem', fontWeight: 400, color: 'var(--text-muted)' }}>{item.unit || 'ชิ้น'}</span>
                       </td>
                       <td style={{ padding: '1rem' }}>
-                        <button 
-                          className="btn btn-secondary" 
-                          style={{ padding: '0.4rem 0.8rem', fontSize: '0.75rem', background: 'rgba(14, 165, 233, 0.1)', color: '#0ea5e9' }}
-                          onClick={() => printHistoricalPDF([item])}
-                        >
-                          <Printer size={14} /> พิมพ์ใบพัสดุ (PDF)
-                        </button>
+                        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                          <button 
+                            className="btn btn-secondary" 
+                            style={{ padding: '0.4rem 0.8rem', fontSize: '0.75rem', background: 'rgba(14, 165, 233, 0.1)', color: '#0ea5e9' }}
+                            onClick={() => printHistoricalPDF([item])}
+                          >
+                            <Printer size={14} /> พิมพ์ใบพัสดุ (PDF)
+                          </button>
+                          {item.isCancelled ? (
+                            <span style={{ 
+                              fontSize: '0.75rem', 
+                              fontWeight: 'bold', 
+                              color: '#ef4444', 
+                              padding: '0.4rem 0.8rem',
+                              background: 'rgba(239, 68, 68, 0.1)',
+                              borderRadius: '4px' 
+                            }}>
+                              ยกเลิกแล้ว
+                            </span>
+                          ) : (
+                            <button 
+                              className="btn" 
+                              style={{ 
+                                padding: '0.4rem 0.8rem', 
+                                fontSize: '0.75rem', 
+                                background: 'rgba(239, 68, 68, 0.1)', 
+                                color: '#ef4444',
+                                border: '1px solid rgba(239, 68, 68, 0.2)' 
+                              }}
+                              onClick={() => handleCancelInbound(item.id)}
+                            >
+                              ยกเลิกการรับ
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))

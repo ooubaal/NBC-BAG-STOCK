@@ -319,7 +319,7 @@ const Inventory = ({ inventory, setInventory }) => {
             ) : (
               sortedInventory.map((item) => (
                 <React.Fragment key={item.id}>
-                  <tr style={{ borderBottom: '1px solid var(--glass-border)', cursor: 'pointer' }}>
+                  <tr style={{ borderBottom: '1px solid var(--glass-border)', cursor: 'pointer', opacity: item.isCancelled ? 0.55 : 1 }}>
                     <td style={{ padding: '1rem' }}>{item.date}</td>
                     <td style={{ padding: '1rem', fontWeight: 600 }}>{item.itemName}</td>
                     <td style={{ padding: '1rem' }}>
@@ -327,7 +327,11 @@ const Inventory = ({ inventory, setInventory }) => {
                       <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{item.inhouseLot}</div>
                     </td>
                     <td style={{ padding: '1rem' }}>
-                      <span className={`status-badge status-${item.qcStatus.toLowerCase()}`}>{item.qcStatus}</span>
+                      {item.isCancelled ? (
+                        <span className="status-badge" style={{ backgroundColor: 'rgba(239, 68, 68, 0.15)', color: '#ef4444' }}>ยกเลิกแล้ว</span>
+                      ) : (
+                        <span className={`status-badge status-${item.qcStatus.toLowerCase()}`}>{item.qcStatus}</span>
+                      )}
                       {item.qcUpdateDate && <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>Update: {item.qcUpdateDate}</div>}
                     </td>
                     <td style={{ padding: '1rem' }}>
@@ -336,8 +340,22 @@ const Inventory = ({ inventory, setInventory }) => {
                     </td>
                     <td style={{ padding: '1rem' }}>
                       <div style={{ fontWeight: 700 }}>
-                        {item.remainingQty} <span style={{ fontSize: '0.8rem', fontWeight: 400, color: 'var(--text-muted)' }}>{item.unit || 'ชิ้น'}</span>
-                        <span style={{ fontWeight: 400, fontSize: '0.8rem', color: 'var(--text-muted)' }}> / {item.quantity} {item.unit || 'ชิ้น'}</span>
+                        {item.isCancelled ? (
+                          <span style={{ textDecoration: 'line-through', opacity: 0.6 }}>{item.remainingQty}</span>
+                        ) : (
+                          item.remainingQty
+                        )}{' '}
+                        <span style={{ fontSize: '0.8rem', fontWeight: 400, color: 'var(--text-muted)' }}>{item.unit || 'ชิ้น'}</span>
+                        <span style={{ fontWeight: 400, fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                          {' '}
+                          /{' '}
+                          {item.isCancelled ? (
+                            <span style={{ textDecoration: 'line-through', opacity: 0.6 }}>{item.quantity}</span>
+                          ) : (
+                            item.quantity
+                          )}{' '}
+                          {item.unit || 'ชิ้น'}
+                        </span>
                       </div>
                     </td>
                     <td style={{ padding: '1rem' }}>
@@ -475,10 +493,25 @@ const Inventory = ({ inventory, setInventory }) => {
                                   </thead>
                                   <tbody>
                                     {item.withdrawals.map(w => (
-                                      <tr key={w.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
+                                      <tr key={w.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)', opacity: w.isCancelled ? 0.55 : 1 }}>
                                         <td style={{ padding: '0.75rem' }}>{w.date}</td>
-                                        <td style={{ padding: '0.75rem', color: 'var(--danger)', fontWeight: 600 }}>-{w.amount} {item.unit || 'ชิ้น'}</td>
-                                        <td style={{ padding: '0.75rem' }}>{w.reason}</td>
+                                        <td style={{ padding: '0.75rem', color: 'var(--danger)', fontWeight: 600 }}>
+                                          {w.isCancelled ? (
+                                            <span style={{ textDecoration: 'line-through', opacity: 0.6 }}>-{w.amount}</span>
+                                          ) : (
+                                            `-${w.amount}`
+                                          )}{' '}
+                                          {item.unit || 'ชิ้น'}
+                                        </td>
+                                        <td style={{ padding: '0.75rem' }}>
+                                          {w.isCancelled ? (
+                                            <span style={{ color: '#ef4444', fontWeight: '500' }}>
+                                              (ยกเลิกการตัดจ่าย) {w.reason || ''}
+                                            </span>
+                                          ) : (
+                                            w.reason
+                                          )}
+                                        </td>
                                       </tr>
                                     ))}
                                   </tbody>
