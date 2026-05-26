@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Trash2, Save, X, Printer, Copy } from 'lucide-react';
+import { Plus, Trash2, Save, X, Printer, Copy, Search } from 'lucide-react';
 const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
   const [inboundTab, setInboundTab] = useState('draft'); // 'draft' or 'history'
   const [historySearch, setHistorySearch] = useState('');
