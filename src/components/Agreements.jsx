@@ -125,6 +125,223 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
     });
   }, [agreements, inventory]);
 
+  const printOutstandingReport = () => {
+    const outstandingAgreements = processedAgreements.filter(ag => ag.outstandingQty > 0);
+
+    if (outstandingAgreements.length === 0) {
+      alert("ไม่มีสัญญาจัดซื้อที่มียอดค้างรับในระบบขณะนี้");
+      return;
+    }
+
+    const today = new Date().toLocaleDateString('th-TH', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+
+    const printWindow = window.open("", "_blank", "width=1000,height=800");
+    if (!printWindow) {
+      alert("กรุณาอนุญาตให้เบราว์เซอร์เปิด Pop-up เพื่อเปิดหน้าพิมพ์เอกสาร");
+      return;
+    }
+
+    const htmlContent = `
+      <html>
+        <head>
+          <title>รายงานสัญญาจัดซื้อค้างรับทั้งหมด - NBC Stock</title>
+          <style>
+            @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&display=swap');
+            body {
+              font-family: 'Sarabun', sans-serif;
+              color: #222;
+              padding: 2.5rem;
+              background-color: #fff;
+              line-height: 1.5;
+            }
+            .header-container {
+              display: flex;
+              justify-content: space-between;
+              align-items: flex-start;
+              border-bottom: 2px solid #003366;
+              padding-bottom: 1.5rem;
+              margin-bottom: 2rem;
+            }
+            .title-section h1 {
+              font-size: 1.8rem;
+              margin: 0;
+              color: #003366;
+              font-weight: 700;
+            }
+            .title-section p {
+              margin: 0.25rem 0 0 0;
+              color: #555;
+              font-size: 0.9rem;
+            }
+            .meta-section {
+              text-align: right;
+              font-size: 0.9rem;
+            }
+            .meta-section p {
+              margin: 0.2rem 0;
+            }
+            table {
+              width: 100%;
+              border-collapse: collapse;
+              margin-bottom: 3rem;
+              font-size: 0.85rem;
+            }
+            th {
+              background-color: #003366;
+              color: #fff;
+              font-weight: 600;
+              padding: 0.6rem;
+              text-align: left;
+              border: 1px solid #ddd;
+            }
+            td {
+              padding: 0.6rem;
+              border: 1px solid #ddd;
+            }
+            tr:nth-child(even) {
+              background-color: #f9f9f9;
+            }
+            .total-row {
+              font-weight: 700;
+              background-color: #f0f4f8 !important;
+            }
+            .no-print-btn {
+              position: fixed;
+              top: 1rem;
+              right: 1rem;
+              background: #003366;
+              color: white;
+              border: none;
+              padding: 0.6rem 1.2rem;
+              font-size: 0.9rem;
+              font-weight: bold;
+              border-radius: 4px;
+              cursor: pointer;
+              box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+              z-index: 9999;
+            }
+            .status-badge {
+              display: inline-block;
+              padding: 0.15rem 0.4rem;
+              border-radius: 4px;
+              font-size: 0.75rem;
+              font-weight: bold;
+            }
+            .status-active { background-color: #e0f7fa; color: #006064; }
+            .status-expired { background-color: #ffebee; color: #b71c1c; }
+            @media print {
+              .no-print-btn {
+                display: none;
+              }
+              body {
+                padding: 0;
+              }
+            }
+          </style>
+        </head>
+        <body>
+          <button class="no-print-btn" onclick="window.print()">พิมพ์รายงาน / บันทึก PDF</button>
+
+          <div class="header-container">
+            <div class="title-section">
+              <h1>รายงานสัญญาจัดซื้อค้างรับทั้งหมด (Outstanding Purchase Agreements Report)</h1>
+              <p>ระบบบริหารจัดการคลังสินค้า NBC STOCK | ข้อมูลสัญญาค้างส่งมอบ</p>
+            </div>
+            <div class="meta-section">
+              <p><strong>วันที่ออกรายงาน:</strong> ${today}</p>
+              <p><strong>จำนวนสัญญาค้างรับ:</strong> ${outstandingAgreements.length} รายการ</p>
+            </div>
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th>เลขที่สัญญา</th>
+                <th>ผู้จัดจำหน่าย (Supplier)</th>
+                <th>สินค้าจัดซื้อ</th>
+                <th style="text-align: right;">ยอดสัญญา</th>
+                <th style="text-align: right;">รับแล้ว (ผ่าน)</th>
+                <th style="text-align: right;">รอตรวจรับ</th>
+                <th style="text-align: right; color: #b71c1c;">ยอดค้างรับ</th>
+                <th>หน่วย</th>
+                <th>วันหมดอายุสัญญา</th>
+                <th>สถานะสัญญา</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${outstandingAgreements.map(ag => `
+                <tr>
+                  <td style="font-weight: 600;">${ag.id}</td>
+                  <td>${ag.supplier}</td>
+                  <td style="font-weight: 600;">${ag.itemName}</td>
+                  <td style="text-align: right;">${ag.totalQty.toLocaleString()}</td>
+                  <td style="text-align: right; color: #0f5132;">${ag.acceptedQty.toLocaleString()}</td>
+                  <td style="text-align: right; color: #664d03;">${ag.pendingQty.toLocaleString()}</td>
+                  <td style="text-align: right; font-weight: 700; color: #b71c1c;">${ag.outstandingQty.toLocaleString()}</td>
+                  <td>${ag.unit}</td>
+                  <td>${ag.endDate || "-"}</td>
+                  <td>
+                    <span class="status-badge ${
+                      ag.displayStatus === 'Expired' ? 'status-expired' : 'status-active'
+                    }">
+                      ${ag.displayStatus === 'Expired' ? 'หมดอายุสัญญา' : 'กำลังดำเนินการ'}
+                    </span>
+                  </td>
+                </tr>
+              `).join("")}
+              <tr class="total-row">
+                <td colspan="3" style="text-align: right;">รวมทั้งหมด</td>
+                <td style="text-align: right;">
+                  ${outstandingAgreements.reduce((sum, ag) => sum + ag.totalQty, 0).toLocaleString()}
+                </td>
+                <td style="text-align: right;">
+                  ${outstandingAgreements.reduce((sum, ag) => sum + ag.acceptedQty, 0).toLocaleString()}
+                </td>
+                <td style="text-align: right;">
+                  ${outstandingAgreements.reduce((sum, ag) => sum + ag.pendingQty, 0).toLocaleString()}
+                </td>
+                <td style="text-align: right; color: #b71c1c; font-size: 0.95rem;">
+                  ${outstandingAgreements.reduce((sum, ag) => sum + ag.outstandingQty, 0).toLocaleString()}
+                </td>
+                <td colspan="3">หน่วยตามรายการ</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div style="margin-top: 4rem; display: flex; justify-content: space-between; font-size: 0.9rem;">
+            <div style="text-align: center; width: 40%;">
+              <p style="margin-bottom: 3.5rem;"></p>
+              <p>____________________________________</p>
+              <p><strong>ผู้ตรวจสอบรายงาน</strong></p>
+              <p>วันที่: ...... / ...... / ......</p>
+            </div>
+            <div style="text-align: center; width: 40%;">
+              <p style="margin-bottom: 3.5rem;"></p>
+              <p>____________________________________</p>
+              <p><strong>ผู้อนุมัติรายงาน</strong></p>
+              <p>วันที่: ...... / ...... / ......</p>
+            </div>
+          </div>
+
+          <script>
+            window.onload = function() {
+              setTimeout(function() {
+                window.print();
+              }, 300);
+            }
+          </script>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
+  };
+
   return (
     <div className="fade-in">
       <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
@@ -133,6 +350,20 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
           <p className="page-subtitle">จัดการสัญญาแบบส่งมอบบางส่วน ติดตามยอดตรวจรับสำเร็จและยอดค้างส่งแยกจาก QC</p>
         </div>
         <div style={{ display: 'flex', gap: '0.75rem' }}>
+          <button 
+            className="btn btn-secondary"
+            onClick={printOutstandingReport}
+            style={{ 
+              background: 'rgba(245, 158, 11, 0.1)', 
+              color: 'var(--accent-color)', 
+              border: '1px solid rgba(245, 158, 11, 0.2)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.4rem'
+            }}
+          >
+            <FileText size={16} /> รายงานสัญญาค้างรับ
+          </button>
           <button 
             className={`btn ${activeTab === 'list' ? 'btn-primary' : 'btn-secondary'}`}
             onClick={() => setActiveTab('list')}
