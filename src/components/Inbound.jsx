@@ -4,6 +4,8 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
   const [inboundTab, setInboundTab] = useState('draft'); // 'draft' or 'history'
   const [historySearch, setHistorySearch] = useState('');
   const [selectedHistoryIds, setSelectedHistoryIds] = useState([]);
+  const [historyStartDate, setHistoryStartDate] = useState('');
+  const [historyEndDate, setHistoryEndDate] = useState('');
 
   const getLatestInhouseLot = (itemName) => {
     if (!itemName) return '-';
@@ -344,12 +346,20 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
 
   const filteredHistory = inventory.filter(item => {
     const term = historySearch.toLowerCase();
-    return (
-      (item.itemName && item.itemName.toLowerCase().includes(term)) ||
-      (item.supplierLot && item.supplierLot.toLowerCase().includes(term)) ||
-      (item.inhouseLot && item.inhouseLot.toLowerCase().includes(term)) ||
-      (item.location && item.location.toLowerCase().includes(term))
-    );
+    const matchesSearch = (item.itemName && item.itemName.toLowerCase().includes(term)) ||
+                        (item.supplierLot && item.supplierLot.toLowerCase().includes(term)) ||
+                        (item.inhouseLot && item.inhouseLot.toLowerCase().includes(term)) ||
+                        (item.location && item.location.toLowerCase().includes(term));
+
+    let matchesDate = true;
+    if (historyStartDate) {
+      matchesDate = matchesDate && item.date >= historyStartDate;
+    }
+    if (historyEndDate) {
+      matchesDate = matchesDate && item.date <= historyEndDate;
+    }
+
+    return matchesSearch && matchesDate;
   });
 
   const toggleSelectHistory = (id) => {
@@ -572,6 +582,219 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
               }, 300);
             }
           </script>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
+  };
+
+  const printInboundReportPDF = (reportList) => {
+    const today = new Date().toLocaleDateString('th-TH', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+
+    let dateRangeStr = "ทั้งหมด";
+    if (historyStartDate && historyEndDate) {
+      if (historyStartDate === historyEndDate) {
+        dateRangeStr = `ประจำวันที่ ${new Date(historyStartDate).toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' })}`;
+      } else {
+        dateRangeStr = `ระหว่างวันที่ ${new Date(historyStartDate).toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' })} ถึง ${new Date(historyEndDate).toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' })}`;
+      }
+    } else if (historyStartDate) {
+      dateRangeStr = `ตั้งแต่วันที่ ${new Date(historyStartDate).toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' })}`;
+    } else if (historyEndDate) {
+      dateRangeStr = `จนถึงวันที่ ${new Date(historyEndDate).toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' })}`;
+    }
+
+    const printWindow = window.open("", "_blank", "width=1000,height=800");
+    if (!printWindow) {
+      alert("กรุณาอนุญาตให้เบราว์เซอร์เปิด Pop-up เพื่อเปิดหน้าพิมพ์เอกสาร");
+      return;
+    }
+
+    const htmlContent = `
+      <html>
+        <head>
+          <title>รายงานสรุปการรับเข้าพัสดุ - NBC STOCK</title>
+          <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&display=swap" rel="stylesheet">
+          <style>
+            body {
+              font-family: 'Sarabun', sans-serif;
+              padding: 30px;
+              color: #1f2937;
+              background-color: #fff;
+              font-size: 13px;
+              line-height: 1.5;
+            }
+            .header {
+              display: flex;
+              justify-content: space-between;
+              align-items: flex-end;
+              border-bottom: 2px solid #003366;
+              padding-bottom: 12px;
+              margin-bottom: 25px;
+            }
+            .title {
+              font-size: 22px;
+              font-weight: 700;
+              color: #003366;
+            }
+            .meta-info {
+              text-align: right;
+              font-size: 12px;
+            }
+            table {
+              width: 100%;
+              border-collapse: collapse;
+              margin-top: 15px;
+              margin-bottom: 35px;
+            }
+            th {
+              background-color: #003366;
+              color: #fff;
+              font-weight: 600;
+              text-align: left;
+              padding: 8px;
+              border: 1px solid #ddd;
+            }
+            td {
+              padding: 8px;
+              border: 1px solid #ddd;
+            }
+            tr:nth-child(even) {
+              background-color: #f9f9f9;
+            }
+            .total-row {
+              background-color: #f0f4f8 !important;
+              font-weight: 700;
+            }
+            .signatures {
+              margin-top: 60px;
+              display: flex;
+              justify-content: space-between;
+              gap: 50px;
+            }
+            .sig-block {
+              flex: 1;
+              text-align: center;
+              border-top: 1px solid #9ca3af;
+              padding-top: 12px;
+            }
+            .actions-bar {
+              background-color: #003366;
+              padding: 12px 20px;
+              border-radius: 6px;
+              display: flex;
+              justify-content: flex-end;
+              margin-bottom: 20px;
+            }
+            .btn-print {
+              background-color: #ea580c;
+              color: white;
+              border: none;
+              padding: 8px 20px;
+              border-radius: 4px;
+              font-weight: 600;
+              cursor: pointer;
+              font-family: 'Sarabun', sans-serif;
+              transition: all 0.2s;
+            }
+            .btn-print:hover {
+              background-color: #c2410c;
+            }
+            .status-badge {
+              display: inline-block;
+              padding: 0.15rem 0.4rem;
+              border-radius: 4px;
+              font-size: 11px;
+              font-weight: bold;
+            }
+            .status-pass { background-color: #d1e7dd; color: #0f5132; }
+            .status-quarantine { background-color: #fff3cd; color: #664d03; }
+            .status-reject { background-color: #f8d7da; color: #842029; }
+            @media print {
+              .actions-bar {
+                display: none;
+              }
+              body {
+                padding: 0;
+              }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="actions-bar">
+            <button class="btn-print" onclick="window.print()">พิมพ์รายงาน / บันทึก PDF</button>
+          </div>
+          <div class="header">
+            <div>
+              <div class="title">รายงานสรุปการรับเข้าพัสดุ (Material Inbound Summary Report)</div>
+              <div style="font-size: 12px; color: #555; margin-top: 5px;">ระบบบริหารจัดการคลังสินค้า NBC STOCK</div>
+            </div>
+            <div class="meta-info">
+              <div><strong>วันที่ออกรายงาน:</strong> ${today}</div>
+              <div><strong>ช่วงเวลา:</strong> ${dateRangeStr}</div>
+              <div><strong>จำนวนรายการ:</strong> ${reportList.length} รายการ</div>
+            </div>
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 10%;">วันที่รับเข้า</th>
+                <th style="width: 25%;">รายการสินค้า</th>
+                <th style="width: 12%;">Supplier Lot</th>
+                <th style="width: 12%;">Inhouse Lot</th>
+                <th style="width: 10%;">สถานะ QC</th>
+                <th style="width: 8%;">ที่เก็บ</th>
+                <th style="width: 10%; text-align: right;">จำนวนรับ</th>
+                <th style="width: 8%;">หน่วย</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${reportList.map(item => `
+                <tr>
+                  <td>${item.date}</td>
+                  <td style="font-weight: 600;">${item.itemName}</td>
+                  <td>${item.supplierLot || '-'}</td>
+                  <td>${item.inhouseLot || '-'}</td>
+                  <td>
+                    <span class="status-badge ${
+                      item.qcStatus === 'Pass' ? 'status-pass' :
+                      item.qcStatus === 'Reject' ? 'status-reject' : 'status-quarantine'
+                    }">
+                      ${item.qcStatus}
+                    </span>
+                  </td>
+                  <td style="font-weight: 600;">${item.location || '-'}</td>
+                  <td style="font-weight: 700; text-align: right;">${item.quantity.toLocaleString()}</td>
+                  <td>${item.unit || 'ชิ้น'}</td>
+                </tr>
+              `).join('')}
+              <tr class="total-row">
+                <td colspan="6" style="text-align: right;">รวมจำนวนรับเข้าทั้งสิ้น:</td>
+                <td style="color: #003366; text-align: right;">${reportList.reduce((sum, item) => sum + Number(item.quantity), 0).toLocaleString()}</td>
+                <td>หน่วยตามรายการ</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div class="signatures">
+            <div class="sig-block">
+              <br><br>
+              <strong>ผู้รายงาน / เจ้าหน้าที่คลังสินค้า</strong>
+              <div style="margin-top: 5px; font-size: 11px; color: #6b7280;">วันที่: ...... / ...... / ......</div>
+            </div>
+            <div class="sig-block">
+              <br><br>
+              <strong>ผู้ตรวจสอบ / หัวหน้าคลังสินค้า</strong>
+              <div style="margin-top: 5px; font-size: 11px; color: #6b7280;">วันที่: ...... / ...... / ......</div>
+            </div>
+          </div>
         </body>
       </html>
     `;
@@ -834,11 +1057,27 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
               <p className="page-subtitle">แสดงและส่งออกเอกสารรายงานรายการรับเข้าพัสดุในอดีต</p>
             </div>
             <div style={{ display: 'flex', gap: '1rem' }}>
+              {filteredHistory.length > 0 && (
+                <button 
+                  className="btn btn-secondary" 
+                  onClick={() => printInboundReportPDF(filteredHistory)}
+                  style={{ 
+                    background: 'rgba(14, 165, 233, 0.1)', 
+                    color: '#0ea5e9', 
+                    border: '1px solid rgba(14, 165, 233, 0.2)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.4rem'
+                  }}
+                >
+                  <Printer size={18} /> พิมพ์รายงานรับเข้า ({historyStartDate && historyEndDate ? (historyStartDate === historyEndDate ? 'รายวัน' : 'รายช่วงเวลา') : historyStartDate || historyEndDate ? 'รายวัน' : 'ทั้งหมด'})
+                </button>
+              )}
               {selectedHistoryIds.length > 0 && (
                 <button 
                   className="btn btn-secondary" 
                   onClick={() => printHistoricalPDF(inventory.filter(item => selectedHistoryIds.includes(item.id)))}
-                  style={{ background: 'rgba(14, 165, 233, 0.1)', color: '#0ea5e9', border: '1px solid rgba(14, 165, 233, 0.2)' }}
+                  style={{ background: 'rgba(234, 88, 12, 0.1)', color: '#ea580c', border: '1px solid rgba(234, 88, 12, 0.2)' }}
                 >
                   <Printer size={18} /> พิมพ์ใบพัสดุที่เลือก ({selectedHistoryIds.length})
                 </button>
@@ -846,21 +1085,62 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
             </div>
           </div>
 
-          <div className="glass card" style={{ marginBottom: '1.5rem', display: 'flex', gap: '1rem', alignItems: 'center' }}>
-            <input 
-              type="text" 
-              placeholder="ค้นหาประวัติตามชื่อสินค้า, Lot no., หรือที่เก็บ..." 
-              value={historySearch}
-              onChange={(e) => setHistorySearch(e.target.value)}
-              style={{ border: 'none', background: 'transparent', padding: '0.5rem', width: '100%' }}
-            />
-            {historySearch && (
+          <div className="glass card" style={{ marginBottom: '1.5rem', display: 'flex', flexWrap: 'wrap', gap: '1rem', alignItems: 'center' }}>
+            <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flex: '1.5', minWidth: '300px' }}>
+              <Search size={20} color="var(--text-muted)" />
+              <input 
+                type="text" 
+                placeholder="ค้นหาประวัติตามชื่อสินค้า, Lot no., หรือที่เก็บ..." 
+                value={historySearch}
+                onChange={(e) => setHistorySearch(e.target.value)}
+                style={{ border: 'none', background: 'transparent', padding: '0.5rem', width: '100%' }}
+              />
+            </div>
+            
+            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flex: '1', minWidth: '250px' }}>
+              <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>ช่วงวันที่รับเข้า:</span>
+              <input 
+                type="date" 
+                value={historyStartDate}
+                onChange={(e) => setHistoryStartDate(e.target.value)}
+                style={{ 
+                  padding: '0.3rem 0.5rem', 
+                  fontSize: '0.78rem', 
+                  background: '#111827', 
+                  color: '#f9fafb', 
+                  border: '1px solid rgba(255,255,255,0.1)', 
+                  borderRadius: '4px',
+                  flex: 1
+                }}
+              />
+              <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>-</span>
+              <input 
+                type="date" 
+                value={historyEndDate}
+                onChange={(e) => setHistoryEndDate(e.target.value)}
+                style={{ 
+                  padding: '0.3rem 0.5rem', 
+                  fontSize: '0.78rem', 
+                  background: '#111827', 
+                  color: '#f9fafb', 
+                  border: '1px solid rgba(255,255,255,0.1)', 
+                  borderRadius: '4px',
+                  flex: 1
+                }}
+              />
+            </div>
+
+            {(historySearch || historyStartDate || historyEndDate) && (
               <button 
                 className="btn btn-secondary" 
                 style={{ padding: '0.4rem 0.8rem', fontSize: '0.75rem' }}
-                onClick={() => setHistorySearch('')}
+                onClick={() => {
+                  setHistorySearch('');
+                  setHistoryStartDate('');
+                  setHistoryEndDate('');
+                }}
               >
-                ล้างตัวค้นหา
+                ล้างตัวกรองทั้งหมด
               </button>
             )}
           </div>
