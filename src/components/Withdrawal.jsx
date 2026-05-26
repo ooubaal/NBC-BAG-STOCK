@@ -12,6 +12,8 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
   // History search and selection states
   const [historySearch, setHistorySearch] = useState('');
   const [selectedHistoryIds, setSelectedHistoryIds] = useState([]);
+  const [historyStartDate, setHistoryStartDate] = useState('');
+  const [historyEndDate, setHistoryEndDate] = useState('');
 
   // Gather all historical withdrawals from inventory lots
   const historicalWithdrawals = useMemo(() => {
@@ -46,18 +48,26 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
     return inventory.find(i => i.id === activeLotId);
   }, [inventory, activeLotId]);
 
-  // Filter historical list based on search term
+  // Filter historical list based on search term and date range
   const filteredWithdrawals = useMemo(() => {
     return historicalWithdrawals.filter(w => {
       const search = historySearch.toLowerCase();
-      return (
-        w.itemName.toLowerCase().includes(search) ||
-        w.supplierLot.toLowerCase().includes(search) ||
-        (w.inhouseLot && w.inhouseLot.toLowerCase().includes(search)) ||
-        (w.reason && w.reason.toLowerCase().includes(search))
-      );
+      const matchesSearch = w.itemName.toLowerCase().includes(search) ||
+                          w.supplierLot.toLowerCase().includes(search) ||
+                          (w.inhouseLot && w.inhouseLot.toLowerCase().includes(search)) ||
+                          (w.reason && w.reason.toLowerCase().includes(search));
+      
+      let matchesDate = true;
+      if (historyStartDate) {
+        matchesDate = matchesDate && w.date >= historyStartDate;
+      }
+      if (historyEndDate) {
+        matchesDate = matchesDate && w.date <= historyEndDate;
+      }
+      
+      return matchesSearch && matchesDate;
     });
-  }, [historicalWithdrawals, historySearch]);
+  }, [historicalWithdrawals, historySearch, historyStartDate, historyEndDate]);
 
   const handleWithdraw = () => {
     if (!activeLotId) {
@@ -301,6 +311,202 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
     printWindow.document.close();
   };
 
+  const printWithdrawalReportPDF = (reportList) => {
+    const today = new Date().toLocaleDateString('th-TH', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+
+    let dateRangeStr = "ทั้งหมด";
+    if (historyStartDate && historyEndDate) {
+      if (historyStartDate === historyEndDate) {
+        dateRangeStr = `ประจำวันที่ ${new Date(historyStartDate).toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' })}`;
+      } else {
+        dateRangeStr = `ระหว่างวันที่ ${new Date(historyStartDate).toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' })} ถึง ${new Date(historyEndDate).toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' })}`;
+      }
+    } else if (historyStartDate) {
+      dateRangeStr = `ตั้งแต่วันที่ ${new Date(historyStartDate).toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' })}`;
+    } else if (historyEndDate) {
+      dateRangeStr = `จนถึงวันที่ ${new Date(historyEndDate).toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' })}`;
+    }
+
+    const printWindow = window.open("", "_blank", "width=1000,height=800");
+    if (!printWindow) {
+      alert("กรุณาอนุญาตให้เบราว์เซอร์เปิด Pop-up เพื่อเปิดหน้าพิมพ์เอกสาร");
+      return;
+    }
+
+    const htmlContent = `
+      <html>
+        <head>
+          <title>รายงานสรุปการตัดจ่ายพัสดุ - NBC STOCK</title>
+          <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&display=swap" rel="stylesheet">
+          <style>
+            body {
+              font-family: 'Sarabun', sans-serif;
+              padding: 30px;
+              color: #1f2937;
+              background-color: #fff;
+              font-size: 13px;
+              line-height: 1.5;
+            }
+            .header {
+              display: flex;
+              justify-content: space-between;
+              align-items: flex-end;
+              border-bottom: 2px solid #003366;
+              padding-bottom: 12px;
+              margin-bottom: 25px;
+            }
+            .title {
+              font-size: 22px;
+              font-weight: 700;
+              color: #003366;
+            }
+            .meta-info {
+              text-align: right;
+              font-size: 12px;
+            }
+            table {
+              width: 100%;
+              border-collapse: collapse;
+              margin-top: 15px;
+              margin-bottom: 35px;
+            }
+            th {
+              background-color: #003366;
+              color: #fff;
+              font-weight: 600;
+              text-align: left;
+              padding: 8px;
+              border: 1px solid #ddd;
+            }
+            td {
+              padding: 8px;
+              border: 1px solid #ddd;
+            }
+            tr:nth-child(even) {
+              background-color: #f9f9f9;
+            }
+            .total-row {
+              background-color: #f0f4f8 !important;
+              font-weight: 700;
+            }
+            .signatures {
+              margin-top: 60px;
+              display: flex;
+              justify-content: space-between;
+              gap: 50px;
+            }
+            .sig-block {
+              flex: 1;
+              text-align: center;
+              border-top: 1px solid #9ca3af;
+              padding-top: 12px;
+            }
+            .actions-bar {
+              background-color: #003366;
+              padding: 12px 20px;
+              border-radius: 6px;
+              display: flex;
+              justify-content: flex-end;
+              margin-bottom: 20px;
+            }
+            .btn-print {
+              background-color: #ea580c;
+              color: white;
+              border: none;
+              padding: 8px 20px;
+              border-radius: 4px;
+              font-weight: 600;
+              cursor: pointer;
+              font-family: 'Sarabun', sans-serif;
+              transition: all 0.2s;
+            }
+            .btn-print:hover {
+              background-color: #c2410c;
+            }
+            @media print {
+              .actions-bar {
+                display: none;
+              }
+              body {
+                padding: 0;
+              }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="actions-bar">
+            <button class="btn-print" onclick="window.print()">พิมพ์รายงาน / บันทึก PDF</button>
+          </div>
+          <div class="header">
+            <div>
+              <div class="title">รายงานสรุปการตัดจ่ายพัสดุ (Material Withdrawal Summary Report)</div>
+              <div style="font-size: 12px; color: #555; margin-top: 5px;">ระบบบริหารจัดการคลังสินค้า NBC STOCK</div>
+            </div>
+            <div class="meta-info">
+              <div><strong>วันที่ออกรายงาน:</strong> ${today}</div>
+              <div><strong>ช่วงเวลา:</strong> ${dateRangeStr}</div>
+              <div><strong>จำนวนรายการ:</strong> ${reportList.length} รายการ</div>
+            </div>
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 10%;">วันที่ตัดจ่าย</th>
+                <th style="width: 25%;">รายการสินค้า</th>
+                <th style="width: 12%;">Supplier Lot</th>
+                <th style="width: 12%;">Inhouse Lot</th>
+                <th style="width: 10%; text-align: right;">จำนวนตัดจ่าย</th>
+                <th style="width: 7%;">หน่วย</th>
+                <th style="width: 8%;">ที่เก็บเดิม</th>
+                <th style="width: 16%;">เหตุผล / หมายเหตุ</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${reportList.map(w => `
+                <tr>
+                  <td>${w.date}</td>
+                  <td style="font-weight: 600;">${w.itemName}</td>
+                  <td>${w.supplierLot}</td>
+                  <td>${w.inhouseLot || '-'}</td>
+                  <td style="font-weight: 700; color: #dc2626; text-align: right;">-${w.amount.toLocaleString()}</td>
+                  <td>${w.unit}</td>
+                  <td>${w.location || '-'}</td>
+                  <td>${w.reason || '-'}</td>
+                </tr>
+              `).join('')}
+              <tr class="total-row">
+                <td colspan="4" style="text-align: right;">รวมจำนวนตัดจ่ายทั้งสิ้น:</td>
+                <td style="color: #dc2626; text-align: right;">-${reportList.reduce((sum, w) => sum + w.amount, 0).toLocaleString()}</td>
+                <td colspan="3">หน่วยตามรายการ</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div class="signatures">
+            <div class="sig-block">
+              <br><br>
+              <strong>ผู้รายงาน / เจ้าหน้าที่คลังสินค้า</strong>
+              <div style="margin-top: 5px; font-size: 11px; color: #6b7280;">วันที่: ...... / ...... / ......</div>
+            </div>
+            <div class="sig-block">
+              <br><br>
+              <strong>ผู้ตรวจสอบ / ผู้อนุมัติรายงาน</strong>
+              <div style="margin-top: 5px; font-size: 11px; color: #6b7280;">วันที่: ...... / ...... / ......</div>
+            </div>
+          </div>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
+  };
+
   return (
     <div className="fade-in">
       <div className="page-header">
@@ -487,7 +693,23 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
               <h2 className="page-title" style={{ fontSize: '1.5rem' }}>ประวัติการตัดจ่ายพัสดุในคลัง</h2>
               <p className="page-subtitle">แสดงและสั่งพิมพ์รายงานเอกสารการตัดจ่ายพัสดุย้อนหลัง</p>
             </div>
-            <div>
+            <div style={{ display: 'flex', gap: '0.75rem' }}>
+              {filteredWithdrawals.length > 0 && (
+                <button 
+                  className="btn btn-secondary" 
+                  onClick={() => printWithdrawalReportPDF(filteredWithdrawals)}
+                  style={{ 
+                    background: 'rgba(14, 165, 233, 0.1)', 
+                    color: '#0ea5e9', 
+                    border: '1px solid rgba(14, 165, 233, 0.2)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.4rem'
+                  }}
+                >
+                  <Printer size={18} /> พิมพ์รายงานตัดจ่าย ({historyStartDate && historyEndDate ? (historyStartDate === historyEndDate ? 'รายวัน' : 'รายช่วงเวลา') : historyStartDate || historyEndDate ? 'รายวัน' : 'ทั้งหมด'})
+                </button>
+              )}
               {selectedHistoryIds.length > 0 && (
                 <button 
                   className="btn" 
@@ -500,22 +722,62 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
             </div>
           </div>
 
-          <div className="glass card" style={{ marginBottom: '1.5rem', display: 'flex', gap: '1rem', alignItems: 'center' }}>
-            <Search size={20} color="var(--text-muted)" />
-            <input 
-              type="text" 
-              placeholder="ค้นหาประวัติการตัดจ่ายตามชื่อสินค้า, Lot no., หรือเหตุผล..." 
-              value={historySearch}
-              onChange={(e) => setHistorySearch(e.target.value)}
-              style={{ border: 'none', background: 'transparent', padding: '0.5rem', width: '100%' }}
-            />
-            {historySearch && (
+          <div className="glass card" style={{ marginBottom: '1.5rem', display: 'flex', flexWrap: 'wrap', gap: '1rem', alignItems: 'center' }}>
+            <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flex: '1.5', minWidth: '300px' }}>
+              <Search size={20} color="var(--text-muted)" />
+              <input 
+                type="text" 
+                placeholder="ค้นหาประวัติการตัดจ่ายตามชื่อสินค้า, Lot no., หรือเหตุผล..." 
+                value={historySearch}
+                onChange={(e) => setHistorySearch(e.target.value)}
+                style={{ border: 'none', background: 'transparent', padding: '0.5rem', width: '100%' }}
+              />
+            </div>
+            
+            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flex: '1', minWidth: '250px' }}>
+              <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>ช่วงวันที่ตัดจ่าย:</span>
+              <input 
+                type="date" 
+                value={historyStartDate}
+                onChange={(e) => setHistoryStartDate(e.target.value)}
+                style={{ 
+                  padding: '0.3rem 0.5rem', 
+                  fontSize: '0.78rem', 
+                  background: '#111827', 
+                  color: '#f9fafb', 
+                  border: '1px solid rgba(255,255,255,0.1)', 
+                  borderRadius: '4px',
+                  flex: 1
+                }}
+              />
+              <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>-</span>
+              <input 
+                type="date" 
+                value={historyEndDate}
+                onChange={(e) => setHistoryEndDate(e.target.value)}
+                style={{ 
+                  padding: '0.3rem 0.5rem', 
+                  fontSize: '0.78rem', 
+                  background: '#111827', 
+                  color: '#f9fafb', 
+                  border: '1px solid rgba(255,255,255,0.1)', 
+                  borderRadius: '4px',
+                  flex: 1
+                }}
+              />
+            </div>
+
+            {(historySearch || historyStartDate || historyEndDate) && (
               <button 
                 className="btn btn-secondary" 
                 style={{ padding: '0.4rem 0.8rem', fontSize: '0.75rem' }}
-                onClick={() => setHistorySearch('')}
+                onClick={() => {
+                  setHistorySearch('');
+                  setHistoryStartDate('');
+                  setHistoryEndDate('');
+                }}
               >
-                ล้างการค้นหา
+                ล้างตัวกรองทั้งหมด
               </button>
             )}
           </div>
