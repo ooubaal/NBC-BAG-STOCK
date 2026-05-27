@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Database, CheckCircle2, AlertTriangle, Key, Save, RefreshCw, LogOut, Info } from 'lucide-react';
 
-const Settings = ({ config, onSaveConfig, onDisconnect, onMigrate, syncStats, isMigrating }) => {
+const Settings = ({ config, onSaveConfig, onDisconnect, onMigrate, syncStats, isMigrating, onBackup, onRestore }) => {
   const [rawConfigInput, setRawConfigInput] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
 
@@ -208,6 +208,83 @@ const Settings = ({ config, onSaveConfig, onDisconnect, onMigrate, syncStats, is
               </button>
             </div>
           )}
+
+          {/* Backup & Restore Tools */}
+          <div className="glass card">
+            <h3 style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <Save size={20} color="var(--accent-secondary)" />
+              สำรองและกู้คืนข้อมูล (Backup & Restore)
+            </h3>
+            <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '1.2rem' }}>
+              เพื่อความปลอดภัย คุณสามารถดาวน์โหลดไฟล์ข้อมูลสำรองเก็บบันทึกไว้ในเครื่องคอมพิวเตอร์ของคุณ หรือนำไฟล์สำรองดังกล่าวมาอัปโหลดเพื่อกู้คืนฐานข้อมูลได้ตลอดเวลา
+            </p>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <button 
+                className="btn btn-primary" 
+                onClick={onBackup}
+                style={{ 
+                  width: '100%', 
+                  justifyContent: 'center',
+                  background: 'linear-gradient(135deg, var(--accent-secondary), #0284c7)'
+                }}
+              >
+                📥 สำรองข้อมูลเก็บลงเครื่องคอมพิวเตอร์ (Download Backup)
+              </button>
+
+              <div style={{ 
+                borderTop: '1px solid var(--glass-border)', 
+                paddingTop: '1.25rem',
+                marginTop: '0.5rem'
+              }}>
+                <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.5rem', fontWeight: 600 }}>
+                  📂 เลือกไฟล์สำรองข้อมูลเพื่อกู้คืน (.json)
+                </label>
+                <input 
+                  type="file" 
+                  accept=".json"
+                  onChange={(e) => {
+                    const file = e.target.files[0];
+                    if (!file) return;
+                    
+                    const reader = new FileReader();
+                    reader.onload = (event) => {
+                      try {
+                        const parsed = JSON.parse(event.target.result);
+                        onRestore(parsed);
+                        // Reset input value so same file can be uploaded again
+                        e.target.value = '';
+                      } catch (err) {
+                        alert("ไฟล์สำรองข้อมูลไม่ถูกต้อง กรุณาอัปโหลดไฟล์ .json ที่ถูกต้อง");
+                      }
+                    };
+                    reader.readAsText(file);
+                  }}
+                  style={{ 
+                    fontSize: '0.8rem', 
+                    padding: '0.5rem',
+                    cursor: 'pointer'
+                  }}
+                />
+              </div>
+
+              <div style={{ 
+                background: 'rgba(245, 158, 11, 0.08)', 
+                color: 'var(--warning)', 
+                padding: '0.75rem', 
+                borderRadius: '8px', 
+                border: '1px solid rgba(245, 158, 11, 0.2)',
+                fontSize: '0.78rem',
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: '0.5rem',
+                lineHeight: 1.4
+              }}>
+                <AlertTriangle size={16} style={{ flexShrink: 0, marginTop: '2px' }} />
+                <span><strong>คำเตือน:</strong> การกู้คืนข้อมูลจะทำการเขียนทับข้อมูลสต็อกสินค้า สัญญาจัดซื้อ ทะเบียนสินค้า และ NCP เดิมทั้งหมด หากเชื่อมต่อคลาวด์อยู่ ข้อมูลกลางจะเปลี่ยนตามทันที</span>
+              </div>
+            </div>
+          </div>
 
         </div>
 

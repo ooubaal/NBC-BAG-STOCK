@@ -298,6 +298,69 @@ function App() {
     };
   };
 
+  const handleBackup = () => {
+    try {
+      const claimsText = localStorage.getItem('wms_claims');
+      const claims = claimsText ? JSON.parse(claimsText) : [];
+
+      const backupData = {
+        items,
+        inventory,
+        agreements,
+        claims,
+        backupVersion: "1.0",
+        createdAt: new Date().toISOString()
+      };
+
+      const dataStr = JSON.stringify(backupData, null, 2);
+      const blob = new Blob([dataStr], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      const dateStr = new Date().toISOString().split('T')[0];
+      link.href = url;
+      link.download = `nbc_stock_backup_${dateStr}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Backup failed:", error);
+      alert("การสำรองข้อมูลล้มเหลว: " + error.message);
+    }
+  };
+
+  const handleRestore = async (backupData) => {
+    if (!backupData || !Array.isArray(backupData.items) || !Array.isArray(backupData.inventory) || !Array.isArray(backupData.agreements)) {
+      alert("ไฟล์สำรองข้อมูลไม่ถูกต้อง กรุณาตรวจสอบรูปแบบไฟล์");
+      return;
+    }
+
+    if (window.confirm("⚠️ คำเตือนการกู้คืนข้อมูล ⚠️\nการกู้คืนข้อมูลจะทำการเขียนทับข้อมูลสินค้า สต็อกสินค้า สัญญา และการเคลม NCP ทั้งหมดปัจจุบันด้วยข้อมูลจากไฟล์สำรอง\n\nหากเชื่อมต่อกับระบบคลาวด์ ข้อมูลออนไลน์จะซิงค์เปลี่ยนตามทันที!\nคุณแน่ใจหรือไม่ที่จะกู้คืนข้อมูล?")) {
+      try {
+        // Update local React states
+        updateItems(backupData.items);
+        updateInventory(backupData.inventory);
+        updateAgreements(backupData.agreements);
+
+        // Update NCP claims in LocalStorage
+        const claims = backupData.claims || [];
+        localStorage.setItem('wms_claims', JSON.stringify(claims));
+
+        // If cloud database is connected, synchronize claims
+        if (db && claims.length > 0) {
+          for (const claim of claims) {
+            await setDoc(doc(db, 'claims', String(claim.id)), claim);
+          }
+        }
+
+        alert("กู้คืนฐานข้อมูลและซิงค์ระบบคลาวด์เรียบร้อยแล้ว!");
+      } catch (error) {
+        console.error("Restore failed:", error);
+        alert("การกู้คืนข้อมูลล้มเหลว: " + error.message);
+      }
+    }
+  };
+
   const renderContent = () => {
     switch (activeTab) {
       case 'dashboard':
@@ -334,6 +397,8 @@ function App() {
             onMigrate={handleMigrate}
             syncStats={getSyncStats()}
             isMigrating={isMigrating}
+            onBackup={handleBackup}
+            onRestore={handleRestore}
           />
         );
       default:
