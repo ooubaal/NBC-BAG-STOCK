@@ -796,9 +796,9 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
                 style={{ 
                   padding: '0.3rem 0.5rem', 
                   fontSize: '0.78rem', 
-                  background: '#111827', 
-                  color: '#f9fafb', 
-                  border: '1px solid rgba(255,255,255,0.1)', 
+                  background: 'var(--input-bg)', 
+                  color: 'var(--text-primary)', 
+                  border: '1px solid var(--glass-border)', 
                   borderRadius: '4px',
                   flex: 1
                 }}
@@ -811,9 +811,9 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
                 style={{ 
                   padding: '0.3rem 0.5rem', 
                   fontSize: '0.78rem', 
-                  background: '#111827', 
-                  color: '#f9fafb', 
-                  border: '1px solid rgba(255,255,255,0.1)', 
+                  background: 'var(--input-bg)', 
+                  color: 'var(--text-primary)', 
+                  border: '1px solid var(--glass-border)', 
                   borderRadius: '4px',
                   flex: 1
                 }}

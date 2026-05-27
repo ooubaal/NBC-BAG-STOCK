@@ -184,9 +184,9 @@ const Inventory = ({ inventory, setInventory }) => {
                         padding: '0 0.2rem', 
                         fontSize: '0.65rem', 
                         height: '20px', 
-                        background: '#111827', 
+                        background: 'var(--input-bg)', 
                         color: 'var(--accent-color)', 
-                        border: '1px solid rgba(255,255,255,0.1)', 
+                        border: '1px solid var(--glass-border)', 
                         borderRadius: '4px',
                         cursor: 'pointer',
                         fontWeight: 'bold'
@@ -201,14 +201,14 @@ const Inventory = ({ inventory, setInventory }) => {
                       type="date" 
                       value={filterStartDate} 
                       onChange={(e) => setFilterStartDate(e.target.value)} 
-                      style={{ padding: '0.2rem', fontSize: '0.65rem', height: '24px', width: '95px', background: '#111827', color: '#f9fafb', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px' }} 
+                      style={{ padding: '0.2rem', fontSize: '0.65rem', height: '24px', width: '95px', background: 'var(--input-bg)', color: 'var(--text-primary)', border: '1px solid var(--glass-border)', borderRadius: '4px' }} 
                     />
                     <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>-</span>
                     <input 
                       type="date" 
                       value={filterEndDate} 
                       onChange={(e) => setFilterEndDate(e.target.value)} 
-                      style={{ padding: '0.2rem', fontSize: '0.65rem', height: '24px', width: '95px', background: '#111827', color: '#f9fafb', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px' }} 
+                      style={{ padding: '0.2rem', fontSize: '0.65rem', height: '24px', width: '95px', background: 'var(--input-bg)', color: 'var(--text-primary)', border: '1px solid var(--glass-border)', borderRadius: '4px' }} 
                     />
                   </div>
                 </div>
@@ -228,9 +228,9 @@ const Inventory = ({ inventory, setInventory }) => {
                         padding: '0 0.2rem', 
                         fontSize: '0.65rem', 
                         height: '20px', 
-                        background: '#111827', 
+                        background: 'var(--input-bg)', 
                         color: 'var(--accent-color)', 
-                        border: '1px solid rgba(255,255,255,0.1)', 
+                        border: '1px solid var(--glass-border)', 
                         borderRadius: '4px',
                         cursor: 'pointer',
                         fontWeight: 'bold'
@@ -244,7 +244,7 @@ const Inventory = ({ inventory, setInventory }) => {
                   <select 
                     value={filterItem} 
                     onChange={(e) => setFilterItem(e.target.value)}
-                    style={{ padding: '0.2rem', fontSize: '0.7rem', height: '24px', background: '#111827', color: '#f9fafb', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px' }}
+                    style={{ padding: '0.2rem', fontSize: '0.7rem', height: '24px', background: 'var(--input-bg)', color: 'var(--text-primary)', border: '1px solid var(--glass-border)', borderRadius: '4px' }}
                   >
                     <option value="All">ทั้งหมด</option>
                     {uniqueItems.map(name => <option key={name} value={name}>{name}</option>)}
@@ -258,7 +258,7 @@ const Inventory = ({ inventory, setInventory }) => {
                   <select 
                     value={filterQC} 
                     onChange={(e) => setFilterQC(e.target.value)}
-                    style={{ padding: '0.2rem', fontSize: '0.7rem', height: '24px', background: '#111827', color: '#f9fafb', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px' }}
+                    style={{ padding: '0.2rem', fontSize: '0.7rem', height: '24px', background: 'var(--input-bg)', color: 'var(--text-primary)', border: '1px solid var(--glass-border)', borderRadius: '4px' }}
                   >
                     <option value="All">ทั้งหมด</option>
                     <option value="Pass">Pass</option>
@@ -273,7 +273,7 @@ const Inventory = ({ inventory, setInventory }) => {
                   <select 
                     value={filterLocation} 
                     onChange={(e) => setFilterLocation(e.target.value)}
-                    style={{ padding: '0.2rem', fontSize: '0.7rem', height: '24px', background: '#111827', color: '#f9fafb', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px' }}
+                    style={{ padding: '0.2rem', fontSize: '0.7rem', height: '24px', background: 'var(--input-bg)', color: 'var(--text-primary)', border: '1px solid var(--glass-border)', borderRadius: '4px' }}
                   >
                     <option value="All">ทั้งหมด</option>
                     {uniqueLocations.map(loc => <option key={loc} value={loc}>{loc}</option>)}
@@ -286,7 +286,7 @@ const Inventory = ({ inventory, setInventory }) => {
                   <select 
                     value={filterQtyStatus} 
                     onChange={(e) => setFilterQtyStatus(e.target.value)}
-                    style={{ padding: '0.2rem', fontSize: '0.7rem', height: '24px', background: '#111827', color: '#f9fafb', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px' }}
+                    style={{ padding: '0.2rem', fontSize: '0.7rem', height: '24px', background: 'var(--input-bg)', color: 'var(--text-primary)', border: '1px solid var(--glass-border)', borderRadius: '4px' }}
                   >
                     <option value="All">ทั้งหมด</option>
                     <option value="InStock">มีคงเหลือ (&gt; 0)</option>
@@ -300,7 +300,7 @@ const Inventory = ({ inventory, setInventory }) => {
                   <select 
                     value={filterAcceptance} 
                     onChange={(e) => setFilterAcceptance(e.target.value)}
-                    style={{ padding: '0.2rem', fontSize: '0.7rem', height: '24px', background: '#111827', color: '#f9fafb', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px' }}
+                    style={{ padding: '0.2rem', fontSize: '0.7rem', height: '24px', background: 'var(--input-bg)', color: 'var(--text-primary)', border: '1px solid var(--glass-border)', borderRadius: '4px' }}
                   >
                     <option value="All">ทั้งหมด</option>
                     <option value="">ยังไม่ได้วางบิล</option>
@@ -454,9 +454,9 @@ const Inventory = ({ inventory, setInventory }) => {
                                   rows={2}
                                   style={{ 
                                     width: '100%', 
-                                    background: '#111827', 
-                                    color: '#f9fafb', 
-                                    border: '1px solid rgba(255,255,255,0.1)', 
+                                    background: 'var(--input-bg)', 
+                                    color: 'var(--text-primary)', 
+                                    border: '1px solid var(--glass-border)', 
                                     borderRadius: '4px',
                                     padding: '0.5rem',
                                     fontSize: '0.8rem',

@@ -44,14 +44,15 @@
 }
 
 .nav-item:hover {
-  background: var(--glass-bg);
+  background: rgba(255, 255, 255, 0.45);
   color: var(--text-primary);
 }
 
 .nav-item.active {
-  background: rgba(245, 158, 11, 0.1);
-  color: var(--accent-color);
-  border-left: 4px solid var(--accent-color);
+  background: rgba(2, 132, 199, 0.1);
+  color: var(--accent-secondary);
+  border-left: 4px solid var(--accent-secondary);
+  font-weight: 700;
 }
 
 .main-content {
