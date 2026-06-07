@@ -176,7 +176,7 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
 
       // 4. Configure Inbound Form columns (adding Unit as Column C, auto-resolved via VLOOKUP)
       formSheet.columns = [
-        { header: 'วันที่รับเข้า (YYYY-MM-DD)', key: 'date', width: 25 },
+        { header: 'วันที่รับเข้า (DD-MM-YYYY)', key: 'date', width: 25 },
         { header: 'ชื่อสินค้า (ต้องตรงตามทะเบียนพัสดุ)', key: 'itemName', width: 40 },
         { header: 'หน่วย (แสดงอัตโนมัติ)', key: 'unit', width: 20 },
         { header: 'เลขที่สัญญาจัดซื้อ (ถ้ามี)', key: 'agreementId', width: 25 },
@@ -211,7 +211,13 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
       // 5. Add a sample data row in Row 2
       const sampleItemName = (items && items.length > 0) ? items[0].name : "Raw Material A";
       formSheet.addRow({
-        date: new Date().toISOString().split('T')[0],
+        date: (() => {
+          const today = new Date();
+          const day = String(today.getDate()).padStart(2, '0');
+          const month = String(today.getMonth() + 1).padStart(2, '0');
+          const year = today.getFullYear();
+          return `${day}-${month}-${year}`;
+        })(),
         itemName: sampleItemName,
         unit: { formula: `IF(ISBLANK(B2),"",VLOOKUP(B2,'Product Registry'!$A$2:$B$${maxRegistryRow},2,FALSE))` },
         agreementId: '',
@@ -334,7 +340,22 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
           if (dateVal instanceof Date) {
             dateStr = formatLocalDate(dateVal);
           } else if (typeof dateVal === 'string' && dateVal.trim() !== '') {
-            dateStr = dateVal.trim();
+            const trimmed = dateVal.trim();
+            const dmyRegex = /^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/;
+            const match = trimmed.match(dmyRegex);
+            if (match) {
+              const day = match[1].padStart(2, '0');
+              const month = match[2].padStart(2, '0');
+              const year = match[3];
+              dateStr = `${year}-${month}-${day}`;
+            } else {
+              const ymdRegex = /^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/;
+              if (ymdRegex.test(trimmed)) {
+                dateStr = trimmed.replace(/\//g, '-');
+              } else {
+                dateStr = formatLocalDate(new Date());
+              }
+            }
           } else if (typeof dateVal === 'number') {
             // Excel serial date number
             const dateObj = new Date((dateVal - 25569) * 86400 * 1000);
