@@ -1,5 +1,4 @@
 import { useState, useEffect, useMemo } from 'react';
-import { doc, setDoc, collection, onSnapshot, deleteDoc } from 'firebase/firestore';
 import { Camera, Plus, Download, Edit2, Trash2, X, Search } from 'lucide-react';
 
 const compressImageFile = (file, maxWidth = 1200, maxHeight = 1200) => {
@@ -77,85 +76,16 @@ const modalContentStyle = {
   position: 'relative'
 };
 
-const NCP = ({ inventory, items, db }) => {
-  // Use lazy state initialization to load claims immediately, preventing race condition on initial render
-  const [claims, rawSetClaims] = useState(() => {
-    try {
-      const savedClaims = localStorage.getItem('wms_claims');
-      let parsed = savedClaims ? JSON.parse(savedClaims) : [];
-      return parsed.filter(claim => claim && claim.id);
-    } catch (e) {
-      console.error("Error loading claims:", e);
-      return [];
-    }
-  });
+const formatThaiDate = (dateStr) => {
+  if (!dateStr) return '-';
+  const parts = dateStr.split('-');
+  if (parts.length !== 3) return dateStr;
+  const [yyyy, mm, dd] = parts;
+  const thaiYear = parseInt(yyyy, 10) + 543;
+  return `${dd}/${mm}/${thaiYear}`;
+};
 
-  // Custom wrapper to update both state and Firestore
-  const setClaims = (newClaimsOrFunc) => {
-    rawSetClaims(prev => {
-      const next = typeof newClaimsOrFunc === 'function' ? newClaimsOrFunc(prev) : newClaimsOrFunc;
-      
-      if (db) {
-        next.forEach(claim => {
-          const prevClaim = prev.find(p => p.id === claim.id);
-          if (!prevClaim || JSON.stringify(prevClaim) !== JSON.stringify(claim)) {
-            setDoc(doc(db, 'claims', String(claim.id)), claim)
-              .catch(err => console.error("Error syncing claim:", err));
-          }
-        });
-        
-        prev.forEach(prevClaim => {
-          const stillExists = next.some(n => n.id === prevClaim.id);
-          if (!stillExists) {
-            deleteDoc(doc(db, 'claims', String(prevClaim.id))).catch(err => console.error("Error deleting claim:", err));
-          }
-        });
-      }
-      return next;
-    });
-  };
-
-  // Real-time claims sync from Firestore when connected
-  useEffect(() => {
-    if (!db) return;
-
-    const claimsRef = collection(db, 'claims');
-    const unsubscribe = onSnapshot(claimsRef, (snapshot) => {
-      const list = [];
-      snapshot.forEach(docSnap => {
-        const data = docSnap.data();
-        if (data && data.id) {
-          list.push(data);
-        }
-      });
-      
-      const savedConfig = localStorage.getItem('wms_firebase_config');
-      let projectId = null;
-      if (savedConfig) {
-        try {
-          projectId = JSON.parse(savedConfig).projectId;
-        } catch {
-          console.warn("Failed to parse firebase config from localStorage");
-        }
-      }
-      
-      const isSynced = projectId && localStorage.getItem('wms_synced_project_id') === projectId;
-
-      if (list.length > 0) {
-        rawSetClaims(list);
-        if (projectId) {
-          localStorage.setItem('wms_synced_project_id', projectId);
-        }
-      } else if (isSynced) {
-        rawSetClaims([]);
-      }
-    }, (error) => {
-      console.error("Error listening to claims:", error);
-    });
-
-    return () => unsubscribe();
-  }, [db]);
-
+const NCP = ({ inventory, items, claims, setClaims }) => {
   const [ncpTab, setNcpTab] = useState('active'); // 'all', 'active', 'completed'
   const [isAdding, setIsAdding] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -172,6 +102,7 @@ const NCP = ({ inventory, items, db }) => {
     lotNo: '',
     description: '',
     status: 'Found', // Found, Claiming, Returned
+    followUpDate: new Date().toISOString().split('T')[0],
     images: {
       found: [],
       claim: [],
@@ -272,6 +203,7 @@ const NCP = ({ inventory, items, db }) => {
       lotNo: '',
       description: '',
       status: 'Found',
+      followUpDate: new Date().toISOString().split('T')[0],
       images: { found: [], claim: [], returned: [] }
     });
   };
@@ -411,6 +343,15 @@ const NCP = ({ inventory, items, db }) => {
             <label style={{ display: 'block', marginBottom: '0.5rem' }}>รายละเอียดปัญหา</label>
             <textarea value={newClaim.description} onChange={e => setNewClaim({...newClaim, description: e.target.value})} placeholder="เช่น สินค้าชำรุด, สีผิดเพี้ยน..." rows="3"></textarea>
           </div>
+
+          <div style={{ marginBottom: '1.5rem' }}>
+            <label style={{ display: 'block', marginBottom: '0.5rem' }}>วันติดตามงาน (Tentative Follow-up Date)</label>
+            <input 
+              type="date" 
+              value={newClaim.followUpDate} 
+              onChange={e => setNewClaim({...newClaim, followUpDate: e.target.value})} 
+            />
+          </div>
           
           <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1rem', marginBottom: '1.5rem' }}>
             <ImageUploader 
@@ -520,6 +461,11 @@ const NCP = ({ inventory, items, db }) => {
                   {claim.quantity && (
                     <div style={{ fontSize: '0.85rem', color: 'var(--accent-secondary)', fontWeight: 600, marginTop: '0.25rem' }}>
                       จำนวนเคลม: {claim.quantity} {claim.unit || 'ชิ้น'}
+                    </div>
+                  )}
+                  {claim.followUpDate && (
+                    <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
+                      วันติดตามงาน: <strong style={{ color: 'var(--accent-color)' }}>{formatThaiDate(claim.followUpDate)}</strong>
                     </div>
                   )}
                 </div>
@@ -713,6 +659,15 @@ const NCP = ({ inventory, items, db }) => {
                 onChange={e => setEditingClaim({...editingClaim, description: e.target.value})} 
                 rows="3"
               ></textarea>
+            </div>
+
+            <div style={{ marginBottom: '1.2rem' }}>
+              <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '0.4rem', color: 'var(--text-secondary)' }}>วันติดตามงาน (Tentative Follow-up Date)</label>
+              <input 
+                type="date" 
+                value={editingClaim.followUpDate || ''} 
+                onChange={e => setEditingClaim({...editingClaim, followUpDate: e.target.value})} 
+              />
             </div>
 
             <h4 style={{ marginBottom: '0.8rem', color: 'var(--text-secondary)', fontSize: '0.9rem', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '1rem' }}>

@@ -2,7 +2,6 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { 
   LayoutDashboard, 
   Package, 
-  Download, 
   BarChart3, 
   AlertOctagon, 
   Plus, 
@@ -12,7 +11,8 @@ import {
   ShieldCheck,
   PackageOpen,
   MinusCircle,
-  ClipboardList
+  ClipboardList,
+  Calendar
 } from 'lucide-react';
 import './App.css';
 
@@ -73,6 +73,17 @@ function App() {
       const saved = localStorage.getItem('wms_agreements');
       let parsed = saved ? JSON.parse(saved) : [];
       return parsed.filter(ag => ag && ag.id);
+    } catch (e) {
+      console.error(e);
+      return [];
+    }
+  });
+
+  const [claims, setClaims] = useState(() => {
+    try {
+      const saved = localStorage.getItem('wms_claims');
+      let parsed = saved ? JSON.parse(saved) : [];
+      return parsed.filter(c => c && c.id);
     } catch (e) {
       console.error(e);
       return [];
@@ -199,6 +210,53 @@ function App() {
     return () => unsubscribe();
   }, [db, firebaseConfig]);
 
+  // 4bb. Real-time synchronisation for Claims
+  useEffect(() => {
+    if (!db) return;
+
+    const claimsRef = collection(db, 'claims');
+    const unsubscribe = onSnapshot(claimsRef, (snapshot) => {
+      const list = [];
+      snapshot.forEach(docSnap => {
+        const data = docSnap.data();
+        if (data && data.id) {
+          list.push(data);
+        }
+      });
+      
+      const isSynced = firebaseConfig && localStorage.getItem('wms_synced_project_id') === firebaseConfig.projectId;
+
+      if (list.length > 0) {
+        // Normalize images structure for backward compatibility
+        const normalized = list.map(c => {
+          const normalizedImages = {};
+          const steps = ['found', 'claim', 'returned'];
+          steps.forEach(step => {
+            if (c.images && c.images[step]) {
+              normalizedImages[step] = Array.isArray(c.images[step]) 
+                ? c.images[step] 
+                : [c.images[step]];
+            } else {
+              normalizedImages[step] = [];
+            }
+          });
+          return { ...c, images: normalizedImages };
+        });
+
+        setClaims(normalized);
+        if (firebaseConfig) {
+          localStorage.setItem('wms_synced_project_id', firebaseConfig.projectId);
+        }
+      } else if (isSynced) {
+        setClaims([]);
+      }
+    }, (error) => {
+      console.error("Error listening to claims:", error);
+    });
+
+    return () => unsubscribe();
+  }, [db, firebaseConfig]);
+
   // 4c. Set project as synced automatically if local storage is already empty on boot
   useEffect(() => {
     if (db && firebaseConfig && firebaseConfig.projectId) {
@@ -221,6 +279,10 @@ function App() {
   useEffect(() => {
     localStorage.setItem('wms_agreements', JSON.stringify(agreements));
   }, [agreements]);
+
+  useEffect(() => {
+    localStorage.setItem('wms_claims', JSON.stringify(claims));
+  }, [claims]);
 
   // 5. Intercept state updates to sync with Firestore
   const updateItems = (newItemsOrFunc) => {
@@ -302,6 +364,36 @@ function App() {
               if (!stillExists) {
                 deleteDoc(doc(db, 'agreements', String(prevAgreement.id)))
                   .catch(err => console.error("Error deleting agreement:", err));
+              }
+            }
+          });
+        }
+      }
+      return next;
+    });
+  };
+
+  const updateClaims = (newClaimsOrFunc) => {
+    setClaims(prev => {
+      const next = typeof newClaimsOrFunc === 'function' ? newClaimsOrFunc(prev) : newClaimsOrFunc;
+      
+      if (db && Array.isArray(next)) {
+        next.forEach(claim => {
+          if (claim && claim.id) {
+            const prevClaim = Array.isArray(prev) ? prev.find(p => p && p.id === claim.id) : null;
+            if (!prevClaim || JSON.stringify(prevClaim) !== JSON.stringify(claim)) {
+              setDoc(doc(db, 'claims', String(claim.id)), claim)
+                .catch(err => console.error("Error syncing claim:", err));
+            }
+          }
+        });
+        if (Array.isArray(prev)) {
+          prev.forEach(prevClaim => {
+            if (prevClaim && prevClaim.id) {
+              const stillExists = next.some(n => n && n.id === prevClaim.id);
+              if (!stillExists) {
+                deleteDoc(doc(db, 'claims', String(prevClaim.id)))
+                  .catch(err => console.error("Error deleting claim doc:", err));
               }
             }
           });
@@ -487,6 +579,7 @@ function App() {
           setItems(INITIAL_ITEMS);
           setInventory([]);
           setAgreements([]);
+          setClaims([]);
           localStorage.setItem('wms_claims', '[]');
 
           if (firebaseConfig && firebaseConfig.projectId) {
@@ -504,7 +597,7 @@ function App() {
   const renderContent = () => {
     switch (activeTab) {
       case 'dashboard':
-        return <Dashboard inventory={inventory} items={items} setActiveTab={setActiveTab} />;
+        return <Dashboard inventory={inventory} items={items} claims={claims} setActiveTab={setActiveTab} />;
       case 'items':
         return <ProductRegistry items={items} setItems={updateItems} />;
       case 'inventory':
@@ -516,7 +609,7 @@ function App() {
       case 'analytics':
         return <Analytics inventory={inventory} items={items} />;
       case 'ncp':
-        return <NCP inventory={inventory} items={items} db={db} />;
+        return <NCP inventory={inventory} items={items} claims={claims} setClaims={updateClaims} />;
       case 'agreements':
         return <Agreements agreements={agreements} setAgreements={updateAgreements} inventory={inventory} setInventory={updateInventory} items={items} />;
       case 'settings':
@@ -543,7 +636,7 @@ function App() {
           />
         );
       default:
-        return <Dashboard inventory={inventory} items={items} setActiveTab={setActiveTab} />;
+        return <Dashboard inventory={inventory} items={items} claims={claims} setActiveTab={setActiveTab} />;
     }
   };
 
@@ -632,7 +725,16 @@ function NavItem({ active, onClick, icon, label }) {
   );
 }
 
-const Dashboard = ({ inventory, items, setActiveTab }) => {
+const formatThaiDate = (dateStr) => {
+  if (!dateStr) return '-';
+  const parts = dateStr.split('-');
+  if (parts.length !== 3) return dateStr;
+  const [yyyy, mm, dd] = parts;
+  const thaiYear = parseInt(yyyy, 10) + 543;
+  return `${dd}/${mm}/${thaiYear}`;
+};
+
+const Dashboard = ({ inventory, items, claims, setActiveTab }) => {
   const stats = {
     total: inventory.length,
     pass: inventory.filter(i => i.qcStatus === 'Pass').length,
@@ -709,6 +811,15 @@ const Dashboard = ({ inventory, items, setActiveTab }) => {
     return { outOfStockList, lowStockList };
   }, [inventory, items]);
 
+  const ncpFollowUps = useMemo(() => {
+    if (!claims || claims.length === 0) return [];
+    
+    // Filter active claims with a follow-up date and sort ascending
+    return claims
+      .filter(c => c.status !== 'Returned' && c.followUpDate)
+      .sort((a, b) => new Date(a.followUpDate) - new Date(b.followUpDate));
+  }, [claims]);
+
   return (
     <div className="fade-in">
       <div className="page-header">
@@ -772,6 +883,66 @@ const Dashboard = ({ inventory, items, setActiveTab }) => {
             </h4>
             <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>มีรายการ Quarantine ค้างอยู่ {stats.quarantine} รายการ กรุณาตรวจสอบสถานะ QC</p>
           </div>
+
+          {ncpFollowUps.length > 0 && (
+            <div className="glass card" style={{ borderLeft: '4px solid var(--accent-secondary)' }}>
+              <h4 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem', color: 'var(--accent-secondary)' }}>
+                <Calendar size={18} /> ติดตามงานเคลม/คืน NCP ({ncpFollowUps.length})
+              </h4>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', maxHeight: '200px', overflowY: 'auto', paddingRight: '0.25rem' }}>
+                {ncpFollowUps.map((claim) => {
+                  const today = new Date();
+                  today.setHours(0, 0, 0, 0);
+                  const followUp = new Date(claim.followUpDate);
+                  followUp.setHours(0, 0, 0, 0);
+                  const isOverdue = followUp < today;
+                  
+                  return (
+                    <div 
+                      key={claim.id} 
+                      style={{ 
+                        display: 'flex', 
+                        flexDirection: 'column', 
+                        gap: '0.25rem', 
+                        background: isOverdue ? 'rgba(239, 68, 68, 0.05)' : 'rgba(2, 132, 199, 0.05)', 
+                        padding: '0.5rem 0.75rem', 
+                        borderRadius: '6px', 
+                        fontSize: '0.8rem', 
+                        border: isOverdue ? '1px solid rgba(239, 68, 68, 0.15)' : '1px solid rgba(2, 132, 199, 0.15)' 
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '160px' }} title={claim.productName}>
+                          {claim.productName}
+                        </span>
+                        <span 
+                          style={{ 
+                            fontSize: '0.65rem', 
+                            padding: '0.1rem 0.4rem',
+                            borderRadius: '4px',
+                            fontWeight: 700,
+                            backgroundColor: claim.status === 'Found' ? 'rgba(239, 68, 68, 0.15)' : 'rgba(245, 158, 11, 0.15)',
+                            color: claim.status === 'Found' ? '#ef4444' : '#f59e0b'
+                          }}
+                        >
+                          {claim.status === 'Found' ? 'พบปัญหา' : 'กำลังเคลม'}
+                        </span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.725rem', marginTop: '0.1rem' }}>
+                        <span style={{ color: 'var(--text-secondary)' }}>Lot: {claim.supplierLot}</span>
+                        <span style={{ 
+                          color: isOverdue ? '#ef4444' : 'var(--accent-secondary)', 
+                          fontWeight: 600 
+                        }}>
+                          {isOverdue ? `เลยกำหนด: ${formatThaiDate(claim.followUpDate)}` : `กำหนดตาม: ${formatThaiDate(claim.followUpDate)}`}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {alerts.outOfStockList.length > 0 && (
             <div className="glass card" style={{ borderLeft: '4px solid #ef4444' }}>
