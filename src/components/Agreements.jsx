@@ -5,6 +5,8 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
   const [activeTab, setActiveTab] = useState('list'); // 'list' or 'new'
   const [expandedAgreementId, setExpandedAgreementId] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [formSearchQuery, setFormSearchQuery] = useState('');
+  const [isFormDropdownOpen, setIsFormDropdownOpen] = useState(false);
 
   // New agreement form state
   const [newAgreement, setNewAgreement] = useState({
@@ -423,19 +425,103 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
             <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: '1.5rem' }}>
               <div>
                 <label style={{ display: 'block', marginBottom: '0.4rem', fontSize: '0.85rem' }}>เลือกสินค้าจัดซื้อ <span style={{ color: 'var(--danger)' }}>*</span></label>
-                <select 
-                  value={newAgreement.itemName} 
-                  onChange={e => {
-                    const selected = items.find(i => i.name === e.target.value);
-                    setNewAgreement({
-                      ...newAgreement,
-                      itemName: e.target.value,
-                      unit: selected ? selected.unit : 'ชิ้น'
-                    });
-                  }}
-                >
-                  {items.map(item => <option key={item.name} value={item.name}>{item.name}</option>)}
-                </select>
+                <div style={{ position: 'relative' }}>
+                  <div 
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      border: '1px solid var(--glass-border)',
+                      borderRadius: '8px',
+                      background: 'var(--glass-bg)',
+                      padding: '0.45rem 0.75rem',
+                      cursor: 'pointer',
+                      justifyContent: 'space-between'
+                    }}
+                    onClick={() => setIsFormDropdownOpen(!isFormDropdownOpen)}
+                  >
+                    <input
+                      type="text"
+                      placeholder="พิมพ์เพื่อค้นหาชื่อสินค้า..."
+                      value={isFormDropdownOpen ? formSearchQuery : newAgreement.itemName}
+                      onChange={(e) => {
+                        setFormSearchQuery(e.target.value);
+                        setIsFormDropdownOpen(true);
+                      }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setIsFormDropdownOpen(true);
+                      }}
+                      style={{
+                        border: 'none',
+                        outline: 'none',
+                        background: 'transparent',
+                        width: '100%',
+                        color: 'var(--text-primary)',
+                        fontSize: '0.9rem'
+                      }}
+                    />
+                    <ChevronDown size={18} color="var(--text-secondary)" style={{ transform: isFormDropdownOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s', flexShrink: 0 }} />
+                  </div>
+
+                  {isFormDropdownOpen && (
+                    <>
+                      <div 
+                        style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 998 }} 
+                        onClick={() => { setIsFormDropdownOpen(false); setFormSearchQuery(''); }}
+                      />
+                      <div 
+                        style={{
+                          position: 'absolute',
+                          top: '105%',
+                          left: 0,
+                          right: 0,
+                          maxHeight: '250px',
+                          overflowY: 'auto',
+                          background: 'rgba(30, 41, 59, 0.98)',
+                          backdropFilter: 'blur(10px)',
+                          border: '1px solid var(--glass-border)',
+                          borderRadius: '8px',
+                          zIndex: 999,
+                          boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.5)'
+                        }}
+                      >
+                        {((items ? items.filter(item => item.name.toLowerCase().includes(formSearchQuery.toLowerCase())) : []).length === 0) ? (
+                          <div style={{ padding: '0.75rem 1rem', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                            ไม่พบสินค้าที่ตรงกับคำค้นหา
+                          </div>
+                        ) : (
+                          (items ? items.filter(item => item.name.toLowerCase().includes(formSearchQuery.toLowerCase())) : []).map(item => (
+                            <div
+                              key={item.name}
+                              style={{
+                                padding: '0.6rem 1rem',
+                                cursor: 'pointer',
+                                background: newAgreement.itemName === item.name ? 'rgba(245, 158, 11, 0.2)' : 'transparent',
+                                color: newAgreement.itemName === item.name ? 'var(--accent-color)' : 'var(--text-primary)',
+                                fontSize: '0.88rem',
+                                borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
+                                transition: 'background 0.15s'
+                              }}
+                              onMouseEnter={(e) => e.target.style.background = 'rgba(255, 255, 255, 0.08)'}
+                              onMouseLeave={(e) => e.target.style.background = newAgreement.itemName === item.name ? 'rgba(245, 158, 11, 0.2)' : 'transparent'}
+                              onClick={() => {
+                                setNewAgreement({
+                                  ...newAgreement,
+                                  itemName: item.name,
+                                  unit: item.unit || 'ชิ้น'
+                                });
+                                setIsFormDropdownOpen(false);
+                                setFormSearchQuery('');
+                              }}
+                            >
+                              {item.name} {item.unit ? `(${item.unit})` : ''}
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </>
+                  )}
+                </div>
               </div>
               <div>
                 <label style={{ display: 'block', marginBottom: '0.4rem', fontSize: '0.85rem' }}>จำนวนจัดซื้อตามสัญญา <span style={{ color: 'var(--danger)' }}>*</span></label>
