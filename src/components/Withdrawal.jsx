@@ -31,6 +31,7 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
             itemName: item.itemName,
             supplierLot: item.supplierLot,
             inhouseLot: item.inhouseLot,
+            packSize: item.packSize || '-',
             unit: item.unit || 'ชิ้น',
             location: item.location,
             isCancelled: w.isCancelled || false
@@ -562,6 +563,200 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
     printWindow.document.close();
   };
 
+  const printRawMaterialRequisitionPDF = (reportList) => {
+    const printWindow = window.open("", "_blank", "width=1000,height=900");
+    if (!printWindow) {
+      alert("กรุณาอนุญาตให้เบราว์เซอร์เปิด Pop-up เพื่อเปิดหน้าพิมพ์เอกสาร");
+      return;
+    }
+
+    // Only print active (non-cancelled) items to reflect "จริงที่จ่าย"
+    const activeList = reportList.filter(w => !w.isCancelled);
+
+    // Create exactly 33 rows
+    const rows = [];
+    for (let i = 0; i < 33; i++) {
+      if (i < activeList.length) {
+        const item = activeList[i];
+        rows.push({
+          no: i + 1,
+          itemName: `${item.itemName} (Lot inhouse: ${item.inhouseLot || '-'})`,
+          unitPack: item.packSize || '-',
+          amountReq: item.amount,
+          amountIssued: item.amount,
+        });
+      } else {
+        rows.push({
+          no: i + 1,
+          itemName: '',
+          unitPack: '',
+          amountReq: '',
+          amountIssued: '',
+        });
+      }
+    }
+
+    const htmlContent = `
+      <html>
+        <head>
+          <title>ใบเบิก-จ่ายวัตถุดิบ - NBC STOCK</title>
+          <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&display=swap" rel="stylesheet">
+          <style>
+            @page {
+              size: A4 portrait;
+              margin: 10mm;
+            }
+            body {
+              font-family: 'Sarabun', sans-serif;
+              color: #000;
+              background-color: #fff;
+              font-size: 13px;
+              line-height: 1.3;
+              margin: 0;
+              padding: 0;
+            }
+            .title-container {
+              text-align: center;
+              margin-bottom: 5px;
+            }
+            .title {
+              font-size: 20px;
+              font-weight: 700;
+              margin: 0;
+              letter-spacing: 1px;
+            }
+            .date-row {
+              text-align: right;
+              font-size: 13px;
+              margin-bottom: 10px;
+              padding-right: 10px;
+            }
+            table {
+              width: 100%;
+              border-collapse: collapse;
+              margin-bottom: 10px;
+            }
+            th {
+              border: 1.5px solid #000;
+              font-weight: 600;
+              text-align: center;
+              padding: 6px 4px;
+              font-size: 12px;
+            }
+            td {
+              border: 1.5px solid #000;
+              padding: 5px 4px;
+              font-size: 12px;
+              height: 20px;
+            }
+            .center {
+              text-align: center;
+            }
+            .right {
+              text-align: right;
+              padding-right: 8px;
+            }
+            .footer {
+              display: flex;
+              justify-content: space-between;
+              font-size: 11px;
+              margin-top: 10px;
+              padding: 0 5px;
+            }
+            .actions-bar {
+              background-color: #0f172a;
+              padding: 12px 20px;
+              border-radius: 6px;
+              display: flex;
+              justify-content: flex-end;
+              margin-bottom: 15px;
+            }
+            .btn-print {
+              background-color: #ea580c;
+              color: white;
+              border: none;
+              padding: 8px 20px;
+              border-radius: 4px;
+              font-weight: 600;
+              cursor: pointer;
+              font-family: 'Sarabun', sans-serif;
+              font-size: 13px;
+              transition: all 0.2s;
+            }
+            .btn-print:hover {
+              background-color: #c2410c;
+            }
+            @media print {
+              .actions-bar {
+                display: none;
+              }
+              body {
+                padding: 0;
+              }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="actions-bar">
+            <button class="btn-print" onclick="window.print()">พิมพ์เอกสาร / บันทึก PDF</button>
+          </div>
+          
+          <div class="title-container">
+            <h1 class="title">ใบเบิก-จ่ายวัตถุดิบ</h1>
+          </div>
+          <div class="date-row">
+            วันที่ _______________ เดือน ___________________________ พ.ศ. _________________
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 6%;">ลำดับที่</th>
+                <th style="width: 38%;">รายการ</th>
+                <th style="width: 10%;">หน่วยละ</th>
+                <th style="width: 11%;">จำนวนเบิก</th>
+                <th style="width: 9%;">ผู้เบิก</th>
+                <th style="width: 11%;">จำนวนจ่าย</th>
+                <th style="width: 9%;">ผู้จ่าย</th>
+                <th style="width: 16%;">หมายเหตุ</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows.map(r => `
+                <tr>
+                  <td class="center">${r.no}</td>
+                  <td style="padding-left: 8px; font-weight: ${r.itemName ? '600' : 'normal'};">${r.itemName}</td>
+                  <td class="center">${r.unitPack}</td>
+                  <td class="right">${r.amountReq ? r.amountReq.toLocaleString() : ''}</td>
+                  <td class="center"></td>
+                  <td class="right" style="font-weight: bold;">${r.amountIssued ? r.amountIssued.toLocaleString() : ''}</td>
+                  <td class="center"></td>
+                  <td class="center"></td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+
+          <div class="footer">
+            <span>แบบฟอร์มเลขที่ BSD-014/001</span>
+            <span>แก้ไขครั้งที่ 03/2564</span>
+          </div>
+
+          <script>
+            window.onload = function() {
+              setTimeout(function() {
+                window.print();
+              }, 300);
+            }
+          </script>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
+  };
+
   return (
     <div className="fade-in">
       <div className="page-header">
@@ -841,20 +1036,36 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
             </div>
             <div style={{ display: 'flex', gap: '0.75rem' }}>
               {filteredWithdrawals.length > 0 && (
-                <button 
-                  className="btn btn-secondary" 
-                  onClick={() => printWithdrawalReportPDF(filteredWithdrawals)}
-                  style={{ 
-                    background: 'rgba(14, 165, 233, 0.1)', 
-                    color: '#0ea5e9', 
-                    border: '1px solid rgba(14, 165, 233, 0.2)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.4rem'
-                  }}
-                >
-                  <Printer size={18} /> พิมพ์รายงานตัดจ่าย ({historyStartDate && historyEndDate ? (historyStartDate === historyEndDate ? 'รายวัน' : 'รายช่วงเวลา') : historyStartDate || historyEndDate ? 'รายวัน' : 'ทั้งหมด'})
-                </button>
+                <>
+                  <button 
+                    className="btn btn-secondary" 
+                    onClick={() => printRawMaterialRequisitionPDF(filteredWithdrawals)}
+                    style={{ 
+                      background: 'rgba(16, 185, 129, 0.1)', 
+                      color: '#10b981', 
+                      border: '1px solid rgba(16, 185, 129, 0.2)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.4rem'
+                    }}
+                  >
+                    <Printer size={18} /> พิมพ์ใบเบิก-จ่ายวัตถุดิบ (ฟอร์ม)
+                  </button>
+                  <button 
+                    className="btn btn-secondary" 
+                    onClick={() => printWithdrawalReportPDF(filteredWithdrawals)}
+                    style={{ 
+                      background: 'rgba(14, 165, 233, 0.1)', 
+                      color: '#0ea5e9', 
+                      border: '1px solid rgba(14, 165, 233, 0.2)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.4rem'
+                    }}
+                  >
+                    <Printer size={18} /> พิมพ์รายงานตัดจ่าย ({historyStartDate && historyEndDate ? (historyStartDate === historyEndDate ? 'รายวัน' : 'รายช่วงเวลา') : historyStartDate || historyEndDate ? 'รายวัน' : 'ทั้งหมด'})
+                  </button>
+                </>
               )}
               {selectedHistoryIds.length > 0 && (
                 <button 
