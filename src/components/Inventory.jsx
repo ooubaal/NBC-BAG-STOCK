@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, ChevronDown, ChevronUp, History, MinusCircle, Settings, Save } from 'lucide-react';
+import { Search, ChevronUp, History, Settings, Save, Trash2, AlertTriangle } from 'lucide-react';
 
 const AcceptanceBadge = ({ status }) => {
   const normalizedStatus = status || '';
@@ -35,6 +35,11 @@ const Inventory = ({ inventory, setInventory }) => {
   const [filterLocation, setFilterLocation] = useState('All');
   const [filterQtyStatus, setFilterQtyStatus] = useState('All');
   const [sortType, setSortType] = useState('date-desc'); // 'date-desc', 'date-asc', 'name-asc', 'name-desc'
+
+  // Delete States
+  const [deleteLotId, setDeleteLotId] = useState(null);
+  const [deletePassword, setDeletePassword] = useState('');
+  const [deleteError, setDeleteError] = useState('');
 
   // Edit States for expanded row
   const [editQC, setEditQC] = useState('');
@@ -473,6 +478,29 @@ const Inventory = ({ inventory, setInventory }) => {
                               >
                                 <Save size={16} /> อัปเดตสถานะ
                               </button>
+
+                              <button 
+                                type="button"
+                                className="btn" 
+                                style={{ 
+                                  width: '100%', 
+                                  justifyContent: 'center', 
+                                  marginTop: '0.75rem', 
+                                  borderColor: 'rgba(239, 68, 68, 0.4)', 
+                                  color: 'var(--danger)',
+                                  background: 'rgba(239, 68, 68, 0.05)',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '0.5rem'
+                                }}
+                                onClick={() => {
+                                  setDeleteLotId(item.id);
+                                  setDeletePassword('');
+                                  setDeleteError('');
+                                }}
+                              >
+                                <Trash2 size={16} /> ลบ Lot พัสดุนี้อย่างถาวร
+                              </button>
                             </div>
                           </div>
 
@@ -534,6 +562,112 @@ const Inventory = ({ inventory, setInventory }) => {
           </tbody>
         </table>
       </div>
+
+      {/* Deletion Warning Modal */}
+      {deleteLotId !== null && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.7)',
+          backdropFilter: 'blur(5px)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 9999
+        }}>
+          <div className="glass card" style={{
+            maxWidth: '550px',
+            width: '90%',
+            padding: '2.5rem',
+            border: '1px solid var(--danger)',
+            boxShadow: '0 20px 25px -5px rgba(0,0,0,0.5)'
+          }}>
+            <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--danger)', marginBottom: '1.25rem' }}>
+              <AlertTriangle size={24} /> ยืนยันการลบข้อมูล Lot พัสดุ
+            </h3>
+            
+            <div style={{
+              background: 'rgba(239, 68, 68, 0.08)',
+              color: 'var(--danger)',
+              padding: '1rem',
+              borderRadius: '8px',
+              border: '1px solid rgba(239, 68, 68, 0.2)',
+              fontSize: '0.88rem',
+              lineHeight: '1.5',
+              marginBottom: '1.5rem'
+            }}>
+              <strong>คำเตือน (สำคัญ ⚠️):</strong> การลบข้อมูล Lot นี้จะลบประวัติการรับเข้าและยอดคงเหลือของ Lot นี้ออกจากระบบทั้งหมดอย่างถาวร ไม่สามารถกู้คืนได้ และหากเคยมีประวัติการตัดจ่ายพัสดุจาก Lot นี้ ข้อมูลจะยังคงอยู่แต่ Lot อ้างอิงจะหายไป
+            </div>
+
+            <p style={{ fontSize: '0.9rem', marginBottom: '1rem', color: 'var(--text-secondary)' }}>
+              กรุณากรอกรหัสผ่านเพื่อยืนยันการลบ Lot: <strong>{inventory.find(i => i.id === deleteLotId)?.itemName} (Lot: {inventory.find(i => i.id === deleteLotId)?.supplierLot || inventory.find(i => i.id === deleteLotId)?.inhouseLot})</strong>
+            </p>
+
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              if (deletePassword === '5640502') {
+                setInventory(prev => prev.filter(item => item.id !== deleteLotId));
+                setExpandedRow(null);
+                setDeleteLotId(null);
+                alert("ลบข้อมูล Lot พัสดุเรียบร้อยแล้ว");
+              } else {
+                setDeleteError('รหัสผ่านไม่ถูกต้อง กรุณาลองใหม่อีกครั้ง');
+                setDeletePassword('');
+              }
+            }} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <input 
+                type="password"
+                placeholder="กรอกรหัสผ่าน..."
+                value={deletePassword}
+                onChange={(e) => setDeletePassword(e.target.value)}
+                style={{
+                  width: '100%',
+                  textAlign: 'center',
+                  letterSpacing: '0.2rem',
+                  fontSize: '1.1rem',
+                  fontWeight: 'bold',
+                  background: 'var(--input-bg)',
+                  color: 'var(--text-primary)',
+                  border: '1px solid var(--glass-border)',
+                  borderRadius: '4px',
+                  padding: '0.5rem'
+                }}
+                autoFocus
+              />
+
+              {deleteError && (
+                <div style={{ color: 'var(--danger)', fontSize: '0.85rem', fontWeight: 600, textAlign: 'center' }}>
+                  {deleteError}
+                </div>
+              )}
+
+              <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end', marginTop: '0.5rem', borderTop: '1px solid var(--glass-border)', paddingTop: '1.25rem' }}>
+                <button 
+                  type="button"
+                  className="btn btn-secondary" 
+                  onClick={() => setDeleteLotId(null)}
+                >
+                  ยกเลิก
+                </button>
+                <button 
+                  type="submit"
+                  className="btn btn-primary"
+                  style={{
+                    background: 'var(--danger)',
+                    borderColor: 'var(--danger)',
+                    color: '#fff'
+                  }}
+                >
+                  ยืนยันการลบ
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
