@@ -728,6 +728,26 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
     }
   };
 
+  const handleUpdateAgreement = (id, newAgreementId) => {
+    setInventory(prev => prev.map(item => {
+      if (item.id === id) {
+        let nextAcceptance = item.acceptanceStatus || '';
+        if (newAgreementId && !item.acceptanceStatus) {
+          nextAcceptance = 'Pending';
+        } else if (!newAgreementId) {
+          nextAcceptance = '';
+        }
+        return {
+          ...item,
+          agreementId: newAgreementId,
+          acceptanceStatus: nextAcceptance
+        };
+      }
+      return item;
+    }));
+    alert("อัปเดตเลขที่สัญญาจัดซื้อเรียบร้อยแล้ว");
+  };
+
   const handleCancelInbound = (lotId) => {
     const lot = inventory.find(item => item.id === lotId);
     if (!lot) return;
@@ -1598,6 +1618,7 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
                   </th>
                   <th style={{ padding: '1rem' }}>วันที่รับ</th>
                   <th style={{ padding: '1rem' }}>รายการสินค้า</th>
+                  <th style={{ padding: '1rem', width: '150px' }}>สัญญาจัดซื้อ</th>
                   <th style={{ padding: '1rem' }}>Supplier / Inhouse Lot</th>
                   <th style={{ padding: '1rem' }}>สถานะ QC</th>
                   <th style={{ padding: '1rem' }}>ที่เก็บ</th>
@@ -1608,7 +1629,7 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
               <tbody>
                 {filteredHistory.length === 0 ? (
                   <tr>
-                    <td colSpan="8" style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
+                    <td colSpan="9" style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
                       ไม่พบประวัติการรับเข้าพัสดุ
                     </td>
                   </tr>
@@ -1625,6 +1646,38 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
                       </td>
                       <td style={{ padding: '1rem' }}>{item.date}</td>
                       <td style={{ padding: '1rem', fontWeight: 600 }}>{item.itemName}</td>
+                      <td style={{ padding: '1rem' }}>
+                        {(() => {
+                          const contractOptions = agreements ? agreements.filter(ag => 
+                            ag.itemName === item.itemName && 
+                            (ag.status !== 'Completed' || ag.id === item.agreementId)
+                          ) : [];
+                          return (
+                            <select
+                              value={item.agreementId || ''}
+                              onChange={(e) => handleUpdateAgreement(item.id, e.target.value)}
+                              disabled={item.isCancelled}
+                              style={{
+                                fontSize: '0.78rem',
+                                padding: '0.3rem 0.5rem',
+                                width: '100%',
+                                background: 'var(--input-bg)',
+                                color: 'var(--text-primary)',
+                                border: '1px solid var(--glass-border)',
+                                borderRadius: '4px',
+                                cursor: item.isCancelled ? 'not-allowed' : 'pointer'
+                              }}
+                            >
+                              <option value="">-- ไม่ระบุ --</option>
+                              {contractOptions.map(ag => (
+                                <option key={ag.id} value={ag.id}>
+                                  {ag.id}
+                                </option>
+                              ))}
+                            </select>
+                          );
+                        })()}
+                      </td>
                       <td style={{ padding: '1rem' }}>
                         <div>{item.supplierLot || '-'}</div>
                         <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{item.inhouseLot || '-'}</div>
