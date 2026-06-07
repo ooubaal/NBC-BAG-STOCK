@@ -28,13 +28,7 @@ import Agreements from './components/Agreements';
 import { initFirebase } from './firebase';
 import { doc, setDoc, collection, onSnapshot, deleteDoc } from 'firebase/firestore';
 
-const INITIAL_ITEMS = [
-  { name: "Raw Material A", unit: "kg" },
-  { name: "Raw Material B", unit: "kg" },
-  { name: "Packaging X", unit: "ชิ้น" },
-  { name: "Label Z", unit: "ชิ้น" },
-  { name: "Component Y", unit: "กล่อง" }
-];
+const INITIAL_ITEMS = [];
 
 function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
