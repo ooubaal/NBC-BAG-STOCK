@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Trash2, Save, X, Printer, Copy, Search } from 'lucide-react';
+import { Plus, Trash2, Save, X, Printer, Copy, Search, Upload, Download } from 'lucide-react';
 const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
   const [inboundTab, setInboundTab] = useState('draft'); // 'draft' or 'history'
   const [historySearch, setHistorySearch] = useState('');
@@ -129,6 +129,169 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
       remarks: '',
       agreementId: ''
     }]);
+  };
+
+  const downloadTemplate = () => {
+    const headers = [
+      "วันที่รับเข้า (YYYY-MM-DD)",
+      "ชื่อสินค้า (ต้องตรงตามทะเบียนพัสดุ)",
+      "เลขที่สัญญาจัดซื้อ (ถ้ามี)",
+      "Supplier Lot (จำเป็น)",
+      "Inhouse Lot (ถ้ามี)",
+      "สถานะ QC (Pass / Quarantine / Reject)",
+      "ขนาดบรรจุ (เช่น 25kg, 10ชิ้น - ถ้ามี)",
+      "จำนวนรับเข้า (จำเป็น - ตัวเลขเท่านั้น)",
+      "ที่เก็บ (ถ้ามี)",
+      "หมายเหตุ (ถ้ามี)"
+    ];
+    
+    // Sample data row
+    const sampleRow = [
+      new Date().toISOString().split('T')[0],
+      (items && items.length > 0) ? items[0].name : "Raw Material A",
+      "",
+      "LOT-SUP-12345",
+      "LOT-INH-001",
+      "Quarantine",
+      "25kg",
+      "100",
+      "A1",
+      "ตัวอย่างบันทึกย่อ"
+    ];
+    
+    const formatCSVField = (field) => {
+      const stringified = String(field || '').replace(/"/g, '""');
+      if (stringified.includes(',') || stringified.includes('\n') || stringified.includes('"')) {
+        return `"${stringified}"`;
+      }
+      return stringified;
+    };
+
+    const csvContent = "\uFEFF" + [
+      headers.map(formatCSVField).join(","), 
+      sampleRow.map(formatCSVField).join(",")
+    ].join("\r\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", "nbc_inbound_template.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleImportCSV = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const text = event.target.result;
+        const lines = text.split(/\r?\n/).filter(line => line.trim() !== '');
+        
+        if (lines.length <= 1) {
+          alert("ไม่พบข้อมูลที่จะนำเข้าในไฟล์ (กรุณาตรวจสอบว่ามีข้อมูลในไฟล์อย่างน้อย 1 แถวใต้หัวข้อตาราง)");
+          return;
+        }
+
+        const parseCSVLine = (lineText) => {
+          let p = '', c = false, r = [];
+          for (let i = 0; i < lineText.length; i++) {
+            let char = lineText[i];
+            if (char === '"') {
+              c = !c;
+            } else if (char === ',' && !c) {
+              r.push(p.trim().replace(/^"|"$/g, '').replace(/""/g, '"'));
+              p = '';
+            } else {
+              p += char;
+            }
+          }
+          r.push(p.trim().replace(/^"|"$/g, '').replace(/""/g, '"'));
+          return r;
+        };
+
+        const newEntries = [];
+        const missingItems = new Set();
+        
+        for (let i = 1; i < lines.length; i++) {
+          const cells = parseCSVLine(lines[i]);
+          if (cells.length < 2) continue;
+
+          const date = cells[0] || new Date().toISOString().split('T')[0];
+          const itemName = cells[1] ? cells[1].trim() : '';
+          const agreementId = cells[2] ? cells[2].trim() : '';
+          const supplierLot = cells[3] ? cells[3].trim() : '';
+          const inhouseLot = cells[4] ? cells[4].trim() : '';
+          let qcStatus = cells[5] ? cells[5].trim() : 'Quarantine';
+          const packSize = cells[6] ? cells[6].trim() : '';
+          const quantity = cells[7] ? Number(cells[7].trim()) : '';
+          const location = cells[8] ? cells[8].trim() : '';
+          const remarks = cells[9] ? cells[9].trim() : '';
+
+          if (!itemName && !supplierLot && !quantity) continue;
+
+          let normalizedQcStatus = 'Quarantine';
+          if (qcStatus.toLowerCase() === 'pass') {
+            normalizedQcStatus = 'Pass';
+          } else if (qcStatus.toLowerCase() === 'reject') {
+            normalizedQcStatus = 'Reject';
+          }
+
+          const matchedItem = items.find(item => item.name.toLowerCase() === itemName.toLowerCase());
+          if (!matchedItem && itemName) {
+            missingItems.add(itemName);
+          }
+
+          newEntries.push({
+            id: Date.now() + i + Math.random(),
+            date,
+            itemName: matchedItem ? matchedItem.name : itemName,
+            unit: matchedItem ? matchedItem.unit : 'ชิ้น',
+            agreementId,
+            supplierLot,
+            inhouseLot,
+            qcStatus: normalizedQcStatus,
+            packSize,
+            quantity: isNaN(quantity) || !cells[7] ? '' : quantity,
+            location,
+            remarks
+          });
+        }
+
+        if (newEntries.length === 0) {
+          alert("ไม่พบข้อมูลรายการพัสดุรับเข้าที่สมบูรณ์ในไฟล์");
+          return;
+        }
+
+        if (missingItems.size > 0) {
+          const missingList = Array.from(missingItems).join(', ');
+          alert(`⚠️ คำเตือน: พบรายชื่อสินค้าในไฟล์ที่ไม่มีอยู่จริงใน "ทะเบียนพัสดุ":\n[ ${missingList} ]\n\nระบบยังอนุญาตให้นำเข้าลงตารางชั่วคราวได้ แต่แนะนำให้ไปเพิ่มสินค้าดังกล่าวในหน้าทะเบียนพัสดุก่อนกด "บันทึกทั้งหมด" เพื่อให้ระบบเก็บประวัติพัสดุได้ถูกต้องสะกดตรงกัน`);
+        }
+
+        const isFirstEntryEmpty = entries.length === 1 && 
+                                  !entries[0].supplierLot && 
+                                  !entries[0].quantity && 
+                                  entries[0].itemName === ((items && items.length > 0) ? items[0].name : '');
+
+        if (isFirstEntryEmpty) {
+          setEntries(newEntries);
+        } else {
+          setEntries([...entries, ...newEntries]);
+        }
+
+        alert(`🎉 นำเข้าข้อมูลสำเร็จ ${newEntries.length} รายการ!\nข้อมูลจะแสดงอยู่ในตารางทำรายการรับเข้า (Draft) ด้านล่าง คุณสามารถตรวจสอบ แก้ไข หรือกด "บันทึกทั้งหมด" เพื่อยืนยันลงคลัง`);
+      } catch (err) {
+        console.error(err);
+        alert("การวิเคราะห์ไฟล์ล้มเหลว: " + err.message);
+      }
+      
+      e.target.value = '';
+    };
+    reader.readAsText(file);
   };
 
 
@@ -897,6 +1060,68 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
               <button className="btn btn-primary" onClick={handleSave}>
                 <Save size={18} /> บันทึกทั้งหมด
               </button>
+            </div>
+          </div>
+
+          {/* CSV Import / Export Section */}
+          <div className="glass card" style={{ 
+            marginBottom: '1.5rem', 
+            padding: '1.25rem 1.5rem', 
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            alignItems: 'center', 
+            flexWrap: 'wrap', 
+            gap: '1rem',
+            borderLeft: '4px solid var(--accent-secondary)'
+          }}>
+            <div>
+              <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1.05rem', fontWeight: 700 }}>
+                <Upload size={18} color="var(--accent-secondary)" />
+                นำเข้าข้อมูลรับเข้าหลายรายการ (Excel / CSV Import)
+              </h3>
+              <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                ดาวน์โหลดไฟล์เทมเพลตเพื่อกรอกข้อมูล จากนั้นเลือกไฟล์เพื่อนำข้อมูลเข้าตารางแบบกลุ่มได้สะดวกรวดเร็ว
+              </p>
+            </div>
+            <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
+              <button 
+                className="btn btn-secondary" 
+                onClick={downloadTemplate}
+                style={{ 
+                  fontSize: '0.8rem', 
+                  padding: '0.5rem 1rem', 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: '0.4rem',
+                  background: 'rgba(255,255,255,0.03)',
+                  border: '1px solid var(--glass-border)'
+                }}
+              >
+                <Download size={15} /> ดาวน์โหลด Template (.csv)
+              </button>
+              <label 
+                className="btn btn-primary" 
+                style={{ 
+                  fontSize: '0.8rem', 
+                  padding: '0.5rem 1rem', 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: '0.4rem', 
+                  cursor: 'pointer',
+                  background: 'linear-gradient(135deg, var(--accent-secondary), #0284c7)',
+                  color: '#fff',
+                  border: 'none',
+                  fontWeight: 600
+                }}
+              >
+                <Upload size={15} /> นำเข้าไฟล์ข้อมูล (.csv)
+                <input 
+                  type="file" 
+                  accept=".csv" 
+                  onChange={handleImportCSV} 
+                  style={{ display: 'none' }} 
+                />
+              </label>
             </div>
           </div>
 
