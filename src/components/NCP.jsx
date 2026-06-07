@@ -1,15 +1,23 @@
 import { useState, useEffect, useMemo } from 'react';
 import { doc, setDoc, collection, onSnapshot, deleteDoc } from 'firebase/firestore';
-import { Camera, RefreshCcw, Plus, Download, Edit2, Trash2, X, Search } from 'lucide-react';
+import { Camera, Plus, Download, Edit2, Trash2, X, Search } from 'lucide-react';
 
-const compressImage = (base64Str, maxWidth = 800, maxHeight = 800) => {
-  return new Promise((resolve) => {
+const compressImageFile = (file, maxWidth = 1200, maxHeight = 1200) => {
+  return new Promise((resolve, reject) => {
+    const isImage = file.type.startsWith('image/');
+    if (!isImage) {
+      reject(new Error("File is not an image"));
+      return;
+    }
+
+    const objectUrl = URL.createObjectURL(file);
     const img = new Image();
-    img.src = base64Str;
+    img.src = objectUrl;
     img.onload = () => {
       let width = img.width;
       let height = img.height;
 
+      // HD resolution but compressed: max 1200px (still readable text/details)
       if (width > height) {
         if (width > maxWidth) {
           height = Math.round((height * maxWidth) / width);
@@ -29,12 +37,15 @@ const compressImage = (base64Str, maxWidth = 800, maxHeight = 800) => {
       const ctx = canvas.getContext('2d');
       ctx.drawImage(img, 0, 0, width, height);
 
-      // Compress to JPEG with 0.6 quality (highly efficient compression)
-      const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.6);
+      // Compress to JPEG with 0.65 quality (excellent text readability, very small size)
+      const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.65);
+      
+      URL.revokeObjectURL(objectUrl);
       resolve(compressedDataUrl);
     };
-    img.onerror = () => {
-      resolve(base64Str);
+    img.onerror = (err) => {
+      URL.revokeObjectURL(objectUrl);
+      reject(err);
     };
   });
 };
@@ -162,9 +173,9 @@ const NCP = ({ inventory, items, db }) => {
     description: '',
     status: 'Found', // Found, Claiming, Returned
     images: {
-      found: null,
-      claim: null,
-      returned: null
+      found: [],
+      claim: [],
+      returned: []
     }
   };
 
@@ -204,29 +215,38 @@ const NCP = ({ inventory, items, db }) => {
 
   const handleImageUpload = (step, file) => {
     if (!file) return;
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      compressImage(reader.result).then(compressed => {
-        setNewClaim(prev => ({
+    compressImageFile(file).then(compressed => {
+      setNewClaim(prev => {
+        const currentImages = Array.isArray(prev.images?.[step]) 
+          ? prev.images[step] 
+          : (prev.images?.[step] ? [prev.images[step]] : []);
+        return {
           ...prev,
           images: {
             ...prev.images,
-            [step]: compressed
+            [step]: [...currentImages, compressed]
           }
-        }));
+        };
       });
-    };
-    reader.readAsDataURL(file);
+    }).catch(err => {
+      console.error("Error compressing image:", err);
+      alert("เกิดข้อผิดพลาดในการอัปโหลดและบีบอัดรูปภาพ");
+    });
   };
 
-  const handleRemoveNewClaimImage = (step) => {
-    setNewClaim(prev => ({
-      ...prev,
-      images: {
-        ...prev.images,
-        [step]: null
-      }
-    }));
+  const handleRemoveNewClaimImage = (step, index) => {
+    setNewClaim(prev => {
+      const currentImages = Array.isArray(prev.images?.[step]) 
+        ? prev.images[step] 
+        : (prev.images?.[step] ? [prev.images[step]] : []);
+      return {
+        ...prev,
+        images: {
+          ...prev.images,
+          [step]: currentImages.filter((_, i) => i !== index)
+        }
+      };
+    });
   };
 
   const saveClaim = () => {
@@ -252,7 +272,7 @@ const NCP = ({ inventory, items, db }) => {
       lotNo: '',
       description: '',
       status: 'Found',
-      images: { found: null, claim: null, returned: null }
+      images: { found: [], claim: [], returned: [] }
     });
   };
 
@@ -287,29 +307,34 @@ const NCP = ({ inventory, items, db }) => {
 
   const handleUpdateImage = (id, step, file) => {
     if (!file) return;
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      compressImage(reader.result).then(compressed => {
-        setClaims(claims.map(c => {
-          if (c.id === id) {
-            return {
-              ...c,
-              images: { ...c.images, [step]: compressed }
-            };
-          }
-          return c;
-        }));
-      });
-    };
-    reader.readAsDataURL(file);
+    compressImageFile(file).then(compressed => {
+      setClaims(claims.map(c => {
+        if (c.id === id) {
+          const currentImages = Array.isArray(c.images?.[step]) 
+            ? c.images[step] 
+            : (c.images?.[step] ? [c.images[step]] : []);
+          return {
+            ...c,
+            images: { ...c.images, [step]: [...currentImages, compressed] }
+          };
+        }
+        return c;
+      }));
+    }).catch(err => {
+      console.error("Error compressing image:", err);
+      alert("เกิดข้อผิดพลาดในการอัปโหลดและบีบอัดรูปภาพ");
+    });
   };
 
-  const handleRemoveImage = (id, step) => {
+  const handleRemoveImage = (id, step, index) => {
     setClaims(claims.map(c => {
       if (c.id === id) {
+        const currentImages = Array.isArray(c.images?.[step]) 
+          ? c.images[step] 
+          : (c.images?.[step] ? [c.images[step]] : []);
         return {
           ...c,
-          images: { ...c.images, [step]: null }
+          images: { ...c.images, [step]: currentImages.filter((_, i) => i !== index) }
         };
       }
       return c;
@@ -387,12 +412,12 @@ const NCP = ({ inventory, items, db }) => {
             <textarea value={newClaim.description} onChange={e => setNewClaim({...newClaim, description: e.target.value})} placeholder="เช่น สินค้าชำรุด, สีผิดเพี้ยน..." rows="3"></textarea>
           </div>
           
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', marginBottom: '1.5rem' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1rem', marginBottom: '1.5rem' }}>
             <ImageUploader 
-              label="รูปภาพ NCP ที่พบ" 
-              image={newClaim.images.found} 
+              label="รูปภาพ NCP ที่พบ (แนบได้มากกว่า 1 รูป)" 
+              images={newClaim.images.found} 
               onUpload={(file) => handleImageUpload('found', file)} 
-              onRemove={() => handleRemoveNewClaimImage('found')}
+              onRemove={(idx) => handleRemoveNewClaimImage('found', idx)}
             />
           </div>
 
@@ -541,11 +566,11 @@ const NCP = ({ inventory, items, db }) => {
                 <div>
                   <ImageThumb 
                     label="1. ที่พบ" 
-                    image={claim.images?.found} 
+                    images={claim.images?.found} 
                     uniqueId={`thumb-found-${claim.id}`} 
                     onUpdate={(file) => handleUpdateImage(claim.id, 'found', file)} 
-                    onRemove={() => handleRemoveImage(claim.id, 'found')}
-                    onClick={() => claim.images?.found && setActiveLightbox({ image: claim.images.found, label: "1. ภาพพัสดุที่พบปัญหา" })}
+                    onRemove={(idx) => handleRemoveImage(claim.id, 'found', idx)}
+                    onClick={(img, idx) => setActiveLightbox({ image: img, label: `1. ภาพพัสดุที่พบปัญหา (รูปที่ ${idx + 1})` })}
                   />
                   <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textAlign: 'center', marginTop: '0.25rem' }}>
                     {claim.foundDate || '-'}
@@ -555,11 +580,11 @@ const NCP = ({ inventory, items, db }) => {
                 <div>
                   <ImageThumb 
                     label="2. การเคลม" 
-                    image={claim.images?.claim} 
+                    images={claim.images?.claim} 
                     uniqueId={`thumb-claim-${claim.id}`} 
                     onUpdate={(file) => handleUpdateImage(claim.id, 'claim', file)} 
-                    onRemove={() => handleRemoveImage(claim.id, 'claim')}
-                    onClick={() => claim.images?.claim && setActiveLightbox({ image: claim.images.claim, label: "2. ภาพขณะดำเนินการเคลม" })}
+                    onRemove={(idx) => handleRemoveImage(claim.id, 'claim', idx)}
+                    onClick={(img, idx) => setActiveLightbox({ image: img, label: `2. ภาพขณะดำเนินการเคลม (รูปที่ ${idx + 1})` })}
                   />
                   <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textAlign: 'center', marginTop: '0.25rem' }}>
                     {claim.claimingDate || '-'}
@@ -569,11 +594,11 @@ const NCP = ({ inventory, items, db }) => {
                 <div>
                   <ImageThumb 
                     label="3. การคืน" 
-                    image={claim.images?.returned} 
+                    images={claim.images?.returned} 
                     uniqueId={`thumb-returned-${claim.id}`} 
                     onUpdate={(file) => handleUpdateImage(claim.id, 'returned', file)} 
-                    onRemove={() => handleRemoveImage(claim.id, 'returned')}
-                    onClick={() => claim.images?.returned && setActiveLightbox({ image: claim.images.returned, label: "3. ภาพขารับคืนเรียบร้อย" })}
+                    onRemove={(idx) => handleRemoveImage(claim.id, 'returned', idx)}
+                    onClick={(img, idx) => setActiveLightbox({ image: img, label: `3. ภาพขารับคืนเรียบร้อย (รูปที่ ${idx + 1})` })}
                   />
                   <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textAlign: 'center', marginTop: '0.25rem' }}>
                     {claim.returnedDate || '-'}
@@ -755,179 +780,170 @@ const StatusBadge = ({ status }) => {
   );
 };
 
-const ImageUploader = ({ label, image, onUpload, onRemove }) => (
-  <div style={{ border: '1px dashed var(--glass-border)', borderRadius: '8px', padding: '1rem', textAlign: 'center', position: 'relative' }}>
-    <div style={{ fontSize: '0.8rem', marginBottom: '0.5rem', color: 'var(--text-muted)' }}>{label}</div>
-    {image ? (
-      <div style={{ position: 'relative', width: '100%', height: '100px', borderRadius: '4px', overflow: 'hidden' }}>
-        <img src={image} alt="preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+const ImageUploader = ({ label, images, onUpload, onRemove }) => {
+  const imageList = Array.isArray(images) ? images : (images ? [images] : []);
+  return (
+    <div style={{ border: '1px dashed var(--glass-border)', borderRadius: '8px', padding: '1rem', background: 'rgba(255,255,255,0.01)' }}>
+      <div style={{ fontSize: '0.8rem', marginBottom: '0.5rem', color: 'var(--text-muted)', fontWeight: 600 }}>{label}</div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.5rem' }}>
+        {imageList.map((img, idx) => (
+          <div key={idx} style={{ position: 'relative', width: '70px', height: '70px', borderRadius: '6px', overflow: 'hidden', border: '1px solid var(--glass-border)' }}>
+            <img src={img} alt="preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            <button 
+              type="button"
+              onClick={() => onRemove(idx)}
+              style={{ 
+                position: 'absolute', 
+                top: '2px', 
+                right: '2px', 
+                background: 'rgba(239, 68, 68, 0.9)', 
+                color: '#fff', 
+                border: 'none', 
+                width: '18px', 
+                height: '18px', 
+                borderRadius: '50%', 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center',
+                cursor: 'pointer',
+                fontSize: '0.65rem'
+              }}
+              title="ลบรูป"
+            >
+              <X size={10} />
+            </button>
+          </div>
+        ))}
         <div style={{ 
-          position: 'absolute', 
-          inset: 0, 
-          background: 'rgba(0, 0, 0, 0.6)', 
+          width: '70px', 
+          height: '70px', 
+          border: '1.5px dashed var(--glass-border)', 
+          borderRadius: '6px', 
+          display: 'flex', 
+          flexDirection: 'column', 
+          alignItems: 'center', 
+          justifyContent: 'center', 
+          cursor: 'pointer',
+          background: 'rgba(255,255,255,0.02)',
+          position: 'relative'
+        }}>
+          <Camera size={20} color="var(--text-muted)" />
+          <input 
+            type="file" 
+            accept="image/*" 
+            multiple 
+            style={{ 
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: '100%',
+              opacity: 0,
+              cursor: 'pointer'
+            }} 
+            onChange={e => {
+              if (e.target.files) {
+                Array.from(e.target.files).forEach(file => onUpload(file));
+              }
+            }} 
+          />
+          <span style={{ fontSize: '0.6rem', color: 'var(--accent-color)', marginTop: '2px' }}>แนบรูป</span>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const ImageThumb = ({ label, images, onUpdate, onRemove, onClick }) => {
+  const imageList = Array.isArray(images) ? images : (images ? [images] : []);
+  
+  return (
+    <div style={{ textAlign: 'center', background: 'rgba(255,255,255,0.02)', borderRadius: '8px', padding: '0.5rem', border: '1px solid var(--glass-border)' }}>
+      <div style={{ fontSize: '0.75rem', marginBottom: '0.4rem', color: 'var(--text-secondary)', fontWeight: 600 }}>{label}</div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', justifyContent: 'center', minHeight: '50px', alignItems: 'center' }}>
+        {imageList.map((img, idx) => (
+          <div 
+            key={idx}
+            style={{ 
+              width: '45px', 
+              height: '45px', 
+              background: 'rgba(255,255,255,0.05)', 
+              borderRadius: '4px', 
+              position: 'relative', 
+              overflow: 'hidden',
+              border: '1px solid var(--glass-border)',
+              cursor: 'zoom-in',
+              transition: 'all 0.2s ease'
+            }}
+            onClick={() => onClick && onClick(img, idx)}
+          >
+            <img src={img} alt="thumb" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            
+            <button 
+              type="button"
+              onClick={e => {
+                e.stopPropagation();
+                if (window.confirm('คุณต้องการลบรูปภาพนี้ใช่หรือไม่?')) {
+                  onRemove(idx);
+                }
+              }}
+              style={{ 
+                position: 'absolute', 
+                bottom: '1px', 
+                right: '1px', 
+                background: 'rgba(239, 68, 68, 0.95)', 
+                color: '#fff', 
+                border: 'none', 
+                borderRadius: '3px', 
+                width: '14px', 
+                height: '14px', 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center', 
+                cursor: 'pointer',
+                fontSize: '0.55rem',
+                zIndex: 10
+              }}
+              title="ลบรูป"
+            >
+              <X size={8} />
+            </button>
+          </div>
+        ))}
+        
+        <div style={{ 
+          width: '45px', 
+          height: '45px', 
+          border: '1.5px dashed var(--glass-border)', 
+          borderRadius: '4px', 
           display: 'flex', 
           alignItems: 'center', 
           justifyContent: 'center', 
-          gap: '0.5rem',
-          opacity: 1
+          cursor: 'pointer',
+          background: 'rgba(255,255,255,0.02)',
+          position: 'relative'
         }}>
-          <input type="file" accept="image/*" style={{ display: 'none' }} id={`change-${label}`} onChange={e => onUpload(e.target.files[0])} />
-          <label htmlFor={`change-${label}`} style={{ 
-            cursor: 'pointer', 
-            background: 'var(--accent-color)', 
-            color: '#000', 
-            padding: '0.4rem', 
-            borderRadius: '50%', 
-            display: 'flex', 
-            alignItems: 'center', 
-            justifyContent: 'center',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
-            transition: 'transform 0.2s'
-          }} title="เปลี่ยนรูป" className="hover-scale">
-            <RefreshCcw size={14} />
-          </label>
-          <button 
-            type="button"
-            onClick={onRemove}
+          <Camera size={14} color="var(--text-muted)" />
+          <input 
+            type="file" 
+            accept="image/*" 
+            multiple 
             style={{ 
-              background: 'var(--danger)', 
-              color: '#fff', 
-              border: 'none', 
-              padding: '0.4rem', 
-              borderRadius: '50%', 
-              display: 'flex', 
-              alignItems: 'center', 
-              justifyContent: 'center',
-              boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
-              cursor: 'pointer',
-              transition: 'transform 0.2s'
-            }} title="ลบรูป" className="hover-scale">
-            <Trash2 size={14} />
-          </button>
-        </div>
-      </div>
-    ) : (
-      <div style={{ height: '100px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
-        <Camera size={24} color="var(--text-muted)" />
-        <input type="file" accept="image/*" style={{ display: 'none' }} id={`upload-${label}`} onChange={e => onUpload(e.target.files[0])} />
-        <label htmlFor={`upload-${label}`} style={{ cursor: 'pointer', fontSize: '0.75rem', color: 'var(--accent-color)' }}>คลิกเพื่ออัพโหลด</label>
-      </div>
-    )}
-  </div>
-);
-
-const ImageThumb = ({ label, image, uniqueId, onUpdate, onRemove, onClick }) => {
-  const fileInputId = `replace-${uniqueId}`;
-  return (
-    <div style={{ textAlign: 'center' }}>
-      <div style={{ fontSize: '0.7rem', marginBottom: '0.3rem', color: 'var(--text-muted)' }}>{label}</div>
-      <div 
-        style={{ 
-          height: '80px', 
-          background: 'rgba(255,255,255,0.05)', 
-          borderRadius: '6px', 
-          position: 'relative', 
-          overflow: 'hidden',
-          border: '1px solid var(--glass-border)',
-          cursor: image ? 'zoom-in' : 'pointer',
-          transition: 'all 0.2s ease'
-        }}
-        onClick={() => {
-          if (image && onClick) onClick();
-        }}
-      >
-        {image ? (
-          <>
-            <img src={image} alt="thumb" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-            
-            {/* Control buttons in the bottom right corner */}
-            <div style={{
               position: 'absolute',
-              bottom: '4px',
-              right: '4px',
-              display: 'flex',
-              gap: '4px',
-              zIndex: 10
-            }}>
-              {/* Replace Button */}
-              <input 
-                type="file" 
-                accept="image/*" 
-                style={{ display: 'none' }} 
-                id={fileInputId} 
-                onChange={e => {
-                  if (e.target.files[0]) {
-                    onUpdate(e.target.files[0]);
-                  }
-                }} 
-              />
-              <label 
-                htmlFor={fileInputId}
-                onClick={e => e.stopPropagation()}
-                style={{ 
-                  background: 'var(--accent-color)', 
-                  color: '#000', 
-                  border: 'none', 
-                  borderRadius: '4px', 
-                  width: '24px', 
-                  height: '24px', 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  justifyContent: 'center', 
-                  cursor: 'pointer',
-                  boxShadow: '0 2px 6px rgba(0,0,0,0.4)',
-                  transition: 'transform 0.2s'
-                }}
-                title="เปลี่ยนรูป"
-                className="hover-scale"
-              >
-                <RefreshCcw size={12} />
-              </label>
-
-              {/* Delete Button */}
-              <button 
-                type="button"
-                onClick={e => {
-                  e.stopPropagation();
-                  if (window.confirm('คุณต้องการลบรูปภาพนี้ใช่หรือไม่?')) {
-                    onRemove();
-                  }
-                }}
-                style={{ 
-                  background: 'var(--danger)', 
-                  color: '#fff', 
-                  border: 'none', 
-                  borderRadius: '4px', 
-                  width: '24px', 
-                  height: '24px', 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  justifyContent: 'center', 
-                  cursor: 'pointer',
-                  boxShadow: '0 2px 6px rgba(0,0,0,0.4)',
-                  transition: 'transform 0.2s'
-                }}
-                title="ลบรูป"
-                className="hover-scale"
-              >
-                <Trash2 size={12} />
-              </button>
-            </div>
-          </>
-        ) : (
-          <>
-            <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
-              <Camera size={18} color="var(--text-muted)" />
-              <span style={{ fontSize: '0.6rem', color: 'var(--accent-color)' }}>อัพโหลด</span>
-            </div>
-            <input type="file" accept="image/*" style={{ display: 'none' }} id={uniqueId} onChange={e => {
-              if (e.target.files[0]) {
-                onUpdate(e.target.files[0]);
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: '100%',
+              opacity: 0,
+              cursor: 'pointer'
+            }} 
+            onChange={e => {
+              if (e.target.files) {
+                Array.from(e.target.files).forEach(file => onUpdate(file));
               }
-            }} />
-            <label htmlFor={uniqueId} style={{ position: 'absolute', inset: 0, cursor: 'pointer' }}></label>
-          </>
-        )}
+            }} 
+          />
+        </div>
       </div>
     </div>
   );
