@@ -566,43 +566,43 @@ function App() {
             active={activeTab === 'items'} 
             onClick={() => setActiveTab('items')}
             icon={<Package size={20} />}
-            label="ทะเบียนพัสดุ (Items)"
+            label="ทะเบียนพัสดุ"
           />
           <NavItem 
             active={activeTab === 'inventory'} 
             onClick={() => setActiveTab('inventory')}
             icon={<History size={20} />}
-            label="คลังพัสดุ (Mod 1)"
+            label="คลังพัสดุ"
           />
           <NavItem 
             active={activeTab === 'inbound'} 
             onClick={() => setActiveTab('inbound')}
             icon={<Plus size={20} />}
-            label="รับเข้า (Mod 2)"
+            label="รับเข้า"
           />
           <NavItem 
             active={activeTab === 'withdrawal'} 
             onClick={() => setActiveTab('withdrawal')}
             icon={<MinusCircle size={20} />}
-            label="การตัดจ่าย (Withdraw)"
+            label="การตัดจ่าย"
           />
           <NavItem 
             active={activeTab === 'analytics'} 
             onClick={() => setActiveTab('analytics')}
             icon={<BarChart3 size={20} />}
-            label="วิเคราะห์ Stock (Mod 3)"
+            label="วิเคราะห์ Stock"
           />
           <NavItem 
             active={activeTab === 'ncp'} 
             onClick={() => setActiveTab('ncp')}
             icon={<AlertOctagon size={20} />}
-            label="เคลมสินค้า NCP (Mod 4)"
+            label="เคลมสินค้า NCP"
           />
           <NavItem 
             active={activeTab === 'agreements'} 
             onClick={() => setActiveTab('agreements')}
             icon={<ClipboardList size={20} />}
-            label="สัญญาจัดซื้อ (Mod 5)"
+            label="สัญญาจัดซื้อ"
           />
         </nav>
 
