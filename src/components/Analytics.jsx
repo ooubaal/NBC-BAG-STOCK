@@ -14,7 +14,13 @@ const Analytics = ({ inventory, items }) => {
   const stats = useMemo(() => {
     const itemRecords = inventory.filter(i => i.itemName === selectedItem);
     const totalStock = itemRecords.reduce((acc, curr) => acc + Number(curr.remainingQty), 0);
-    const lots = itemRecords.map(i => ({ lot: i.supplierLot, qty: i.remainingQty, status: i.qcStatus, location: i.location }));
+    const lots = itemRecords.map(i => ({ 
+      lot: i.supplierLot, 
+      inhouseLot: i.inhouseLot, 
+      qty: i.remainingQty, 
+      status: i.qcStatus, 
+      location: i.location 
+    }));
     const qcStats = itemRecords.reduce((acc, curr) => {
       acc[curr.qcStatus] = (acc[curr.qcStatus] || 0) + 1;
       return acc;
@@ -165,6 +171,7 @@ const Analytics = ({ inventory, items }) => {
               <thead>
                 <tr style={{ textAlign: 'left', borderBottom: '1px solid var(--glass-border)', color: 'var(--text-muted)' }}>
                   <th style={{ padding: '0.5rem' }}>Lot no.</th>
+                  <th style={{ padding: '0.5rem' }}>Inhouse Lot</th>
                   <th style={{ padding: '0.5rem' }}>คงเหลือ ({currentUnit})</th>
                   <th style={{ padding: '0.5rem' }}>ที่เก็บ</th>
                   <th style={{ padding: '0.5rem' }}>สถานะ</th>
@@ -172,11 +179,12 @@ const Analytics = ({ inventory, items }) => {
               </thead>
               <tbody>
                 {stats.lots.length === 0 ? (
-                  <tr><td colSpan="4" style={{ padding: '1rem', textAlign: 'center' }}>ไม่มีข้อมูล</td></tr>
+                  <tr><td colSpan="5" style={{ padding: '1rem', textAlign: 'center' }}>ไม่มีข้อมูล</td></tr>
                 ) : (
                   stats.lots.map((l, i) => (
                     <tr key={i} style={{ borderBottom: '1px solid var(--glass-border)' }}>
-                      <td style={{ padding: '0.75rem' }}>{l.lot}</td>
+                      <td style={{ padding: '0.75rem' }}>{l.lot || '-'}</td>
+                      <td style={{ padding: '0.75rem' }}>{l.inhouseLot || '-'}</td>
                       <td style={{ padding: '0.75rem', fontWeight: 600 }}>{l.qty}</td>
                       <td style={{ padding: '0.75rem' }}>{l.location}</td>
                       <td style={{ padding: '0.75rem' }}>
