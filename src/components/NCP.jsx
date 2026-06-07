@@ -71,7 +71,8 @@ const NCP = ({ inventory, items, db }) => {
   const [claims, rawSetClaims] = useState(() => {
     try {
       const savedClaims = localStorage.getItem('wms_claims');
-      return savedClaims ? JSON.parse(savedClaims) : [];
+      let parsed = savedClaims ? JSON.parse(savedClaims) : [];
+      return parsed.filter(claim => claim && claim.id);
     } catch (e) {
       console.error("Error loading claims:", e);
       return [];
@@ -111,7 +112,10 @@ const NCP = ({ inventory, items, db }) => {
     const unsubscribe = onSnapshot(claimsRef, (snapshot) => {
       const list = [];
       snapshot.forEach(docSnap => {
-        list.push(docSnap.data());
+        const data = docSnap.data();
+        if (data && data.id) {
+          list.push(data);
+        }
       });
       
       const savedConfig = localStorage.getItem('wms_firebase_config');

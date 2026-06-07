@@ -56,7 +56,7 @@ function App() {
         unit: defaultUnits[item] || "ชิ้น"
       }));
     }
-    return parsedItems;
+    return parsedItems.filter(item => item && item.name && item.name.trim());
   });
 
   const [inventory, setInventory] = useState(() => {
@@ -65,19 +65,20 @@ function App() {
     
     // Migration: ensure every item in inventory has a unit field
     parsedInventory = parsedInventory.map(item => {
-      if (!item.unit) {
-        const registered = items.find(i => i.name === item.itemName);
+      if (item && !item.unit) {
+        const registered = items.find(i => i && i.name === item.itemName);
         item.unit = registered ? registered.unit : 'ชิ้น';
       }
       return item;
     });
-    return parsedInventory;
+    return parsedInventory.filter(item => item && item.id);
   });
 
   const [agreements, setAgreements] = useState(() => {
     try {
       const saved = localStorage.getItem('wms_agreements');
-      return saved ? JSON.parse(saved) : [];
+      let parsed = saved ? JSON.parse(saved) : [];
+      return parsed.filter(ag => ag && ag.id);
     } catch (e) {
       console.error(e);
       return [];
@@ -119,7 +120,10 @@ function App() {
     const unsubscribe = onSnapshot(itemsRef, (snapshot) => {
       const list = [];
       snapshot.forEach(docSnap => {
-        list.push(docSnap.data());
+        const data = docSnap.data();
+        if (data && data.name && data.name.trim()) {
+          list.push(data);
+        }
       });
       
       const isSynced = firebaseConfig && localStorage.getItem('wms_synced_project_id') === firebaseConfig.projectId;
@@ -147,7 +151,10 @@ function App() {
     const unsubscribe = onSnapshot(invRef, (snapshot) => {
       const list = [];
       snapshot.forEach(docSnap => {
-        list.push(docSnap.data());
+        const data = docSnap.data();
+        if (data && data.id) {
+          list.push(data);
+        }
       });
       
       const isSynced = firebaseConfig && localStorage.getItem('wms_synced_project_id') === firebaseConfig.projectId;
@@ -175,7 +182,10 @@ function App() {
     const unsubscribe = onSnapshot(agreementsRef, (snapshot) => {
       const list = [];
       snapshot.forEach(docSnap => {
-        list.push(docSnap.data());
+        const data = docSnap.data();
+        if (data && data.id) {
+          list.push(data);
+        }
       });
       
       const isSynced = firebaseConfig && localStorage.getItem('wms_synced_project_id') === firebaseConfig.projectId;
@@ -223,18 +233,24 @@ function App() {
     setItems(prev => {
       const next = typeof newItemsOrFunc === 'function' ? newItemsOrFunc(prev) : newItemsOrFunc;
       
-      if (db) {
+      if (db && Array.isArray(next)) {
         next.forEach(item => {
-          setDoc(doc(db, 'items', item.name), item)
-            .catch(err => console.error("Error syncing item:", err));
-        });
-        prev.forEach(prevItem => {
-          const stillExists = next.some(n => n.name === prevItem.name);
-          if (!stillExists) {
-            deleteDoc(doc(db, 'items', prevItem.name))
-              .catch(err => console.error("Error deleting item:", err));
+          if (item && item.name && item.name.trim()) {
+            setDoc(doc(db, 'items', item.name), item)
+              .catch(err => console.error("Error syncing item:", err));
           }
         });
+        if (Array.isArray(prev)) {
+          prev.forEach(prevItem => {
+            if (prevItem && prevItem.name && prevItem.name.trim()) {
+              const stillExists = next.some(n => n && n.name === prevItem.name);
+              if (!stillExists) {
+                deleteDoc(doc(db, 'items', prevItem.name))
+                  .catch(err => console.error("Error deleting item:", err));
+              }
+            }
+          });
+        }
       }
       return next;
     });
@@ -244,20 +260,26 @@ function App() {
     setInventory(prev => {
       const next = typeof newInvOrFunc === 'function' ? newInvOrFunc(prev) : newInvOrFunc;
       
-      if (db) {
+      if (db && Array.isArray(next)) {
         next.forEach(item => {
-          const prevItem = prev.find(p => p.id === item.id);
-          if (!prevItem || JSON.stringify(prevItem) !== JSON.stringify(item)) {
-            setDoc(doc(db, 'inventory', String(item.id)), item)
-              .catch(err => console.error("Error syncing inventory:", err));
+          if (item && item.id) {
+            const prevItem = Array.isArray(prev) ? prev.find(p => p && p.id === item.id) : null;
+            if (!prevItem || JSON.stringify(prevItem) !== JSON.stringify(item)) {
+              setDoc(doc(db, 'inventory', String(item.id)), item)
+                .catch(err => console.error("Error syncing inventory:", err));
+            }
           }
         });
-        prev.forEach(prevItem => {
-          const stillExists = next.some(n => n.id === prevItem.id);
-          if (!stillExists) {
-            deleteDoc(doc(db, 'inventory', String(prevItem.id))).catch(err => console.error("Error deleting doc:", err));
-          }
-        });
+        if (Array.isArray(prev)) {
+          prev.forEach(prevItem => {
+            if (prevItem && prevItem.id) {
+              const stillExists = next.some(n => n && n.id === prevItem.id);
+              if (!stillExists) {
+                deleteDoc(doc(db, 'inventory', String(prevItem.id))).catch(err => console.error("Error deleting doc:", err));
+              }
+            }
+          });
+        }
       }
       return next;
     });
@@ -267,22 +289,27 @@ function App() {
     setAgreements(prev => {
       const next = typeof newAgreementsOrFunc === 'function' ? newAgreementsOrFunc(prev) : newAgreementsOrFunc;
       
-      if (db) {
+      if (db && Array.isArray(next)) {
         next.forEach(agreement => {
-          const prevAgreement = prev.find(p => p.id === agreement.id);
-          if (!prevAgreement || JSON.stringify(prevAgreement) !== JSON.stringify(agreement)) {
-            setDoc(doc(db, 'agreements', String(agreement.id)), agreement)
-              .catch(err => console.error("Error syncing agreement:", err));
+          if (agreement && agreement.id) {
+            const prevAgreement = Array.isArray(prev) ? prev.find(p => p && p.id === agreement.id) : null;
+            if (!prevAgreement || JSON.stringify(prevAgreement) !== JSON.stringify(agreement)) {
+              setDoc(doc(db, 'agreements', String(agreement.id)), agreement)
+                .catch(err => console.error("Error syncing agreement:", err));
+            }
           }
         });
-        
-        prev.forEach(prevAgreement => {
-          const stillExists = next.some(n => n.id === prevAgreement.id);
-          if (!stillExists) {
-            deleteDoc(doc(db, 'agreements', String(prevAgreement.id)))
-              .catch(err => console.error("Error deleting agreement:", err));
-          }
-        });
+        if (Array.isArray(prev)) {
+          prev.forEach(prevAgreement => {
+            if (prevAgreement && prevAgreement.id) {
+              const stillExists = next.some(n => n && n.id === prevAgreement.id);
+              if (!stillExists) {
+                deleteDoc(doc(db, 'agreements', String(prevAgreement.id)))
+                  .catch(err => console.error("Error deleting agreement:", err));
+              }
+            }
+          });
+        }
       }
       return next;
     });

@@ -13,7 +13,7 @@ const ProductRegistry = ({ items, setItems }) => {
 
   const addItem = () => {
     if (!newItemName.trim()) return;
-    if (items.some(item => item.name.toLowerCase() === newItemName.trim().toLowerCase())) {
+    if (items.some(item => item && item.name && item.name.toLowerCase() === newItemName.trim().toLowerCase())) {
       alert("รายการนี้มีอยู่แล้วในระบบ");
       return;
     }
@@ -118,8 +118,8 @@ const ProductRegistry = ({ items, setItems }) => {
             continue;
           }
 
-          const existsInCurrent = items.some(item => item.name.toLowerCase() === name.toLowerCase());
-          const existsInImportBatch = newItemsList.some(item => item.name.toLowerCase() === name.toLowerCase());
+          const existsInCurrent = items.some(item => item && item.name && item.name.toLowerCase() === name.toLowerCase());
+          const existsInImportBatch = newItemsList.some(item => item && item.name && item.name.toLowerCase() === name.toLowerCase());
 
           if (existsInCurrent || existsInImportBatch) {
             duplicateCount++;
