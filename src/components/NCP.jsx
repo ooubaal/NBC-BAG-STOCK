@@ -113,8 +113,24 @@ const NCP = ({ inventory, items, db }) => {
       snapshot.forEach(docSnap => {
         list.push(docSnap.data());
       });
+      
+      const savedConfig = localStorage.getItem('wms_firebase_config');
+      let projectId = null;
+      if (savedConfig) {
+        try {
+          projectId = JSON.parse(savedConfig).projectId;
+        } catch (e) {}
+      }
+      
+      const isSynced = projectId && localStorage.getItem('wms_synced_project_id') === projectId;
+
       if (list.length > 0) {
         rawSetClaims(list);
+        if (projectId) {
+          localStorage.setItem('wms_synced_project_id', projectId);
+        }
+      } else if (isSynced) {
+        rawSetClaims([]);
       }
     }, (error) => {
       console.error("Error listening to claims:", error);

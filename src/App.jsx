@@ -121,15 +121,23 @@ function App() {
       snapshot.forEach(docSnap => {
         list.push(docSnap.data());
       });
+      
+      const isSynced = firebaseConfig && localStorage.getItem('wms_synced_project_id') === firebaseConfig.projectId;
+
       if (list.length > 0) {
         setItems(list);
+        if (firebaseConfig) {
+          localStorage.setItem('wms_synced_project_id', firebaseConfig.projectId);
+        }
+      } else if (isSynced) {
+        setItems(INITIAL_ITEMS);
       }
     }, (error) => {
       console.error("Error listening to items:", error);
     });
 
     return () => unsubscribe();
-  }, [db]);
+  }, [db, firebaseConfig]);
 
   // 4. Real-time synchronisation for Inventory
   useEffect(() => {
@@ -141,15 +149,23 @@ function App() {
       snapshot.forEach(docSnap => {
         list.push(docSnap.data());
       });
+      
+      const isSynced = firebaseConfig && localStorage.getItem('wms_synced_project_id') === firebaseConfig.projectId;
+
       if (list.length > 0) {
         setInventory(list);
+        if (firebaseConfig) {
+          localStorage.setItem('wms_synced_project_id', firebaseConfig.projectId);
+        }
+      } else if (isSynced) {
+        setInventory([]);
       }
     }, (error) => {
       console.error("Error listening to inventory:", error);
     });
 
     return () => unsubscribe();
-  }, [db]);
+  }, [db, firebaseConfig]);
 
   // 4b. Real-time synchronisation for Agreements
   useEffect(() => {
@@ -161,15 +177,33 @@ function App() {
       snapshot.forEach(docSnap => {
         list.push(docSnap.data());
       });
+      
+      const isSynced = firebaseConfig && localStorage.getItem('wms_synced_project_id') === firebaseConfig.projectId;
+
       if (list.length > 0) {
         setAgreements(list);
+        if (firebaseConfig) {
+          localStorage.setItem('wms_synced_project_id', firebaseConfig.projectId);
+        }
+      } else if (isSynced) {
+        setAgreements([]);
       }
     }, (error) => {
       console.error("Error listening to agreements:", error);
     });
 
     return () => unsubscribe();
-  }, [db]);
+  }, [db, firebaseConfig]);
+
+  // 4c. Set project as synced automatically if local storage is already empty on boot
+  useEffect(() => {
+    if (db && firebaseConfig && firebaseConfig.projectId) {
+      const isLocalEmpty = inventory.length === 0 && agreements.length === 0;
+      if (isLocalEmpty) {
+        localStorage.setItem('wms_synced_project_id', firebaseConfig.projectId);
+      }
+    }
+  }, [db, firebaseConfig, inventory.length, agreements.length]);
 
   // Save data to LocalStorage as cache
   useEffect(() => {
@@ -285,6 +319,9 @@ function App() {
         }
       }
       
+      if (firebaseConfig && firebaseConfig.projectId) {
+        localStorage.setItem('wms_synced_project_id', firebaseConfig.projectId);
+      }
       alert("ย้ายข้อมูลขึ้นฐานข้อมูลคลาวด์สำเร็จเรียบร้อยแล้ว ทุกเครื่องจะเห็นข้อมูลใหม่นี้ทันที!");
     } catch (error) {
       console.error("Migration failed:", error);
@@ -360,6 +397,9 @@ function App() {
           }
         }
 
+        if (firebaseConfig && firebaseConfig.projectId) {
+          localStorage.setItem('wms_synced_project_id', firebaseConfig.projectId);
+        }
         alert("กู้คืนฐานข้อมูลและซิงค์ระบบคลาวด์เรียบร้อยแล้ว!");
       } catch (error) {
         console.error("Restore failed:", error);
@@ -399,6 +439,9 @@ function App() {
           updateAgreements([]);
           localStorage.setItem('wms_claims', '[]');
 
+          if (firebaseConfig && firebaseConfig.projectId) {
+            localStorage.setItem('wms_synced_project_id', firebaseConfig.projectId);
+          }
           alert("🎉 รีเซ็ตโปรแกรมและล้างฐานข้อมูลระบบสำเร็จเรียบร้อยแล้ว!");
         } catch (error) {
           console.error("Database reset failed:", error);
