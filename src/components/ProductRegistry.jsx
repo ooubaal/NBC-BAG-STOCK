@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Trash2, Edit2, Check, X } from 'lucide-react';
+import { Plus, Trash2, Edit2, Check, X, Upload, Download } from 'lucide-react';
 
 const ProductRegistry = ({ items, setItems }) => {
   const [newItemName, setNewItemName] = useState('');
@@ -41,6 +41,124 @@ const ProductRegistry = ({ items, setItems }) => {
     newItems[index] = { name: editingValue.name.trim(), unit: editingValue.unit.trim() || 'ชิ้น' };
     setItems(newItems);
     setEditingIndex(null);
+  };
+
+  const downloadTemplate = () => {
+    const headers = ["ชื่อสินค้า (จำเป็น)", "หน่วยนับ (จำเป็น - เช่น ชิ้น, kg, g, ลิตร, ถุง, กล่อง)"];
+    const sampleRow = ["Raw Material C", "kg"];
+    
+    const formatCSVField = (field) => {
+      const stringified = String(field || '').replace(/"/g, '""');
+      if (stringified.includes(',') || stringified.includes('\n') || stringified.includes('"')) {
+        return `"${stringified}"`;
+      }
+      return stringified;
+    };
+
+    const csvContent = "\uFEFF" + [
+      headers.map(formatCSVField).join(","), 
+      sampleRow.map(formatCSVField).join(",")
+    ].join("\r\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", "nbc_items_template.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleImportCSV = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const text = event.target.result;
+        const lines = text.split(/\r?\n/).filter(line => line.trim() !== '');
+        
+        if (lines.length <= 1) {
+          alert("ไม่พบข้อมูลที่จะนำเข้าในไฟล์ (กรุณาตรวจสอบว่ามีข้อมูลสินค้าอย่างน้อย 1 แถวใต้หัวข้อตาราง)");
+          return;
+        }
+
+        const parseCSVLine = (lineText) => {
+          let p = '', c = false, r = [];
+          for (let i = 0; i < lineText.length; i++) {
+            let char = lineText[i];
+            if (char === '"') {
+              c = !c;
+            } else if (char === ',' && !c) {
+              r.push(p.trim().replace(/^"|"$/g, '').replace(/""/g, '"'));
+              p = '';
+            } else {
+              p += char;
+            }
+          }
+          r.push(p.trim().replace(/^"|"$/g, '').replace(/""/g, '"'));
+          return r;
+        };
+
+        const newItemsList = [];
+        let duplicateCount = 0;
+        let emptyCount = 0;
+
+        for (let i = 1; i < lines.length; i++) {
+          const cells = parseCSVLine(lines[i]);
+          if (cells.length < 1) continue;
+
+          const name = cells[0] ? cells[0].trim() : '';
+          const unit = cells[1] ? cells[1].trim() : 'ชิ้น';
+
+          if (!name) {
+            emptyCount++;
+            continue;
+          }
+
+          const existsInCurrent = items.some(item => item.name.toLowerCase() === name.toLowerCase());
+          const existsInImportBatch = newItemsList.some(item => item.name.toLowerCase() === name.toLowerCase());
+
+          if (existsInCurrent || existsInImportBatch) {
+            duplicateCount++;
+            continue;
+          }
+
+          newItemsList.push({
+            name,
+            unit: unit || 'ชิ้น'
+          });
+        }
+
+        if (newItemsList.length === 0) {
+          if (duplicateCount > 0) {
+            alert(`ไม่สามารถนำเข้าข้อมูลได้ เนื่องจากสินค้าทั้ง ${duplicateCount} รายการในไฟล์ มีอยู่ในทะเบียนพัสดุเรียบร้อยแล้ว`);
+          } else {
+            alert("ไม่พบข้อมูลสินค้าที่สมบูรณ์ในไฟล์");
+          }
+          return;
+        }
+
+        setItems([...items, ...newItemsList]);
+        
+        let msg = `🎉 นำเข้าข้อมูลสินค้าใหม่สำเร็จ ${newItemsList.length} รายการ!`;
+        if (duplicateCount > 0) {
+          msg += `\n(ข้าม ${duplicateCount} รายการเนื่องจากมีชื่อซ้ำในระบบแล้ว)`;
+        }
+        if (emptyCount > 0) {
+          msg += `\n(ข้าม ${emptyCount} แถวที่ไม่มีชื่อสินค้า)`;
+        }
+        alert(msg);
+      } catch (err) {
+        console.error(err);
+        alert("การวิเคราะห์ไฟล์ล้มเหลว: " + err.message);
+      }
+      
+      e.target.value = '';
+    };
+    reader.readAsText(file);
   };
 
   return (
@@ -101,6 +219,68 @@ const ProductRegistry = ({ items, setItems }) => {
           <button className="btn btn-primary" style={{ whiteSpace: 'nowrap', height: '42px', display: 'flex', alignItems: 'center', gap: '0.4rem' }} onClick={addItem}>
             <Plus size={18} /> เพิ่มรายการ
           </button>
+        </div>
+      </div>
+
+      {/* CSV Import Section */}
+      <div className="glass card" style={{ 
+        marginBottom: '2rem', 
+        padding: '1.25rem 1.5rem', 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center', 
+        flexWrap: 'wrap', 
+        gap: '1rem',
+        borderLeft: '4px solid var(--accent-secondary)'
+      }}>
+        <div>
+          <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1.05rem', fontWeight: 700 }}>
+            <Upload size={18} color="var(--accent-secondary)" />
+            นำเข้าทะเบียนสินค้าพัสดุทีละหลายรายการ (Excel / CSV Import)
+          </h3>
+          <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+            ดาวน์โหลดไฟล์เทมเพลตเพื่อกรอกรายชื่อพัสดุและหน่วยนับ จากนั้นเลือกไฟล์อัปโหลดเข้าสู่ระบบพร้อมกัน
+          </p>
+        </div>
+        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
+          <button 
+            className="btn btn-secondary" 
+            onClick={downloadTemplate}
+            style={{ 
+              fontSize: '0.8rem', 
+              padding: '0.5rem 1rem', 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '0.4rem',
+              background: 'rgba(255,255,255,0.03)',
+              border: '1px solid var(--glass-border)'
+            }}
+          >
+            <Download size={15} /> ดาวน์โหลด Template (.csv)
+          </button>
+          <label 
+            className="btn btn-primary" 
+            style={{ 
+              fontSize: '0.8rem', 
+              padding: '0.5rem 1rem', 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '0.4rem', 
+              cursor: 'pointer',
+              background: 'linear-gradient(135deg, var(--accent-secondary), #0284c7)',
+              color: '#fff',
+              border: 'none',
+              fontWeight: 600
+            }}
+          >
+            <Upload size={15} /> นำเข้าไฟล์พัสดุ (.csv)
+            <input 
+              type="file" 
+              accept=".csv" 
+              onChange={handleImportCSV} 
+              style={{ display: 'none' }} 
+            />
+          </label>
         </div>
       </div>
 
