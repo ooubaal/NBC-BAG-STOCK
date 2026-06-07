@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Plus, Check, X, FileText, ShieldAlert, PackageOpen, ChevronDown, ChevronUp, UserCheck, AlertTriangle, Search } from 'lucide-react';
+import { Plus, Check, X, FileText, ShieldAlert, PackageOpen, ChevronDown, ChevronUp, UserCheck, AlertTriangle, Search, Edit2, Trash2 } from 'lucide-react';
 
 const Agreements = ({ agreements, setAgreements, inventory, setInventory, items }) => {
   const [activeTab, setActiveTab] = useState('list'); // 'list' or 'new'
@@ -7,6 +7,61 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
   const [searchQuery, setSearchQuery] = useState('');
   const [formSearchQuery, setFormSearchQuery] = useState('');
   const [isFormDropdownOpen, setIsFormDropdownOpen] = useState(false);
+
+  // Editing state
+  const [editingAgreementId, setEditingAgreementId] = useState(null);
+  const [editForm, setEditForm] = useState(null);
+  const [isEditFormDropdownOpen, setIsEditFormDropdownOpen] = useState(false);
+  const [editFormSearchQuery, setEditFormSearchQuery] = useState('');
+
+  // Deleting state
+  const [deleteAgreementId, setDeleteAgreementId] = useState(null);
+  const [deletePassword, setDeletePassword] = useState('');
+  const [deleteError, setDeleteError] = useState('');
+
+  const activeDeliveriesCount = useMemo(() => {
+    if (!deleteAgreementId) return 0;
+    return inventory.filter(lot => lot.agreementId === deleteAgreementId && !lot.isCancelled).length;
+  }, [deleteAgreementId, inventory]);
+
+  const handleStartEdit = (agreement) => {
+    setEditingAgreementId(agreement.id);
+    setEditForm({
+      ...agreement,
+      totalQty: String(agreement.totalQty)
+    });
+    setEditFormSearchQuery('');
+    setIsEditFormDropdownOpen(false);
+  };
+
+  const handleSaveEdit = (e) => {
+    if (e) e.preventDefault();
+    if (!editForm.totalQty || !editForm.supplier) {
+      alert("กรุณากรอกข้อมูลที่จำเป็นให้ครบถ้วน (จำนวนทั้งหมด, ผู้จัดจำหน่าย)");
+      return;
+    }
+
+    const updatedAgreements = agreements.map(ag => {
+      if (ag.id === editingAgreementId) {
+        return {
+          ...ag,
+          supplier: editForm.supplier,
+          itemName: editForm.itemName,
+          totalQty: Number(editForm.totalQty),
+          unit: editForm.unit,
+          startDate: editForm.startDate,
+          endDate: editForm.endDate,
+          remarks: editForm.remarks
+        };
+      }
+      return ag;
+    });
+
+    setAgreements(updatedAgreements);
+    setEditingAgreementId(null);
+    setEditForm(null);
+    alert("แก้ไขข้อมูลสัญญาจัดซื้อเรียบร้อยแล้ว!");
+  };
 
   // New agreement form state
   const [newAgreement, setNewAgreement] = useState({
@@ -611,6 +666,188 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
             </div>
           ) : (
             filteredAgreements.map(agreement => {
+              if (editingAgreementId === agreement.id) {
+                return (
+                  <div 
+                    key={agreement.id} 
+                    className="glass card" 
+                    style={{ 
+                      borderLeft: '4px solid var(--accent-secondary)',
+                      padding: '1.5rem',
+                      transition: 'all 0.2s ease'
+                    }}
+                  >
+                    <h3 style={{ marginBottom: '1.25rem', borderBottom: '1px solid var(--glass-border)', paddingBottom: '0.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span>แก้ไขรายละเอียดสัญญา: <strong style={{ color: 'var(--accent-secondary)' }}>{agreement.id}</strong></span>
+                      <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>(ไม่สามารถแก้ไขเลขที่สัญญาเพื่อรักษาประวัติรับเข้าได้)</span>
+                    </h3>
+                    <form onSubmit={handleSaveEdit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+                        <div>
+                          <label style={{ display: 'block', marginBottom: '0.4rem', fontSize: '0.85rem' }}>ชื่อผู้จัดจำหน่าย (Supplier) <span style={{ color: 'var(--danger)' }}>*</span></label>
+                          <input 
+                            type="text" 
+                            value={editForm.supplier} 
+                            onChange={e => setEditForm({...editForm, supplier: e.target.value})} 
+                            required
+                          />
+                        </div>
+                        <div>
+                          <label style={{ display: 'block', marginBottom: '0.4rem', fontSize: '0.85rem' }}>เลือกสินค้าจัดซื้อ <span style={{ color: 'var(--danger)' }}>*</span></label>
+                          <div style={{ position: 'relative' }}>
+                            <div 
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                border: '1px solid var(--glass-border)',
+                                borderRadius: '8px',
+                                background: 'var(--glass-bg)',
+                                padding: '0.45rem 0.75rem',
+                                cursor: 'pointer',
+                                justifyContent: 'space-between'
+                              }}
+                              onClick={() => setIsEditFormDropdownOpen(!isEditFormDropdownOpen)}
+                            >
+                              <input
+                                type="text"
+                                placeholder="พิมพ์เพื่อค้นหาชื่อสินค้า..."
+                                value={isEditFormDropdownOpen ? editFormSearchQuery : editForm.itemName}
+                                onChange={(e) => {
+                                  setEditFormSearchQuery(e.target.value);
+                                  setIsEditFormDropdownOpen(true);
+                                }}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setIsEditFormDropdownOpen(true);
+                                }}
+                                style={{
+                                  border: 'none',
+                                  outline: 'none',
+                                  background: 'transparent',
+                                  width: '100%',
+                                  color: 'var(--text-primary)',
+                                  fontSize: '0.9rem'
+                                }}
+                              />
+                              <ChevronDown size={18} color="var(--text-secondary)" style={{ transform: isEditFormDropdownOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s', flexShrink: 0 }} />
+                            </div>
+
+                            {isEditFormDropdownOpen && (
+                              <>
+                                <div 
+                                  style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 998 }} 
+                                  onClick={() => { setIsEditFormDropdownOpen(false); setEditFormSearchQuery(''); }}
+                                />
+                                <div 
+                                  style={{
+                                    position: 'absolute',
+                                    top: '105%',
+                                    left: 0,
+                                    right: 0,
+                                    maxHeight: '250px',
+                                    overflowY: 'auto',
+                                    background: '#ffffff',
+                                    backdropFilter: 'blur(10px)',
+                                    border: '1px solid var(--glass-border)',
+                                    borderRadius: '8px',
+                                    zIndex: 999,
+                                    boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.15), 0 4px 6px -2px rgba(0, 0, 0, 0.05)'
+                                  }}
+                                >
+                                  {((items ? items.filter(item => item.name.toLowerCase().includes(editFormSearchQuery.toLowerCase())) : []).length === 0) ? (
+                                    <div style={{ padding: '0.75rem 1rem', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                                      ไม่พบสินค้าที่ตรงกับคำค้นหา
+                                    </div>
+                                  ) : (
+                                    (items ? items.filter(item => item.name.toLowerCase().includes(editFormSearchQuery.toLowerCase())) : []).map(item => (
+                                      <div
+                                        key={item.name}
+                                        style={{
+                                          padding: '0.6rem 1rem',
+                                          cursor: 'pointer',
+                                          background: editForm.itemName === item.name ? 'rgba(245, 158, 11, 0.15)' : 'transparent',
+                                          color: 'var(--text-primary)',
+                                          fontSize: '0.88rem',
+                                          borderBottom: '1px solid rgba(0, 0, 0, 0.05)',
+                                          transition: 'background 0.15s'
+                                        }}
+                                        onMouseEnter={(e) => e.target.style.background = 'rgba(15, 23, 42, 0.05)'}
+                                        onMouseLeave={(e) => e.target.style.background = editForm.itemName === item.name ? 'rgba(245, 158, 11, 0.15)' : 'transparent'}
+                                        onClick={() => {
+                                          setEditForm({
+                                            ...editForm,
+                                            itemName: item.name,
+                                            unit: item.unit || 'ชิ้น'
+                                          });
+                                          setIsEditFormDropdownOpen(false);
+                                          setEditFormSearchQuery('');
+                                        }}
+                                      >
+                                        {item.name} {item.unit ? `(${item.unit})` : ''}
+                                      </div>
+                                    ))
+                                  )}
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+                        <div>
+                          <label style={{ display: 'block', marginBottom: '0.4rem', fontSize: '0.85rem' }}>จำนวนจัดซื้อตามสัญญา <span style={{ color: 'var(--danger)' }}>*</span></label>
+                          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                            <input 
+                              type="number" 
+                              value={editForm.totalQty} 
+                              onChange={e => setEditForm({...editForm, totalQty: e.target.value})} 
+                              required 
+                              style={{ flex: 1 }}
+                            />
+                            <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', fontWeight: 600, minWidth: '40px' }}>
+                              {editForm.unit}
+                            </span>
+                          </div>
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                          <div>
+                            <label style={{ display: 'block', marginBottom: '0.4rem', fontSize: '0.85rem' }}>วันเริ่มสัญญา</label>
+                            <input 
+                              type="date" 
+                              value={editForm.startDate || ''} 
+                              onChange={e => setEditForm({...editForm, startDate: e.target.value})} 
+                            />
+                          </div>
+                          <div>
+                            <label style={{ display: 'block', marginBottom: '0.4rem', fontSize: '0.85rem' }}>วันหมดอายุสัญญา</label>
+                            <input 
+                              type="date" 
+                              value={editForm.endDate || ''} 
+                              onChange={e => setEditForm({...editForm, endDate: e.target.value})} 
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label style={{ display: 'block', marginBottom: '0.4rem', fontSize: '0.85rem' }}>บันทึกเพิ่มเติม / หมายเหตุ</label>
+                        <textarea 
+                          value={editForm.remarks || ''} 
+                          onChange={e => setEditForm({...editForm, remarks: e.target.value})}
+                          rows="2"
+                        ></textarea>
+                      </div>
+
+                      <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end', borderTop: '1px solid var(--glass-border)', paddingTop: '1.25rem' }}>
+                        <button type="button" className="btn btn-secondary" onClick={() => { setEditingAgreementId(null); setEditForm(null); }}>ยกเลิก</button>
+                        <button type="submit" className="btn btn-primary" style={{ background: 'var(--accent-secondary)', color: '#fff', border: '1px solid var(--accent-secondary)' }}>บันทึกการแก้ไข</button>
+                      </div>
+                    </form>
+                  </div>
+                );
+              }
+
               const isExpanded = expandedAgreementId === agreement.id;
               
               // Tri-color bar calculation
@@ -641,8 +878,28 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
                       </div>
                     </div>
 
-                    <div style={{ textAlign: 'right', fontSize: '0.85rem' }}>
-                      <div style={{ display: 'flex', gap: '1rem', color: 'var(--text-muted)' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.5rem' }}>
+                      <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        <button 
+                          className="btn btn-secondary" 
+                          style={{ padding: '0.3rem 0.6rem', color: 'var(--accent-secondary)', display: 'flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.8rem' }}
+                          onClick={() => handleStartEdit(agreement)}
+                        >
+                          <Edit2 size={13} /> แก้ไขข้อมูล
+                        </button>
+                        <button 
+                          className="btn btn-secondary" 
+                          style={{ padding: '0.3rem 0.5rem', color: 'var(--danger)', background: 'rgba(239, 68, 68, 0.05)', border: '1px solid rgba(239, 68, 68, 0.1)' }}
+                          onClick={() => {
+                            setDeleteAgreementId(agreement.id);
+                            setDeletePassword('');
+                            setDeleteError('');
+                          }}
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+                      <div style={{ display: 'flex', gap: '1rem', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
                         <div>เริ่ม: <strong style={{ color: 'var(--text-secondary)' }}>{agreement.startDate}</strong></div>
                         <div>สิ้นสุด: <strong style={{ color: 'var(--text-secondary)' }}>{agreement.endDate}</strong></div>
                       </div>
@@ -828,6 +1085,117 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
               );
             })
           )}
+        </div>
+      )}
+      {/* Deletion Warning Modal */}
+      {deleteAgreementId !== null && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.7)',
+          backdropFilter: 'blur(5px)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 9999
+        }}>
+          <div className="glass card" style={{
+            maxWidth: '550px',
+            width: '90%',
+            padding: '2.5rem',
+            border: '1px solid var(--danger)',
+            boxShadow: '0 20px 25px -5px rgba(0,0,0,0.5)'
+          }}>
+            <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--danger)', marginBottom: '1.25rem' }}>
+              <AlertTriangle size={24} /> ยืนยันการลบสัญญาจัดซื้อ
+            </h3>
+            
+            {activeDeliveriesCount > 0 ? (
+              <div style={{
+                background: 'rgba(239, 68, 68, 0.08)',
+                color: 'var(--danger)',
+                padding: '1rem',
+                borderRadius: '8px',
+                border: '1px solid rgba(239, 68, 68, 0.2)',
+                fontSize: '0.88rem',
+                lineHeight: '1.5',
+                marginBottom: '1.5rem'
+              }}>
+                <strong>คำเตือนสำคัญ ⚠️:</strong> สัญญานี้มีรายการรับเข้าพัสดุเชื่อมโยงอยู่ทั้งหมด <strong>{activeDeliveriesCount} รายการ</strong> การลบสัญญานี้จะส่งผลให้รายการพัสดุรับเข้าเหล่านั้นกลายเป็น "ไม่มีสัญญาจัดซื้ออ้างอิง" หากไม่ใช่กรณีพิมพ์ผิดร้ายแรง แนะนำให้ใช้ฟังก์ชัน "แก้ไขข้อมูลสัญญา" แทน
+              </div>
+            ) : (
+              <div style={{
+                background: 'rgba(245, 158, 11, 0.08)',
+                color: 'var(--accent-color)',
+                padding: '1rem',
+                borderRadius: '8px',
+                border: '1px solid rgba(245, 158, 11, 0.2)',
+                fontSize: '0.88rem',
+                lineHeight: '1.5',
+                marginBottom: '1.5rem'
+              }}>
+                <strong>ข้อควรระวัง ⚠️:</strong> การลบสัญญานี้จะไม่สามารถย้อนกลับได้ กรุณาตรวจสอบให้มั่นใจว่าข้อมูลสัญญาไม่ถูกต้องจริงๆ หรือใช้การแก้ไขแทน
+              </div>
+            )}
+
+            <p style={{ fontSize: '0.9rem', marginBottom: '1rem', color: 'var(--text-secondary)' }}>
+              กรุณากรอกรหัสผ่านเพื่อยืนยันการลบสัญญาจัดซื้อ: <strong>{deleteAgreementId}</strong>
+            </p>
+
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              if (deletePassword === '5640502') {
+                const updated = agreements.filter(ag => ag.id !== deleteAgreementId);
+                setAgreements(updated);
+                setDeleteAgreementId(null);
+                alert(`ลบสัญญาจัดซื้อ ${deleteAgreementId} เรียบร้อยแล้ว!`);
+              } else {
+                setDeleteError('รหัสผ่านไม่ถูกต้อง กรุณาลองใหม่อีกครั้ง');
+                setDeletePassword('');
+              }
+            }} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <input 
+                type="password"
+                placeholder="กรอกรหัสผ่าน..."
+                value={deletePassword}
+                onChange={(e) => setDeletePassword(e.target.value)}
+                style={{
+                  width: '100%',
+                  textAlign: 'center',
+                  letterSpacing: '0.2rem',
+                  fontSize: '1.1rem',
+                  fontWeight: 'bold'
+                }}
+                autoFocus
+              />
+
+              {deleteError && (
+                <div style={{ color: 'var(--danger)', fontSize: '0.85rem', fontWeight: 600, textAlign: 'center' }}>
+                  {deleteError}
+                </div>
+              )}
+
+              <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end', marginTop: '0.5rem', borderTop: '1px solid var(--glass-border)', paddingTop: '1.25rem' }}>
+                <button 
+                  type="button"
+                  className="btn btn-secondary" 
+                  onClick={() => setDeleteAgreementId(null)}
+                >
+                  ยกเลิก
+                </button>
+                <button 
+                  type="submit"
+                  className="btn btn-primary"
+                  style={{ backgroundColor: 'var(--danger)', borderColor: 'var(--danger)', color: '#fff' }}
+                >
+                  ยืนยันการลบ
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
     </div>
