@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Plus, Check, X, FileText, ShieldAlert, PackageOpen, ChevronDown, ChevronUp, UserCheck, AlertTriangle, Search, Edit2, Trash2 } from 'lucide-react';
+import { Plus, Check, X, FileText, ShieldAlert, PackageOpen, ChevronDown, ChevronUp, UserCheck, AlertTriangle, Search, Edit2, Trash2, Paperclip, Eye } from 'lucide-react';
 
 const Agreements = ({ agreements, setAgreements, inventory, setInventory, items }) => {
   const [activeTab, setActiveTab] = useState('list'); // 'list' or 'new'
@@ -28,7 +28,8 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
     setEditingAgreementId(agreement.id);
     setEditForm({
       ...agreement,
-      totalQty: String(agreement.totalQty)
+      totalQty: String(agreement.totalQty),
+      attachments: agreement.attachments || []
     });
     setEditFormSearchQuery('');
     setIsEditFormDropdownOpen(false);
@@ -51,7 +52,8 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
           unit: editForm.unit,
           startDate: editForm.startDate,
           endDate: editForm.endDate,
-          remarks: editForm.remarks
+          remarks: editForm.remarks,
+          attachments: editForm.attachments || []
         };
       }
       return ag;
@@ -63,6 +65,134 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
     alert("แก้ไขข้อมูลสัญญาจัดซื้อเรียบร้อยแล้ว!");
   };
 
+  // Helper to compress images (resizes to maximum 1200px width/height and quality 0.7)
+  const compressImage = (file, callback) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      const img = new Image();
+      img.src = event.target.result;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX_WIDTH = 1200;
+        const MAX_HEIGHT = 1200;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > MAX_WIDTH) {
+            height *= MAX_WIDTH / width;
+            width = MAX_WIDTH;
+          }
+        } else {
+          if (height > MAX_HEIGHT) {
+            width *= MAX_HEIGHT / height;
+            height = MAX_HEIGHT;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+
+        // Convert to base64 with 0.7 quality jpeg
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+        callback(dataUrl);
+      };
+    };
+  };
+
+  // Handle file attachment upload
+  const handleFileChange = (e, isEdit = false) => {
+    const files = Array.from(e.target.files);
+    if (files.length === 0) return;
+
+    files.forEach(file => {
+      const isImage = file.type.startsWith('image/');
+      const isPdf = file.type === 'application/pdf';
+
+      if (!isImage && !isPdf) {
+        alert(`ไฟล์ ${file.name} ไม่ได้รับการรองรับ กรุณาแนบเฉพาะไฟล์ PDF หรือรูปภาพ (JPEG/PNG) เท่านั้น`);
+        return;
+      }
+
+      if (isPdf) {
+        // PDF size check (must be < 800 KB)
+        if (file.size > 800 * 1024) {
+          alert(`ไฟล์ PDF "${file.name}" มีขนาดใหญ่เกินไป (${(file.size / 1024 / 1024).toFixed(2)} MB)\nกรุณาแนบไฟล์ขนาดไม่เกิน 800 KB เท่านั้น (แนะนำให้ลดขนาดไฟล์ PDF ออนไลน์ก่อนนำมาแนบ)`);
+          return;
+        }
+
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = () => {
+          const newAttach = {
+            name: file.name,
+            type: 'pdf',
+            data: reader.result
+          };
+          if (isEdit) {
+            setEditForm(prev => ({
+              ...prev,
+              attachments: [...(prev.attachments || []), newAttach]
+            }));
+          } else {
+            setNewAgreement(prev => ({
+              ...prev,
+              attachments: [...(prev.attachments || []), newAttach]
+            }));
+          }
+        };
+      } else if (isImage) {
+        // For images, we can compress them first
+        compressImage(file, (base64Data) => {
+          // Check compressed size (rough estimate of base64 size)
+          const approxSize = base64Data.length * 0.75;
+          if (approxSize > 800 * 1024) {
+            alert(`ภาพ "${file.name}" มีขนาดใหญ่เกินไปหลังการบีบอัด กรุณาแนบรูปภาพที่มีความละเอียดต่ำกว่านี้ หรือขนาดไฟล์ต่ำกว่า 800 KB`);
+            return;
+          }
+
+          const newAttach = {
+            name: file.name,
+            type: 'image',
+            data: base64Data
+          };
+
+          if (isEdit) {
+            setEditForm(prev => ({
+              ...prev,
+              attachments: [...(prev.attachments || []), newAttach]
+            }));
+          } else {
+            setNewAgreement(prev => ({
+              ...prev,
+              attachments: [...(prev.attachments || []), newAttach]
+            }));
+          }
+        });
+      }
+    });
+
+    // Reset the input value so user can upload the same file again if needed
+    e.target.value = '';
+  };
+
+  const removeAttachment = (index, isEdit = false) => {
+    if (isEdit) {
+      setEditForm(prev => ({
+        ...prev,
+        attachments: (prev.attachments || []).filter((_, i) => i !== index)
+      }));
+    } else {
+      setNewAgreement(prev => ({
+        ...prev,
+        attachments: (prev.attachments || []).filter((_, i) => i !== index)
+      }));
+    }
+  };
+
   // New agreement form state
   const [newAgreement, setNewAgreement] = useState({
     id: '',
@@ -72,7 +202,8 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
     supplier: '',
     startDate: new Date().toISOString().split('T')[0],
     endDate: new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString().split('T')[0],
-    remarks: ''
+    remarks: '',
+    attachments: []
   });
 
   // Handle saving new agreement
@@ -95,7 +226,8 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
       totalQty: Number(newAgreement.totalQty),
       unit: selected ? selected.unit : 'ชิ้น',
       status: 'Active', // Initial status
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      attachments: newAgreement.attachments || []
     };
 
     setAgreements([...agreements, agreementToAdd]);
@@ -110,7 +242,8 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
       supplier: '',
       startDate: new Date().toISOString().split('T')[0],
       endDate: new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString().split('T')[0],
-      remarks: ''
+      remarks: '',
+      attachments: []
     });
     setActiveTab('list');
   };
@@ -625,6 +758,86 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
               ></textarea>
             </div>
 
+            <div>
+              <label style={{ display: 'block', marginBottom: '0.4rem', fontSize: '0.85rem', fontWeight: 600 }}>แนบเอกสารสัญญา (PDF หรือ รูปภาพ) <span style={{ fontWeight: 'normal', color: 'var(--text-muted)' }}>(จำกัดขนาดไฟล์ไม่เกิน 800 KB ต่อไฟล์)</span></label>
+              <div style={{
+                border: '2px dashed var(--glass-border)',
+                borderRadius: '8px',
+                padding: '1.25rem',
+                textAlign: 'center',
+                background: 'rgba(255,255,255,0.02)',
+                cursor: 'pointer',
+                position: 'relative',
+                transition: 'border-color 0.2s'
+              }}
+              onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--accent-secondary)'}
+              onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--glass-border)'}
+              >
+                <input 
+                  type="file" 
+                  accept="application/pdf,image/*" 
+                  multiple 
+                  onChange={(e) => handleFileChange(e, false)} 
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    height: '100%',
+                    opacity: 0,
+                    cursor: 'pointer',
+                    zIndex: 2
+                  }}
+                />
+                <Paperclip size={24} style={{ color: 'var(--text-muted)', marginBottom: '0.5rem' }} />
+                <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                  คลิกเพื่อเลือกไฟล์ หรือลากไฟล์มาวางที่นี่
+                </p>
+                <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.75rem', color: 'var(--danger)', fontWeight: 600 }}>
+                  ⚠️ จำกัดขนาดไฟล์ PDF หรือรูปภาพไม่เกิน 800 KB (สำหรับรูปภาพ ระบบจะทำการบีบอัดให้โดยอัตโนมัติ)
+                </p>
+              </div>
+
+              {/* Show attached files list */}
+              {newAgreement.attachments && newAgreement.attachments.length > 0 && (
+                <div style={{ marginTop: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  {newAgreement.attachments.map((file, idx) => (
+                    <div key={idx} style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      background: 'rgba(255,255,255,0.05)',
+                      padding: '0.5rem 0.75rem',
+                      borderRadius: '6px',
+                      border: '1px solid var(--glass-border)',
+                      fontSize: '0.8rem'
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', overflow: 'hidden' }}>
+                        <FileText size={16} style={{ color: file.type === 'pdf' ? '#ef4444' : '#10b981', flexShrink: 0 }} />
+                        <span style={{ textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', color: 'var(--text-primary)' }}>{file.name}</span>
+                      </div>
+                      <button 
+                        type="button" 
+                        onClick={() => removeAttachment(idx, false)}
+                        style={{
+                          background: 'transparent',
+                          border: 'none',
+                          color: 'var(--danger)',
+                          cursor: 'pointer',
+                          padding: '0.2rem',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center'
+                        }}
+                      >
+                        <X size={16} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
             <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end', borderTop: '1px solid var(--glass-border)', paddingTop: '1.25rem' }}>
               <button type="button" className="btn btn-secondary" onClick={() => setActiveTab('list')}>ยกเลิก</button>
               <button type="submit" className="btn btn-primary">สร้างสัญญาจัดซื้อ</button>
@@ -839,6 +1052,86 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
                         ></textarea>
                       </div>
 
+                      <div>
+                        <label style={{ display: 'block', marginBottom: '0.4rem', fontSize: '0.85rem', fontWeight: 600 }}>แนบเอกสารสัญญาเพิ่มเติม (PDF หรือ รูปภาพ) <span style={{ fontWeight: 'normal', color: 'var(--text-muted)' }}>(จำกัดขนาดไฟล์ไม่เกิน 800 KB ต่อไฟล์)</span></label>
+                        <div style={{
+                          border: '2px dashed var(--glass-border)',
+                          borderRadius: '8px',
+                          padding: '1.25rem',
+                          textAlign: 'center',
+                          background: 'rgba(255,255,255,0.02)',
+                          cursor: 'pointer',
+                          position: 'relative',
+                          transition: 'border-color 0.2s'
+                        }}
+                        onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--accent-secondary)'}
+                        onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--glass-border)'}
+                        >
+                          <input 
+                            type="file" 
+                            accept="application/pdf,image/*" 
+                            multiple 
+                            onChange={(e) => handleFileChange(e, true)} 
+                            style={{
+                              position: 'absolute',
+                              top: 0,
+                              left: 0,
+                              width: '100%',
+                              height: '100%',
+                              opacity: 0,
+                              cursor: 'pointer',
+                              zIndex: 2
+                            }}
+                          />
+                          <Paperclip size={24} style={{ color: 'var(--text-muted)', marginBottom: '0.5rem' }} />
+                          <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                            คลิกเพื่อเลือกไฟล์ หรือลากไฟล์มาวางที่นี่
+                          </p>
+                          <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.75rem', color: 'var(--danger)', fontWeight: 600 }}>
+                            ⚠️ จำกัดขนาดไฟล์ PDF หรือรูปภาพไม่เกิน 800 KB (สำหรับรูปภาพ ระบบจะทำการบีบอัดให้โดยอัตโนมัติ)
+                          </p>
+                        </div>
+
+                        {/* Show editForm attachments list */}
+                        {editForm.attachments && editForm.attachments.length > 0 && (
+                          <div style={{ marginTop: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                            {editForm.attachments.map((file, idx) => (
+                              <div key={idx} style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                background: 'rgba(255,255,255,0.05)',
+                                padding: '0.5rem 0.75rem',
+                                borderRadius: '6px',
+                                border: '1px solid var(--glass-border)',
+                                fontSize: '0.8rem'
+                              }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', overflow: 'hidden' }}>
+                                  <FileText size={16} style={{ color: file.type === 'pdf' ? '#ef4444' : '#10b981', flexShrink: 0 }} />
+                                  <span style={{ textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', color: 'var(--text-primary)' }}>{file.name}</span>
+                                </div>
+                                <button 
+                                  type="button" 
+                                  onClick={() => removeAttachment(idx, true)}
+                                  style={{
+                                    background: 'transparent',
+                                    border: 'none',
+                                    color: 'var(--danger)',
+                                    cursor: 'pointer',
+                                    padding: '0.2rem',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center'
+                                  }}
+                                >
+                                  <X size={16} />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
                       <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end', borderTop: '1px solid var(--glass-border)', paddingTop: '1.25rem' }}>
                         <button type="button" className="btn btn-secondary" onClick={() => { setEditingAgreementId(null); setEditForm(null); }}>ยกเลิก</button>
                         <button type="submit" className="btn btn-primary" style={{ background: 'var(--accent-secondary)', color: '#fff', border: '1px solid var(--accent-secondary)' }}>บันทึกการแก้ไข</button>
@@ -970,6 +1263,65 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
                     <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: '1rem 0 0 0', fontStyle: 'italic' }}>
                       หมายเหตุ: {agreement.remarks}
                     </p>
+                  )}
+
+                  {/* Attachments list in read-only view */}
+                  {agreement.attachments && agreement.attachments.length > 0 && (
+                    <div style={{ marginTop: '1rem', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '0.75rem' }}>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>เอกสารแนบสัญญาจัดซื้อ:</span>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                        {agreement.attachments.map((file, idx) => (
+                          <div 
+                            key={idx} 
+                            onClick={() => {
+                              const newWindow = window.open();
+                              if (newWindow) {
+                                if (file.type === 'pdf') {
+                                  newWindow.document.write(`<iframe src="${file.data}" frameborder="0" style="border:0; top:0px; left:0px; bottom:0px; right:0px; width:100%; height:100%; position:fixed;" allowfullscreen></iframe>`);
+                                  newWindow.document.title = file.name;
+                                } else {
+                                  newWindow.document.write(`
+                                    <html>
+                                      <head>
+                                        <title>${file.name}</title>
+                                        <style>
+                                          body { margin: 0; background: #0f172a; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+                                          img { max-width: 100%; max-height: 100vh; object-fit: contain; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
+                                        </style>
+                                      </head>
+                                      <body>
+                                        <img src="${file.data}" alt="${file.name}" />
+                                      </body>
+                                    </html>
+                                  `);
+                                }
+                              } else {
+                                alert("กรุณาอนุญาตให้เบราว์เซอร์เปิด Pop-up เพื่อดูเอกสารแนบ");
+                              }
+                            }}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '0.4rem',
+                              background: 'rgba(255,255,255,0.05)',
+                              border: '1px solid var(--glass-border)',
+                              borderRadius: '6px',
+                              padding: '0.35rem 0.6rem',
+                              fontSize: '0.75rem',
+                              cursor: 'pointer',
+                              color: 'var(--text-primary)',
+                              transition: 'all 0.15s ease'
+                            }}
+                            onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; e.currentTarget.style.borderColor = 'var(--accent-secondary)'; }}
+                            onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.borderColor = 'var(--glass-border)'; }}
+                          >
+                            <FileText size={14} style={{ color: file.type === 'pdf' ? '#ef4444' : '#10b981' }} />
+                            <span style={{ maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.name}</span>
+                            <Eye size={12} style={{ color: 'var(--text-muted)' }} />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                   )}
 
                   {/* Expand Timeline Button */}
