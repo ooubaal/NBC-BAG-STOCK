@@ -8,6 +8,7 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
   const [activeLotId, setActiveLotId] = useState(null);
   const [amount, setAmount] = useState('');
   const [reason, setReason] = useState('');
+  const [reasonType, setReasonType] = useState('ตัดจ่าย');
   const [searchQuery, setSearchQuery] = useState('');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   
@@ -89,13 +90,22 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
       return;
     }
 
+    if (reasonType === 'อื่นๆ โปรดระบุ ....' && !reason.trim()) {
+      alert("กรุณาระบุรายละเอียดเพิ่มเติมสำหรับเหตุผลอื่นๆ");
+      return;
+    }
+
+    const finalReason = reasonType === 'อื่นๆ โปรดระบุ ....'
+      ? (reason.trim() ? `อื่นๆ: ${reason.trim()}` : 'อื่นๆ')
+      : (reason.trim() ? `${reasonType} - ${reason.trim()}` : reasonType);
+
     setInventory(prev => prev.map(item => {
       if (item.id === activeLotId) {
         const newWithdrawal = {
           id: Date.now(),
           date: withdrawalDate,
           amount: withdrawalAmount,
-          reason: reason
+          reason: finalReason
         };
         return {
           ...item,
@@ -109,6 +119,7 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
     alert("บันทึกการตัดจ่ายเรียบร้อย");
     setAmount('');
     setReason('');
+    setReasonType('ตัดจ่าย');
     setActiveLotId(null);
   };
 
@@ -999,14 +1010,33 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
                   </div>
                 </div>
 
-                <div>
-                  <label>เหตุผลการตัดจ่าย / หมายเหตุ</label>
-                  <textarea 
-                    placeholder="เช่น เบิกไปผลิตชุดที่ 101, ตัวอย่างส่งตรวจ..." 
-                    value={reason} 
-                    onChange={e => setReason(e.target.value)}
-                    rows="3"
-                  ></textarea>
+                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '0.4rem', color: 'var(--text-secondary)' }}>เหตุผลการตัดจ่าย</label>
+                    <select
+                      value={reasonType}
+                      onChange={e => setReasonType(e.target.value)}
+                      style={{ width: '100%', padding: '0.6rem', border: '1px solid var(--glass-border)', borderRadius: '8px', background: 'var(--glass-bg)', color: 'var(--text-primary)' }}
+                    >
+                      <option value="ตัดจ่าย">1. ตัดจ่าย</option>
+                      <option value="ตัดเข้าห้องสะอาด">2. ตัดเข้าห้องสะอาด</option>
+                      <option value="ตัดจำหน่าย">3. ตัดจำหน่าย</option>
+                      <option value="ตัดเคลม">4. ตัดเคลม</option>
+                      <option value="อื่นๆ โปรดระบุ ....">5. อื่นๆ โปรดระบุ ....</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '0.4rem', color: 'var(--text-secondary)' }}>
+                      {reasonType === 'อื่นๆ โปรดระบุ ....' ? 'ระบุรายละเอียดเหตุผลอื่นๆ (จำเป็น)' : 'หมายเหตุเพิ่มเติม (ถ้ามี)'}
+                    </label>
+                    <textarea 
+                      placeholder={reasonType === 'อื่นๆ โปรดระบุ ....' ? 'กรุณาระบุรายละเอียดเพิ่มเติม...' : 'เช่น เลขที่ใบเบิก, หมายเลขเครื่องจักร, หรือหมายเหตุอื่นๆ...'} 
+                      value={reason} 
+                      onChange={e => setReason(e.target.value)}
+                      rows="3"
+                    ></textarea>
+                  </div>
                 </div>
 
                 <div style={{ marginTop: '1rem' }}>
