@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   LayoutDashboard, 
   Package, 
@@ -9,6 +9,7 @@ import {
   History,
   Settings,
   ArrowUpRight,
+  ShieldCheck,
   PackageOpen,
   MinusCircle,
   ClipboardList
@@ -503,7 +504,7 @@ function App() {
   const renderContent = () => {
     switch (activeTab) {
       case 'dashboard':
-        return <Dashboard inventory={inventory} setActiveTab={setActiveTab} />;
+        return <Dashboard inventory={inventory} items={items} setActiveTab={setActiveTab} />;
       case 'items':
         return <ProductRegistry items={items} setItems={updateItems} />;
       case 'inventory':
@@ -542,7 +543,7 @@ function App() {
           />
         );
       default:
-        return <Dashboard inventory={inventory} setActiveTab={setActiveTab} />;
+        return <Dashboard inventory={inventory} items={items} setActiveTab={setActiveTab} />;
     }
   };
 
@@ -631,7 +632,7 @@ function NavItem({ active, onClick, icon, label }) {
   );
 }
 
-const Dashboard = ({ inventory, setActiveTab }) => {
+const Dashboard = ({ inventory, items, setActiveTab }) => {
   const stats = {
     total: inventory.length,
     pass: inventory.filter(i => i.qcStatus === 'Pass').length,
@@ -640,6 +641,73 @@ const Dashboard = ({ inventory, setActiveTab }) => {
   };
 
   const recentEntries = [...inventory].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, 5);
+
+  // Calculate stock status alerts dynamically
+  const alerts = useMemo(() => {
+    const outOfStockList = [];
+    const lowStockList = [];
+
+    if (!items || items.length === 0) return { outOfStockList, lowStockList };
+
+    items.forEach(item => {
+      const itemLots = inventory.filter(l => l.itemName === item.name);
+      const totalQty = itemLots.reduce((sum, l) => sum + Number(l.remainingQty), 0);
+
+      if (totalQty === 0) {
+        outOfStockList.push({
+          name: item.name,
+          unit: item.unit || 'ชิ้น'
+        });
+      } else {
+        // Compute coverage prediction based on withdrawal rate
+        const withdrawals = itemLots.flatMap(l => l.withdrawals || []);
+        const totalWithdrawn = withdrawals.reduce((sum, w) => sum + w.amount, 0);
+        let daysRemaining = null;
+
+        if (withdrawals.length > 0) {
+          const dates = withdrawals.map(w => new Date(w.date).getTime()).filter(t => !isNaN(t));
+          if (dates.length > 0) {
+            const minDate = Math.min(...dates);
+            const minDateObj = new Date(minDate);
+            minDateObj.setHours(0, 0, 0, 0);
+
+            const todayObj = new Date();
+            todayObj.setHours(0, 0, 0, 0);
+
+            const diffTime = todayObj.getTime() - minDateObj.getTime();
+            const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+            const activeDays = Math.max(1, diffDays + 1);
+
+            const dailyRate = totalWithdrawn / activeDays;
+            if (dailyRate > 0) {
+              daysRemaining = Math.ceil(totalQty / dailyRate);
+            }
+          }
+        }
+
+        // Flags: Prediction runs out <= 14 days OR no usage history but qty <= 200
+        if (daysRemaining !== null && daysRemaining <= 14) {
+          lowStockList.push({
+            name: item.name,
+            qty: totalQty,
+            unit: item.unit || 'ชิ้น',
+            daysRemaining,
+            reasonType: 'prediction'
+          });
+        } else if (daysRemaining === null && totalQty <= 200) {
+          lowStockList.push({
+            name: item.name,
+            qty: totalQty,
+            unit: item.unit || 'ชิ้น',
+            daysRemaining: null,
+            reasonType: 'lowQty'
+          });
+        }
+      }
+    });
+
+    return { outOfStockList, lowStockList };
+  }, [inventory, items]);
 
   return (
     <div className="fade-in">
@@ -704,6 +772,54 @@ const Dashboard = ({ inventory, setActiveTab }) => {
             </h4>
             <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>มีรายการ Quarantine ค้างอยู่ {stats.quarantine} รายการ กรุณาตรวจสอบสถานะ QC</p>
           </div>
+
+          {alerts.outOfStockList.length > 0 && (
+            <div className="glass card" style={{ borderLeft: '4px solid #ef4444' }}>
+              <h4 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem', color: '#ef4444' }}>
+                <AlertOctagon size={18} /> สินค้าที่ตัดหมดคลังแล้ว ({alerts.outOfStockList.length})
+              </h4>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', maxHeight: '180px', overflowY: 'auto', paddingRight: '0.25rem' }}>
+                {alerts.outOfStockList.map((item, idx) => (
+                  <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(239, 68, 68, 0.05)', padding: '0.5rem 0.75rem', borderRadius: '6px', fontSize: '0.8rem', border: '1px solid rgba(239, 68, 68, 0.1)' }}>
+                    <span style={{ fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '180px' }} title={item.name}>{item.name}</span>
+                    <span className="status-badge status-reject" style={{ fontSize: '0.65rem', padding: '0.1rem 0.4rem' }}>ตัดหมดคลัง</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {alerts.lowStockList.length > 0 && (
+            <div className="glass card" style={{ borderLeft: '4px solid #f59e0b' }}>
+              <h4 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem', color: '#f59e0b' }}>
+                <Package size={18} /> ควรเตรียมสั่งซื้อสินค้า ({alerts.lowStockList.length})
+              </h4>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', maxHeight: '200px', overflowY: 'auto', paddingRight: '0.25rem' }}>
+                {alerts.lowStockList.map((item, idx) => (
+                  <div key={idx} style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', background: 'rgba(245, 158, 11, 0.05)', padding: '0.5rem 0.75rem', borderRadius: '6px', fontSize: '0.8rem', border: '1px solid rgba(245, 158, 11, 0.1)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '180px' }} title={item.name}>{item.name}</span>
+                      <span className="status-badge status-warning" style={{ fontSize: '0.65rem', padding: '0.1rem 0.4rem' }}>
+                        {item.reasonType === 'prediction' ? `คาดว่าจะหมดใน ${item.daysRemaining} วัน` : 'คงคลังเหลือน้อย'}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                      ยอดคงเหลือปัจจุบัน: <strong style={{ color: 'var(--text-primary)' }}>{item.qty}</strong> {item.unit}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {alerts.outOfStockList.length === 0 && alerts.lowStockList.length === 0 && (
+            <div className="glass card" style={{ borderLeft: '4px solid #10b981', background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.05), transparent)' }}>
+              <h4 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem', color: '#10b981' }}>
+                <ShieldCheck size={18} /> ระดับพัสดุในคลังปกติ
+              </h4>
+              <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>ไม่พบรายการพัสดุขาดแคลนหรือใกล้หมดคลังในขณะนี้</p>
+            </div>
+          )}
         </div>
       </div>
     </div>
