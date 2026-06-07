@@ -754,16 +754,18 @@ const Dashboard = ({ inventory, items, claims, setActiveTab }) => {
     items.forEach(item => {
       const itemLots = inventory.filter(l => l.itemName === item.name);
       const totalQty = itemLots.reduce((sum, l) => sum + Number(l.remainingQty), 0);
+      const withdrawals = itemLots.flatMap(l => l.withdrawals || []);
+      const totalWithdrawn = withdrawals.reduce((sum, w) => sum + w.amount, 0);
 
       if (totalQty === 0) {
-        outOfStockList.push({
-          name: item.name,
-          unit: item.unit || 'ชิ้น'
-        });
+        if (totalWithdrawn > 0) {
+          outOfStockList.push({
+            name: item.name,
+            unit: item.unit || 'ชิ้น'
+          });
+        }
       } else {
         // Compute coverage prediction based on withdrawal rate
-        const withdrawals = itemLots.flatMap(l => l.withdrawals || []);
-        const totalWithdrawn = withdrawals.reduce((sum, w) => sum + w.amount, 0);
         let daysRemaining = null;
 
         if (withdrawals.length > 0) {
