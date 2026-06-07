@@ -9,7 +9,6 @@ import {
   History,
   Settings,
   ArrowUpRight,
-  ShieldCheck,
   PackageOpen,
   MinusCircle,
   ClipboardList
@@ -704,16 +703,6 @@ const Dashboard = ({ inventory, setActiveTab }) => {
               <PackageOpen size={18} color="var(--accent-color)" /> การแจ้งเตือน
             </h4>
             <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>มีรายการ Quarantine ค้างอยู่ {stats.quarantine} รายการ กรุณาตรวจสอบสถานะ QC</p>
-          </div>
-          
-          <div className="glass card" style={{ background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.1), transparent)' }}>
-            <h4 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
-              <ShieldCheck size={18} color="var(--accent-secondary)" /> ความพร้อมของคลัง
-            </h4>
-            <div style={{ height: '8px', background: 'var(--surface-lighter)', borderRadius: '4px', overflow: 'hidden' }}>
-              <div style={{ width: '85%', height: '100%', background: 'var(--accent-secondary)' }}></div>
-            </div>
-            <p style={{ fontSize: '0.75rem', marginTop: '0.5rem', color: 'var(--text-muted)' }}>พื้นที่จัดเก็บคงเหลือประมาณ 15%</p>
           </div>
         </div>
       </div>
