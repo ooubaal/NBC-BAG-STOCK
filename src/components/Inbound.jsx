@@ -64,10 +64,10 @@ const SearchableSelect = ({ value, onChange, options, placeholder, disabled }) =
             right: 0,
             maxHeight: '180px',
             overflowY: 'auto',
-            background: '#1e1e2d',
+            background: '#ffffff',
             border: '1px solid var(--glass-border)',
             borderRadius: '4px',
-            boxShadow: '0 10px 15px -3px rgba(0,0,0,0.5)',
+            boxShadow: '0 10px 15px -3px rgba(0,0,0,0.15), 0 4px 6px -2px rgba(0,0,0,0.05)',
             zIndex: 1000
           }}>
             {filtered.length === 0 ? (
@@ -86,17 +86,17 @@ const SearchableSelect = ({ value, onChange, options, placeholder, disabled }) =
                   style={{
                     padding: '0.4rem 0.5rem',
                     fontSize: '0.78rem',
-                    color: opt.value === value ? 'var(--accent-color, #0ea5e9)' : 'var(--text-primary)',
-                    background: opt.value === value ? 'rgba(14, 165, 233, 0.1)' : 'transparent',
+                    color: 'var(--text-primary)',
+                    background: opt.value === value ? 'rgba(14, 165, 233, 0.15)' : 'transparent',
                     cursor: 'pointer',
                     transition: 'background 0.15s ease',
                     textAlign: 'left'
                   }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
+                    e.currentTarget.style.background = 'rgba(15, 23, 42, 0.05)';
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.background = opt.value === value ? 'rgba(14, 165, 233, 0.1)' : 'transparent';
+                    e.currentTarget.style.background = opt.value === value ? 'rgba(14, 165, 233, 0.15)' : 'transparent';
                   }}
                 >
                   {opt.label}

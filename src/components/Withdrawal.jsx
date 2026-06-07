@@ -851,12 +851,12 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
                         right: 0,
                         maxHeight: '250px',
                         overflowY: 'auto',
-                        background: 'rgba(30, 41, 59, 0.98)',
+                        background: '#ffffff',
                         backdropFilter: 'blur(10px)',
                         border: '1px solid var(--glass-border)',
                         borderRadius: '8px',
                         zIndex: 999,
-                        boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.5)'
+                        boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.15), 0 4px 6px -2px rgba(0, 0, 0, 0.05)'
                       }}
                     >
                       {((items ? items.filter(item => item.name.toLowerCase().includes(searchQuery.toLowerCase())) : []).length === 0) ? (
@@ -870,14 +870,14 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
                             style={{
                               padding: '0.6rem 1rem',
                               cursor: 'pointer',
-                              background: selectedItem === item.name ? 'rgba(245, 158, 11, 0.2)' : 'transparent',
-                              color: selectedItem === item.name ? 'var(--accent-color)' : 'var(--text-primary)',
+                              background: selectedItem === item.name ? 'rgba(245, 158, 11, 0.15)' : 'transparent',
+                              color: 'var(--text-primary)',
                               fontSize: '0.88rem',
-                              borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
+                              borderBottom: '1px solid rgba(0, 0, 0, 0.05)',
                               transition: 'background 0.15s'
                             }}
-                            onMouseEnter={(e) => e.target.style.background = 'rgba(255, 255, 255, 0.08)'}
-                            onMouseLeave={(e) => e.target.style.background = selectedItem === item.name ? 'rgba(245, 158, 11, 0.2)' : 'transparent'}
+                            onMouseEnter={(e) => e.target.style.background = 'rgba(15, 23, 42, 0.05)'}
+                            onMouseLeave={(e) => e.target.style.background = selectedItem === item.name ? 'rgba(245, 158, 11, 0.15)' : 'transparent'}
                             onClick={() => {
                               setSelectedItem(item.name);
                               setActiveLotId(null);
