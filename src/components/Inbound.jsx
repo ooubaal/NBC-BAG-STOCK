@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
-import { Plus, Trash2, Save, X, Printer, Copy, Search, Upload, Download } from 'lucide-react';
+import { useState } from 'react';
+import { Plus, Trash2, Save, Printer, Copy, Search, Upload, Download } from 'lucide-react';
+import ExcelJS from 'exceljs';
+
 const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
   const [inboundTab, setInboundTab] = useState('draft'); // 'draft' or 'history'
   const [historySearch, setHistorySearch] = useState('');
@@ -23,7 +25,7 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
     return matches[0].inhouseLot;
   };
 
-  const [entries, setEntries] = useState([{
+  const [entries, setEntries] = useState(() => [{
     id: Date.now(),
     date: new Date().toISOString().split('T')[0],
     itemName: (items && items.length > 0) ? items[0].name : '',
@@ -131,108 +133,230 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
     }]);
   };
 
-  const downloadTemplate = () => {
-    const headers = [
-      "วันที่รับเข้า (YYYY-MM-DD)",
-      "ชื่อสินค้า (ต้องตรงตามทะเบียนพัสดุ)",
-      "เลขที่สัญญาจัดซื้อ (ถ้ามี)",
-      "Supplier Lot (จำเป็น)",
-      "Inhouse Lot (ถ้ามี)",
-      "สถานะ QC (Pass / Quarantine / Reject)",
-      "ขนาดบรรจุ (เช่น 25kg, 10ชิ้น - ถ้ามี)",
-      "จำนวนรับเข้า (จำเป็น - ตัวเลขเท่านั้น)",
-      "ที่เก็บ (ถ้ามี)",
-      "หมายเหตุ (ถ้ามี)"
-    ];
-    
-    // Sample data row
-    const sampleRow = [
-      new Date().toISOString().split('T')[0],
-      (items && items.length > 0) ? items[0].name : "Raw Material A",
-      "",
-      "LOT-SUP-12345",
-      "LOT-INH-001",
-      "Quarantine",
-      "25kg",
-      "100",
-      "A1",
-      "ตัวอย่างบันทึกย่อ"
-    ];
-    
-    const formatCSVField = (field) => {
-      const stringified = String(field || '').replace(/"/g, '""');
-      if (stringified.includes(',') || stringified.includes('\n') || stringified.includes('"')) {
-        return `"${stringified}"`;
+  const downloadTemplate = async () => {
+    try {
+      const workbook = new ExcelJS.Workbook();
+      
+      // 1. Create Inbound Form sheet
+      const formSheet = workbook.addWorksheet('Inbound Form');
+      
+      // 2. Create Product Registry sheet (visible, contains list of items and units)
+      const registrySheet = workbook.addWorksheet('Product Registry');
+      
+      // 3. Populate Product Registry
+      registrySheet.columns = [
+        { header: 'ชื่อสินค้า', key: 'name', width: 40 },
+        { header: 'หน่วย', key: 'unit', width: 15 }
+      ];
+      
+      if (items && items.length > 0) {
+        items.forEach(item => {
+          registrySheet.addRow({ name: item.name, unit: item.unit });
+        });
+      } else {
+        registrySheet.addRow({ name: 'Raw Material A', unit: 'ชิ้น' });
       }
-      return stringified;
-    };
 
-    const csvContent = "\uFEFF" + [
-      headers.map(formatCSVField).join(","), 
-      sampleRow.map(formatCSVField).join(",")
-    ].join("\r\n");
+      // Format registry headers
+      const regHeaderRow = registrySheet.getRow(1);
+      regHeaderRow.height = 25;
+      regHeaderRow.eachCell((cell) => {
+        cell.font = { name: 'Inter', bold: true, size: 11, color: { argb: 'FFFFFFFF' } };
+        cell.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'FF475569' } // Slate-600
+        };
+        cell.alignment = { vertical: 'middle', horizontal: 'center' };
+      });
+      registrySheet.views = [{ showGridLines: true }];
 
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.setAttribute("href", url);
-    link.setAttribute("download", "nbc_inbound_template.csv");
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+      // Determine max row in Product Registry for formula and dropdown references
+      const maxRegistryRow = items && items.length > 0 ? items.length + 1 : 2;
+
+      // 4. Configure Inbound Form columns (adding Unit as Column C, auto-resolved via VLOOKUP)
+      formSheet.columns = [
+        { header: 'วันที่รับเข้า (YYYY-MM-DD)', key: 'date', width: 25 },
+        { header: 'ชื่อสินค้า (ต้องตรงตามทะเบียนพัสดุ)', key: 'itemName', width: 40 },
+        { header: 'หน่วย (แสดงอัตโนมัติ)', key: 'unit', width: 20 },
+        { header: 'เลขที่สัญญาจัดซื้อ (ถ้ามี)', key: 'agreementId', width: 25 },
+        { header: 'Supplier Lot (จำเป็น)', key: 'supplierLot', width: 20 },
+        { header: 'Inhouse Lot (ถ้ามี)', key: 'inhouseLot', width: 20 },
+        { header: 'สถานะ QC (Pass / Quarantine / Reject)', key: 'qcStatus', width: 35 },
+        { header: 'ขนาดบรรจุ (เช่น 25kg, 10ชิ้น - ถ้ามี)', key: 'packSize', width: 30 },
+        { header: 'จำนวนรับเข้า (จำเป็น - ตัวเลขเท่านั้น)', key: 'quantity', width: 30 },
+        { header: 'ที่เก็บ (ถ้ามี)', key: 'location', width: 15 },
+        { header: 'หมายเหตุ (ถ้ามี)', key: 'remarks', width: 30 }
+      ];
+
+      // Format Inbound Form headers
+      const headerRow = formSheet.getRow(1);
+      headerRow.height = 28;
+      headerRow.eachCell((cell) => {
+        cell.font = { name: 'Inter', bold: true, size: 11, color: { argb: 'FFFFFFFF' } };
+        cell.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'FF0284C7' } // Tailwind Blue-600
+        };
+        cell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+        cell.border = {
+          top: { style: 'thin', color: { argb: 'FF0284C7' } },
+          left: { style: 'thin', color: { argb: 'FFFFFFFF' } },
+          bottom: { style: 'thin', color: { argb: 'FF0284C7' } },
+          right: { style: 'thin', color: { argb: 'FFFFFFFF' } }
+        };
+      });
+
+      // 5. Add a sample data row in Row 2
+      const sampleItemName = (items && items.length > 0) ? items[0].name : "Raw Material A";
+      formSheet.addRow({
+        date: new Date().toISOString().split('T')[0],
+        itemName: sampleItemName,
+        unit: { formula: `IF(ISBLANK(B2),"",VLOOKUP(B2,'Product Registry'!$A$2:$B$${maxRegistryRow},2,FALSE))` },
+        agreementId: '',
+        supplierLot: 'LOT-SUP-12345',
+        inhouseLot: 'LOT-INH-001',
+        qcStatus: 'Quarantine',
+        packSize: '25kg',
+        quantity: 100,
+        location: 'A1',
+        remarks: 'ตัวอย่างบันทึกย่อ'
+      });
+
+      // 6. Pre-fill formulas and data validation rules for rows 2 to 200 (ample rows for bulk input)
+      for (let row = 2; row <= 200; row++) {
+        // Set VLOOKUP formula in Unit column (Column C)
+        formSheet.getCell(`C${row}`).value = { 
+          formula: `IF(ISBLANK(B${row}),"",VLOOKUP(B${row},'Product Registry'!$A$2:$B$${maxRegistryRow},2,FALSE))` 
+        };
+
+        // Add dropdown data validation on Column B (Item Name)
+        formSheet.getCell(`B${row}`).dataValidation = {
+          type: 'list',
+          allowBlank: true,
+          formulae: [`'Product Registry'!$A$2:$A$${maxRegistryRow}`],
+          showErrorMessage: true,
+          errorTitle: 'ชื่อสินค้าไม่ถูกต้อง / Invalid Product Name',
+          error: 'กรุณาเลือกชื่อสินค้าจากรายการที่กำหนดเท่านั้น / Please select a product name from the list.'
+        };
+
+        // Add dropdown data validation on Column G (QC Status)
+        formSheet.getCell(`G${row}`).dataValidation = {
+          type: 'list',
+          allowBlank: true,
+          formulae: ['"Pass,Quarantine,Reject"'],
+          showErrorMessage: true,
+          errorTitle: 'สถานะ QC ไม่ถูกต้อง / Invalid QC Status',
+          error: 'กรุณาเลือกสถานะ QC: Pass, Quarantine หรือ Reject / Please select QC Status: Pass, Quarantine or Reject'
+        };
+      }
+
+      formSheet.views = [{ showGridLines: true }];
+
+      // Write to buffer and trigger download
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", "nbc_inbound_template.xlsx");
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (error) {
+      console.error("Failed to generate Excel template:", error);
+      alert("ไม่สามารถสร้างไฟล์ Excel เทมเพลตได้: " + error.message);
+    }
   };
 
-  const handleImportCSV = (e) => {
+  const handleImportExcel = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
 
+    // Clear input so same file can be uploaded again
+    e.target.value = '';
+
     const reader = new FileReader();
-    reader.onload = (event) => {
+    reader.onload = async (event) => {
       try {
-        const text = event.target.result;
-        const lines = text.split(/\r?\n/).filter(line => line.trim() !== '');
+        const buffer = event.target.result;
+        const workbook = new ExcelJS.Workbook();
+        await workbook.xlsx.load(buffer);
         
-        if (lines.length <= 1) {
-          alert("ไม่พบข้อมูลที่จะนำเข้าในไฟล์ (กรุณาตรวจสอบว่ามีข้อมูลในไฟล์อย่างน้อย 1 แถวใต้หัวข้อตาราง)");
+        // Find the 'Inbound Form' sheet (case-insensitive or exact)
+        let sheet = workbook.getWorksheet('Inbound Form') || workbook.worksheets[0];
+        if (!sheet) {
+          alert("ไม่พบแผ่นงาน Inbound Form หรือข้อมูลอื่นๆ ในไฟล์ Excel");
           return;
         }
-
-        const parseCSVLine = (lineText) => {
-          let p = '', c = false, r = [];
-          for (let i = 0; i < lineText.length; i++) {
-            let char = lineText[i];
-            if (char === '"') {
-              c = !c;
-            } else if (char === ',' && !c) {
-              r.push(p.trim().replace(/^"|"$/g, '').replace(/""/g, '"'));
-              p = '';
-            } else {
-              p += char;
-            }
-          }
-          r.push(p.trim().replace(/^"|"$/g, '').replace(/""/g, '"'));
-          return r;
-        };
 
         const newEntries = [];
         const missingItems = new Set();
         
-        for (let i = 1; i < lines.length; i++) {
-          const cells = parseCSVLine(lines[i]);
-          if (cells.length < 2) continue;
+        const formatLocalDate = (dateObj) => {
+          if (!dateObj || !(dateObj instanceof Date) || isNaN(dateObj.getTime())) return '';
+          const year = dateObj.getFullYear();
+          const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+          const day = String(dateObj.getDate()).padStart(2, '0');
+          return `${year}-${month}-${day}`;
+        };
 
-          const date = cells[0] || new Date().toISOString().split('T')[0];
-          const itemName = cells[1] ? cells[1].trim() : '';
-          const agreementId = cells[2] ? cells[2].trim() : '';
-          const supplierLot = cells[3] ? cells[3].trim() : '';
-          const inhouseLot = cells[4] ? cells[4].trim() : '';
-          let qcStatus = cells[5] ? cells[5].trim() : 'Quarantine';
-          const packSize = cells[6] ? cells[6].trim() : '';
-          const quantity = cells[7] ? Number(cells[7].trim()) : '';
-          const location = cells[8] ? cells[8].trim() : '';
-          const remarks = cells[9] ? cells[9].trim() : '';
+        // Let's read from row 2 onwards.
+        sheet.eachRow((row, rowNumber) => {
+          if (rowNumber === 1) return; // skip header
 
-          if (!itemName && !supplierLot && !quantity) continue;
+          // Get values. In exceljs, cell.value can be a string, number, date, formula object ({ formula: '...', result: '...' })
+          const getCellValue = (colNum) => {
+            const cell = row.getCell(colNum);
+            if (!cell || cell.value === null || cell.value === undefined) return '';
+            
+            // Check if cell has formula or other complex object
+            if (typeof cell.value === 'object' && cell.value !== null) {
+              if ('result' in cell.value) {
+                // If it's a formula object
+                return cell.value.result !== undefined && cell.value.result !== null ? cell.value.result : '';
+              }
+              if (cell.value instanceof Date) {
+                return cell.value;
+              }
+              // If it's a RichText or something else
+              if (cell.value.richText) {
+                return cell.value.richText.map(t => t.text).join('');
+              }
+              return '';
+            }
+            return cell.value;
+          };
+
+          const dateVal = getCellValue(1);
+          let dateStr;
+          if (dateVal instanceof Date) {
+            dateStr = formatLocalDate(dateVal);
+          } else if (typeof dateVal === 'string' && dateVal.trim() !== '') {
+            dateStr = dateVal.trim();
+          } else if (typeof dateVal === 'number') {
+            // Excel serial date number
+            const dateObj = new Date((dateVal - 25569) * 86400 * 1000);
+            dateStr = formatLocalDate(dateObj);
+          } else {
+            dateStr = formatLocalDate(new Date());
+          }
+
+          const itemName = String(getCellValue(2)).trim();
+          const unit = String(getCellValue(3)).trim(); // parsed from VLOOKUP or formula result
+          const agreementId = String(getCellValue(4)).trim();
+          const supplierLot = String(getCellValue(5)).trim();
+          const inhouseLot = String(getCellValue(6)).trim();
+          const qcStatus = String(getCellValue(7)).trim();
+          const packSize = String(getCellValue(8)).trim();
+          const quantityVal = getCellValue(9);
+          const quantity = quantityVal !== '' ? Number(quantityVal) : '';
+          const location = String(getCellValue(10)).trim();
+          const remarks = String(getCellValue(11)).trim();
+
+          // Skip completely empty rows
+          if (!itemName && !supplierLot && !quantityVal) return;
 
           let normalizedQcStatus = 'Quarantine';
           if (qcStatus.toLowerCase() === 'pass') {
@@ -247,20 +371,20 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
           }
 
           newEntries.push({
-            id: Date.now() + i + Math.random(),
-            date,
+            id: Date.now() + rowNumber + Math.random(),
+            date: dateStr,
             itemName: matchedItem ? matchedItem.name : itemName,
-            unit: matchedItem ? matchedItem.unit : 'ชิ้น',
+            unit: matchedItem ? matchedItem.unit : (unit || 'ชิ้น'),
             agreementId,
             supplierLot,
             inhouseLot,
             qcStatus: normalizedQcStatus,
             packSize,
-            quantity: isNaN(quantity) || !cells[7] ? '' : quantity,
+            quantity: isNaN(quantity) || quantityVal === '' ? '' : quantity,
             location,
             remarks
           });
-        }
+        });
 
         if (newEntries.length === 0) {
           alert("ไม่พบข้อมูลรายการพัสดุรับเข้าที่สมบูรณ์ในไฟล์");
@@ -288,10 +412,8 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
         console.error(err);
         alert("การวิเคราะห์ไฟล์ล้มเหลว: " + err.message);
       }
-      
-      e.target.value = '';
     };
-    reader.readAsText(file);
+    reader.readAsArrayBuffer(file);
   };
 
 
@@ -1063,7 +1185,7 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
             </div>
           </div>
 
-          {/* CSV Import / Export Section */}
+          {/* Excel Import / Export Section */}
           <div className="glass card" style={{ 
             marginBottom: '1.5rem', 
             padding: '1.25rem 1.5rem', 
@@ -1077,10 +1199,10 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
             <div>
               <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1.05rem', fontWeight: 700 }}>
                 <Upload size={18} color="var(--accent-secondary)" />
-                นำเข้าข้อมูลรับเข้าหลายรายการ (Excel / CSV Import)
+                นำเข้าข้อมูลรับเข้าหลายรายการ (Excel Import)
               </h3>
               <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                ดาวน์โหลดไฟล์เทมเพลตเพื่อกรอกข้อมูล จากนั้นเลือกไฟล์เพื่อนำข้อมูลเข้าตารางแบบกลุ่มได้สะดวกรวดเร็ว
+                ดาวน์โหลดไฟล์เทมเพลต Excel เพื่อกรอกข้อมูลพัสดุรับเข้า จากนั้นนำเข้าไฟล์กลับเข้าตารางเพื่อทำรายการแบบกลุ่มได้อย่างรวดเร็ว
               </p>
             </div>
             <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
@@ -1097,7 +1219,7 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
                   border: '1px solid var(--glass-border)'
                 }}
               >
-                <Download size={15} /> ดาวน์โหลด Template (.csv)
+                <Download size={15} /> ดาวน์โหลด Template (.xlsx)
               </button>
               <label 
                 className="btn btn-primary" 
@@ -1114,11 +1236,11 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
                   fontWeight: 600
                 }}
               >
-                <Upload size={15} /> นำเข้าไฟล์ข้อมูล (.csv)
+                <Upload size={15} /> นำเข้าไฟล์ข้อมูล (.xlsx)
                 <input 
                   type="file" 
-                  accept=".csv" 
-                  onChange={handleImportCSV} 
+                  accept=".xlsx" 
+                  onChange={handleImportExcel} 
                   style={{ display: 'none' }} 
                 />
               </label>
