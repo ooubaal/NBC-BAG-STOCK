@@ -1,8 +1,10 @@
-import React, { useState, useMemo } from 'react';
-import { PieChart, List, MapPin, CheckCircle, FileText, TrendingDown } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { List, TrendingDown, ChevronDown } from 'lucide-react';
 
 const Analytics = ({ inventory, items }) => {
   const [selectedItem, setSelectedItem] = useState((items && items.length > 0) ? items[0].name : '');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
   const currentUnit = useMemo(() => {
     const found = items.find(i => i.name === selectedItem);
@@ -41,9 +43,99 @@ const Analytics = ({ inventory, items }) => {
 
       <div className="glass card" style={{ marginBottom: '2rem', maxWidth: '400px' }}>
         <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>เลือกพัสดุเพื่อดูข้อมูล</label>
-        <select value={selectedItem} onChange={(e) => setSelectedItem(e.target.value)}>
-          {items.map(item => <option key={item.name} value={item.name}>{item.name}</option>)}
-        </select>
+        <div style={{ position: 'relative' }}>
+          <div 
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              border: '1px solid var(--glass-border)',
+              borderRadius: '8px',
+              background: 'var(--glass-bg)',
+              padding: '0.45rem 0.75rem',
+              cursor: 'pointer',
+              justifyContent: 'space-between'
+            }}
+            onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+          >
+            <input
+              type="text"
+              placeholder="พิมพ์เพื่อค้นหาชื่อสินค้า..."
+              value={isDropdownOpen ? searchQuery : selectedItem}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setIsDropdownOpen(true);
+              }}
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsDropdownOpen(true);
+              }}
+              style={{
+                border: 'none',
+                outline: 'none',
+                background: 'transparent',
+                width: '100%',
+                color: 'var(--text-primary)',
+                fontSize: '0.9rem'
+              }}
+            />
+            <ChevronDown size={18} color="var(--text-secondary)" style={{ transform: isDropdownOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s', flexShrink: 0 }} />
+          </div>
+
+          {isDropdownOpen && (
+            <>
+              <div 
+                style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 998 }} 
+                onClick={() => { setIsDropdownOpen(false); setSearchQuery(''); }}
+              />
+              <div 
+                style={{
+                  position: 'absolute',
+                  top: '105%',
+                  left: 0,
+                  right: 0,
+                  maxHeight: '250px',
+                  overflowY: 'auto',
+                  background: 'rgba(30, 41, 59, 0.98)',
+                  backdropFilter: 'blur(10px)',
+                  border: '1px solid var(--glass-border)',
+                  borderRadius: '8px',
+                  zIndex: 999,
+                  boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.5)'
+                }}
+              >
+                {((items ? items.filter(item => item.name.toLowerCase().includes(searchQuery.toLowerCase())) : []).length === 0) ? (
+                  <div style={{ padding: '0.75rem 1rem', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                    ไม่พบสินค้าที่ตรงกับคำค้นหา
+                  </div>
+                ) : (
+                  (items ? items.filter(item => item.name.toLowerCase().includes(searchQuery.toLowerCase())) : []).map(item => (
+                    <div
+                      key={item.name}
+                      style={{
+                        padding: '0.6rem 1rem',
+                        cursor: 'pointer',
+                        background: selectedItem === item.name ? 'rgba(245, 158, 11, 0.2)' : 'transparent',
+                        color: selectedItem === item.name ? 'var(--accent-color)' : 'var(--text-primary)',
+                        fontSize: '0.88rem',
+                        borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
+                        transition: 'background 0.15s'
+                      }}
+                      onMouseEnter={(e) => e.target.style.background = 'rgba(255, 255, 255, 0.08)'}
+                      onMouseLeave={(e) => e.target.style.background = selectedItem === item.name ? 'rgba(245, 158, 11, 0.2)' : 'transparent'}
+                      onClick={() => {
+                        setSelectedItem(item.name);
+                        setIsDropdownOpen(false);
+                        setSearchQuery('');
+                      }}
+                    >
+                      {item.name} {item.unit ? `(${item.unit})` : ''}
+                    </div>
+                  ))
+                )}
+              </div>
+            </>
+          )}
+        </div>
       </div>
 
       <div className="stats-grid">

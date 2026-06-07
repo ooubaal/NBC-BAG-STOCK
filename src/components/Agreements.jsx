@@ -1,9 +1,10 @@
-import React, { useState, useMemo } from 'react';
-import { Plus, Check, X, FileText, Calendar, ShieldAlert, Award, PackageOpen, ChevronDown, ChevronUp, UserCheck, AlertTriangle } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { Plus, Check, X, FileText, ShieldAlert, PackageOpen, ChevronDown, ChevronUp, UserCheck, AlertTriangle, Search } from 'lucide-react';
 
 const Agreements = ({ agreements, setAgreements, inventory, setInventory, items }) => {
   const [activeTab, setActiveTab] = useState('list'); // 'list' or 'new'
   const [expandedAgreementId, setExpandedAgreementId] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   // New agreement form state
   const [newAgreement, setNewAgreement] = useState({
@@ -124,6 +125,17 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
       };
     });
   }, [agreements, inventory]);
+
+  const filteredAgreements = useMemo(() => {
+    if (searchQuery.trim() === '') return processedAgreements;
+    const q = searchQuery.toLowerCase().trim();
+    return processedAgreements.filter(ag => 
+      (ag.id && ag.id.toLowerCase().includes(q)) || 
+      (ag.supplier && ag.supplier.toLowerCase().includes(q)) || 
+      (ag.itemName && ag.itemName.toLowerCase().includes(q)) ||
+      (ag.remarks && ag.remarks.toLowerCase().includes(q))
+    );
+  }, [processedAgreements, searchQuery]);
 
   const printOutstandingReport = () => {
     const outstandingAgreements = processedAgreements.filter(ag => ag.outstandingQty > 0);
@@ -480,16 +492,39 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-          {processedAgreements.length === 0 ? (
+          {/* Search Bar for Agreements */}
+          {agreements.length > 0 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'var(--glass-bg)', border: '1px solid var(--glass-border)', borderRadius: 'var(--radius-sm)', padding: '0.45rem 0.75rem', maxWidth: '400px' }}>
+              <Search size={16} color="var(--text-secondary)" />
+              <input
+                type="text"
+                placeholder="ค้นหาตามเลขที่สัญญา, คู่สัญญา หรือชื่อสินค้า..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                style={{
+                  border: 'none',
+                  outline: 'none',
+                  background: 'transparent',
+                  color: 'var(--text-primary)',
+                  width: '100%',
+                  fontSize: '0.85rem'
+                }}
+              />
+            </div>
+          )}
+
+          {filteredAgreements.length === 0 ? (
             <div className="glass card" style={{ textAlign: 'center', padding: '5rem', color: 'var(--text-muted)' }}>
               <FileText size={48} style={{ opacity: 0.15, marginBottom: '1rem' }} />
-              <p>ยังไม่มีการสร้างสัญญาจัดซื้อในระบบ</p>
-              <button className="btn btn-primary" onClick={() => setActiveTab('new')} style={{ marginTop: '1rem' }}>
-                สร้างสัญญาตัวแรก
-              </button>
+              <p>{agreements.length === 0 ? "ยังไม่มีการสร้างสัญญาจัดซื้อในระบบ" : "ไม่พบข้อมูลสัญญาจัดซื้อที่ตรงกับคำค้นหา"}</p>
+              {agreements.length === 0 && (
+                <button className="btn btn-primary" onClick={() => setActiveTab('new')} style={{ marginTop: '1rem' }}>
+                  สร้างสัญญาตัวแรก
+                </button>
+              )}
             </div>
           ) : (
-            processedAgreements.map(agreement => {
+            filteredAgreements.map(agreement => {
               const isExpanded = expandedAgreementId === agreement.id;
               
               // Tri-color bar calculation

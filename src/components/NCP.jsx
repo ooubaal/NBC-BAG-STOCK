@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { doc, setDoc, collection, onSnapshot, deleteDoc } from 'firebase/firestore';
-import { Camera, AlertCircle, RefreshCcw, CheckCircle, Image as ImageIcon, Plus, Download, Edit2, Trash2, X } from 'lucide-react';
+import { Camera, RefreshCcw, Plus, Download, Edit2, Trash2, X, Search } from 'lucide-react';
 
 const compressImage = (base64Str, maxWidth = 800, maxHeight = 800) => {
   return new Promise((resolve) => {
@@ -123,7 +123,9 @@ const NCP = ({ inventory, items, db }) => {
       if (savedConfig) {
         try {
           projectId = JSON.parse(savedConfig).projectId;
-        } catch (e) {}
+        } catch {
+          console.warn("Failed to parse firebase config from localStorage");
+        }
       }
       
       const isSynced = projectId && localStorage.getItem('wms_synced_project_id') === projectId;
@@ -145,6 +147,7 @@ const NCP = ({ inventory, items, db }) => {
 
   const [ncpTab, setNcpTab] = useState('active'); // 'all', 'active', 'completed'
   const [isAdding, setIsAdding] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   
   // Custom Modals and Confirmations
   const [editingClaim, setEditingClaim] = useState(null);
@@ -172,14 +175,23 @@ const NCP = ({ inventory, items, db }) => {
   }, [inventory, newClaim.itemName]);
 
   const filteredClaims = useMemo(() => {
+    let base = claims;
     if (ncpTab === 'active') {
-      return claims.filter(c => c.status !== 'Returned');
+      base = claims.filter(c => c.status !== 'Returned');
+    } else if (ncpTab === 'completed') {
+      base = claims.filter(c => c.status === 'Returned');
     }
-    if (ncpTab === 'completed') {
-      return claims.filter(c => c.status === 'Returned');
+    
+    if (searchQuery.trim() !== '') {
+      const q = searchQuery.toLowerCase().trim();
+      base = base.filter(c => 
+        (c.itemName && c.itemName.toLowerCase().includes(q)) || 
+        (c.lotNo && c.lotNo.toLowerCase().includes(q)) || 
+        (c.description && c.description.toLowerCase().includes(q))
+      );
     }
-    return claims;
-  }, [claims, ncpTab]);
+    return base;
+  }, [claims, ncpTab, searchQuery]);
 
   useEffect(() => {
     try {
@@ -391,58 +403,79 @@ const NCP = ({ inventory, items, db }) => {
         </div>
       )}
 
-      {/* แถบตัวกรองประวัติการเคลม NCP */}
-      <div className="ncp-tabs glass" style={{ 
-        display: 'flex', 
-        gap: '0.5rem', 
-        marginBottom: '2rem', 
-        padding: '0.5rem', 
-        borderRadius: 'var(--radius-sm)',
-        border: '1px solid var(--glass-border)',
-        width: 'fit-content'
-      }}>
-        <button 
-          className="btn" 
-          style={{ 
-            background: ncpTab === 'active' ? 'var(--accent-color)' : 'transparent', 
-            color: ncpTab === 'active' ? '#000' : 'var(--text-secondary)',
-            fontSize: '0.85rem',
-            padding: '0.5rem 1rem',
-            borderRadius: '6px',
-            fontWeight: 700
-          }}
-          onClick={() => setNcpTab('active')}
-        >
-          กำลังดำเนินการ ({claims.filter(c => c.status !== 'Returned').length})
-        </button>
-        <button 
-          className="btn" 
-          style={{ 
-            background: ncpTab === 'completed' ? 'var(--success)' : 'transparent', 
-            color: ncpTab === 'completed' ? '#fff' : 'var(--text-secondary)',
-            fontSize: '0.85rem',
-            padding: '0.5rem 1rem',
-            borderRadius: '6px',
-            fontWeight: 700
-          }}
-          onClick={() => setNcpTab('completed')}
-        >
-          ประวัติเคสที่เสร็จสิ้น ({claims.filter(c => c.status === 'Returned').length})
-        </button>
-        <button 
-          className="btn" 
-          style={{ 
-            background: ncpTab === 'all' ? 'var(--surface-lighter)' : 'transparent', 
-            color: ncpTab === 'all' ? 'var(--text-primary)' : 'var(--text-secondary)',
-            fontSize: '0.85rem',
-            padding: '0.5rem 1rem',
-            borderRadius: '6px',
-            fontWeight: 700
-          }}
-          onClick={() => setNcpTab('all')}
-        >
-          เคสทั้งหมด ({claims.length})
-        </button>
+      {/* แถบตัวกรองประวัติการเคลม NCP และช่องค้นหา */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', marginBottom: '2rem' }}>
+        <div className="ncp-tabs glass" style={{ 
+          display: 'flex', 
+          gap: '0.5rem', 
+          padding: '0.5rem', 
+          borderRadius: 'var(--radius-sm)',
+          border: '1px solid var(--glass-border)',
+          width: 'fit-content'
+        }}>
+          <button 
+            className="btn" 
+            style={{ 
+              background: ncpTab === 'active' ? 'var(--accent-color)' : 'transparent', 
+              color: ncpTab === 'active' ? '#000' : 'var(--text-secondary)',
+              fontSize: '0.85rem',
+              padding: '0.5rem 1rem',
+              borderRadius: '6px',
+              fontWeight: 700
+            }}
+            onClick={() => setNcpTab('active')}
+          >
+            กำลังดำเนินการ ({claims.filter(c => c.status !== 'Returned').length})
+          </button>
+          <button 
+            className="btn" 
+            style={{ 
+              background: ncpTab === 'completed' ? 'var(--success)' : 'transparent', 
+              color: ncpTab === 'completed' ? '#fff' : 'var(--text-secondary)',
+              fontSize: '0.85rem',
+              padding: '0.5rem 1rem',
+              borderRadius: '6px',
+              fontWeight: 700
+            }}
+            onClick={() => setNcpTab('completed')}
+          >
+            ประวัติเคสที่เสร็จสิ้น ({claims.filter(c => c.status === 'Returned').length})
+          </button>
+          <button 
+            className="btn" 
+            style={{ 
+              background: ncpTab === 'all' ? 'var(--surface-lighter)' : 'transparent', 
+              color: ncpTab === 'all' ? 'var(--text-primary)' : 'var(--text-secondary)',
+              fontSize: '0.85rem',
+              padding: '0.5rem 1rem',
+              borderRadius: '6px',
+              fontWeight: 700
+            }}
+            onClick={() => setNcpTab('all')}
+          >
+            เคสทั้งหมด ({claims.length})
+          </button>
+        </div>
+
+        {claims.length > 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'var(--glass-bg)', border: '1px solid var(--glass-border)', borderRadius: 'var(--radius-sm)', padding: '0.45rem 0.75rem', minWidth: '280px' }}>
+            <Search size={16} color="var(--text-secondary)" />
+            <input
+              type="text"
+              placeholder="ค้นหาตามชื่อสินค้า, Lot หรือรายละเอียด..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              style={{
+                border: 'none',
+                outline: 'none',
+                background: 'transparent',
+                color: 'var(--text-primary)',
+                width: '100%',
+                fontSize: '0.85rem'
+              }}
+            />
+          </div>
+        )}
       </div>
 
       <div className="claims-list" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(400px, 1fr))', gap: '1.5rem' }}>
