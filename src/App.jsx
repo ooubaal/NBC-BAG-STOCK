@@ -26,7 +26,7 @@ import Withdrawal from './components/Withdrawal';
 import SettingsTab from './components/Settings';
 import Agreements from './components/Agreements';
 import { initFirebase } from './firebase';
-import { doc, setDoc, collection, onSnapshot, deleteDoc } from 'firebase/firestore';
+import { doc, setDoc, collection, onSnapshot, deleteDoc, getDocs } from 'firebase/firestore';
 
 const INITIAL_ITEMS = [];
 
@@ -451,18 +451,42 @@ function App() {
       if (window.confirm("🚨 ยืนยันอีกครั้ง: คุณแน่ใจจริงๆ ใช่หรือไม่? ข้อมูลทั้งหมดที่ทำมาจะหายหมดแบบถาวรและไม่สามารถกู้คืนได้ (ยกเว้นมีไฟล์สำรอง) 🚨")) {
         try {
           if (db) {
-            const claimsText = localStorage.getItem('wms_claims');
-            if (claimsText) {
-              const claims = JSON.parse(claimsText);
-              for (const claim of claims) {
-                await deleteDoc(doc(db, 'claims', String(claim.id))).catch(err => console.error("Error deleting claim:", err));
+            // Delete all items from Firestore
+            const itemsSnap = await getDocs(collection(db, 'items')).catch(() => null);
+            if (itemsSnap) {
+              for (const docSnap of itemsSnap.docs) {
+                await deleteDoc(doc(db, 'items', docSnap.id)).catch(err => console.error("Error deleting item:", err));
+              }
+            }
+
+            // Delete all inventory from Firestore
+            const invSnap = await getDocs(collection(db, 'inventory')).catch(() => null);
+            if (invSnap) {
+              for (const docSnap of invSnap.docs) {
+                await deleteDoc(doc(db, 'inventory', docSnap.id)).catch(err => console.error("Error deleting inventory:", err));
+              }
+            }
+
+            // Delete all agreements from Firestore
+            const agSnap = await getDocs(collection(db, 'agreements')).catch(() => null);
+            if (agSnap) {
+              for (const docSnap of agSnap.docs) {
+                await deleteDoc(doc(db, 'agreements', docSnap.id)).catch(err => console.error("Error deleting agreement:", err));
+              }
+            }
+
+            // Delete all claims from Firestore
+            const claimsSnap = await getDocs(collection(db, 'claims')).catch(() => null);
+            if (claimsSnap) {
+              for (const docSnap of claimsSnap.docs) {
+                await deleteDoc(doc(db, 'claims', docSnap.id)).catch(err => console.error("Error deleting claim:", err));
               }
             }
           }
 
-          updateItems(INITIAL_ITEMS);
-          updateInventory([]);
-          updateAgreements([]);
+          setItems(INITIAL_ITEMS);
+          setInventory([]);
+          setAgreements([]);
           localStorage.setItem('wms_claims', '[]');
 
           if (firebaseConfig && firebaseConfig.projectId) {
