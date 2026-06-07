@@ -142,6 +142,9 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
       
       // 2. Create Product Registry sheet (visible, contains list of items and units)
       const registrySheet = workbook.addWorksheet('Product Registry');
+
+      // 2.5 Create Contract Registry sheet (visible, contains list of active contracts)
+      const contractSheet = workbook.addWorksheet('Contract Registry');
       
       // 3. Populate Product Registry
       registrySheet.columns = [
@@ -171,8 +174,38 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
       });
       registrySheet.views = [{ showGridLines: true }];
 
-      // Determine max row in Product Registry for formula and dropdown references
+      // 3.5 Populate Contract Registry
+      contractSheet.columns = [
+        { header: 'เลขที่สัญญาจัดซื้อ', key: 'id', width: 25 },
+        { header: 'ชื่อสินค้า', key: 'itemName', width: 40 }
+      ];
+
+      const activeAgreements = agreements ? agreements.filter(ag => ag.status !== 'Completed') : [];
+      if (activeAgreements.length > 0) {
+        activeAgreements.forEach(ag => {
+          contractSheet.addRow({ id: ag.id, itemName: ag.itemName });
+        });
+      } else {
+        contractSheet.addRow({ id: 'AG-2026-001', itemName: 'Raw Material A' });
+      }
+
+      // Format contract registry headers
+      const conHeaderRow = contractSheet.getRow(1);
+      conHeaderRow.height = 25;
+      conHeaderRow.eachCell((cell) => {
+        cell.font = { name: 'Inter', bold: true, size: 11, color: { argb: 'FFFFFFFF' } };
+        cell.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'FF0D9488' } // Teal-600
+        };
+        cell.alignment = { vertical: 'middle', horizontal: 'center' };
+      });
+      contractSheet.views = [{ showGridLines: true }];
+
+      // Determine max rows for formula and dropdown references
       const maxRegistryRow = items && items.length > 0 ? items.length + 1 : 2;
+      const maxContractRow = activeAgreements.length > 0 ? activeAgreements.length + 1 : 2;
 
       // 4. Configure Inbound Form columns (adding Unit as Column C, auto-resolved via VLOOKUP)
       formSheet.columns = [
@@ -210,6 +243,7 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
 
       // 5. Add a sample data row in Row 2
       const sampleItemName = (items && items.length > 0) ? items[0].name : "Raw Material A";
+      const sampleAgreementId = activeAgreements.length > 0 ? activeAgreements[0].id : '';
       formSheet.addRow({
         date: (() => {
           const today = new Date();
@@ -220,7 +254,7 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
         })(),
         itemName: sampleItemName,
         unit: { formula: `IF(ISBLANK(B2),"",VLOOKUP(B2,'Product Registry'!$A$2:$B$${maxRegistryRow},2,FALSE))` },
-        agreementId: '',
+        agreementId: sampleAgreementId,
         supplierLot: 'LOT-SUP-12345',
         inhouseLot: 'LOT-INH-001',
         qcStatus: 'Quarantine',
@@ -245,6 +279,16 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
           showErrorMessage: true,
           errorTitle: 'ชื่อสินค้าไม่ถูกต้อง / Invalid Product Name',
           error: 'กรุณาเลือกชื่อสินค้าจากรายการที่กำหนดเท่านั้น / Please select a product name from the list.'
+        };
+
+        // Add dropdown data validation on Column D (Agreement ID)
+        formSheet.getCell(`D${row}`).dataValidation = {
+          type: 'list',
+          allowBlank: true,
+          formulae: [`'Contract Registry'!$A$2:$A$${maxContractRow}`],
+          showErrorMessage: true,
+          errorTitle: 'เลขที่สัญญาจัดซื้อไม่ถูกต้อง / Invalid Contract Number',
+          error: 'กรุณาเลือกเลขที่สัญญาจัดซื้อจากรายการที่กำหนดเท่านั้น / Please select a contract number from the list.'
         };
 
         // Add dropdown data validation on Column G (QC Status)
