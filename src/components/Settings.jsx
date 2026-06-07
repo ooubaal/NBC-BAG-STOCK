@@ -4,6 +4,20 @@ import { Database, CheckCircle2, AlertTriangle, Key, Save, RefreshCw, LogOut, In
 const Settings = ({ config, onSaveConfig, onDisconnect, onMigrate, syncStats, isMigrating, onBackup, onRestore, onReset }) => {
   const [rawConfigInput, setRawConfigInput] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
+  const [passwordInput, setPasswordInput] = useState('');
+  const [isAuthorized, setIsAuthorized] = useState(false);
+  const [passError, setPassError] = useState('');
+
+  const handlePasswordSubmit = (e) => {
+    e.preventDefault();
+    if (passwordInput === '5512264') {
+      setIsAuthorized(true);
+      setPassError('');
+    } else {
+      setPassError('รหัสผ่านไม่ถูกต้อง กรุณาลองใหม่อีกครั้ง');
+      setPasswordInput('');
+    }
+  };
 
   const parseFirebaseConfig = (text) => {
     // 1. Clean and sanitize input text first to handle common mobile typing/copy-paste errors
@@ -75,6 +89,39 @@ const Settings = ({ config, onSaveConfig, onDisconnect, onMigrate, syncStats, is
       setErrorMsg(e.message || 'รูปแบบไม่ถูกต้อง กรุณาตรวจสอบและลองอีกครั้ง');
     }
   };
+
+  if (!isAuthorized) {
+    return (
+      <div className="fade-in" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
+        <div className="glass card" style={{ maxWidth: '400px', width: '100%', padding: '2.5rem', textAlign: 'center', border: '1px solid var(--glass-border)' }}>
+          <div style={{ background: 'rgba(245, 158, 11, 0.15)', width: '60px', height: '60px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem auto' }}>
+            <Key size={30} color="var(--accent-color)" />
+          </div>
+          <h2 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '0.5rem' }}>จำเป็นต้องระบุรหัสผ่าน</h2>
+          <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '1.5rem' }}>กรุณากรอกรหัสผ่านเพื่อเข้าสู่โมดูลตั้งค่าแชร์คลาวด์</p>
+          
+          <form onSubmit={handlePasswordSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <input 
+              type="password"
+              placeholder="กรอกรหัสผ่าน..."
+              value={passwordInput}
+              onChange={(e) => setPasswordInput(e.target.value)}
+              style={{ textAlign: 'center', letterSpacing: '0.2rem', fontSize: '1.1rem', fontWeight: 'bold' }}
+              autoFocus
+            />
+            {passError && (
+              <div style={{ color: 'var(--danger)', fontSize: '0.8rem', fontWeight: 600 }}>
+                {passError}
+              </div>
+            )}
+            <button type="submit" className="btn btn-primary" style={{ justifyContent: 'center', width: '100%', marginTop: '0.5rem' }}>
+              ยืนยันรหัสผ่าน
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fade-in">
