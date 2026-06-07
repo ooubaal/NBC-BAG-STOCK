@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Plus, Trash2, Edit2, Check, X, Upload, Download } from 'lucide-react';
+import { useState } from 'react';
+import { Plus, Trash2, Edit2, Check, X, Upload, Download, AlertTriangle } from 'lucide-react';
 
 const ProductRegistry = ({ items, setItems }) => {
   const [newItemName, setNewItemName] = useState('');
@@ -9,7 +9,9 @@ const ProductRegistry = ({ items, setItems }) => {
   const [editingIndex, setEditingIndex] = useState(null);
   const [editingValue, setEditingValue] = useState({ name: '', unit: '' });
 
-  const [confirmDelete, setConfirmDelete] = useState(null);
+  const [deleteIndex, setDeleteIndex] = useState(null);
+  const [deletePassword, setDeletePassword] = useState('');
+  const [deleteError, setDeleteError] = useState('');
 
   const addItem = () => {
     if (!newItemName.trim()) return;
@@ -27,7 +29,6 @@ const ProductRegistry = ({ items, setItems }) => {
   const deleteItem = (index) => {
     const newItems = items.filter((_, i) => i !== index);
     setItems(newItems);
-    setConfirmDelete(null);
   };
 
   const startEdit = (index) => {
@@ -312,14 +313,6 @@ const ProductRegistry = ({ items, setItems }) => {
                     <X size={16} />
                   </button>
                 </div>
-              ) : confirmDelete === index ? (
-                <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
-                  <span style={{ color: 'var(--danger)', fontSize: '0.9rem', fontWeight: 600 }}>ยืนยันการลบ?</span>
-                  <div style={{ display: 'flex', gap: '0.5rem' }}>
-                    <button className="btn btn-primary" style={{ padding: '0.4rem 0.8rem', background: 'var(--danger)', color: '#fff', fontSize: '0.7rem' }} onClick={() => deleteItem(index)}>ลบเลย</button>
-                    <button className="btn btn-secondary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.7rem' }} onClick={() => setConfirmDelete(null)}>ยกเลิก</button>
-                  </div>
-                </div>
               ) : (
                 <>
                   <span style={{ fontWeight: 600 }}>
@@ -334,7 +327,11 @@ const ProductRegistry = ({ items, setItems }) => {
                     </button>
                     <button 
                       style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer' }}
-                      onClick={() => setConfirmDelete(index)}
+                      onClick={() => {
+                        setDeleteIndex(index);
+                        setDeletePassword('');
+                        setDeleteError('');
+                      }}
                     >
                       <Trash2 size={16} />
                     </button>
@@ -348,6 +345,105 @@ const ProductRegistry = ({ items, setItems }) => {
           )}
         </div>
       </div>
+
+      {/* Deletion Warning Modal */}
+      {deleteIndex !== null && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.7)',
+          backdropFilter: 'blur(5px)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 9999
+        }}>
+          <div className="glass card" style={{
+            maxWidth: '550px',
+            width: '90%',
+            padding: '2.5rem',
+            border: '1px solid var(--danger)',
+            boxShadow: '0 20px 25px -5px rgba(0,0,0,0.5)'
+          }}>
+            <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--danger)', marginBottom: '1.25rem' }}>
+              <AlertTriangle size={24} /> ยืนยันการลบพัสดุออกจากทะเบียน
+            </h3>
+            
+            <div style={{
+              background: 'rgba(239, 68, 68, 0.08)',
+              color: 'var(--danger)',
+              padding: '1rem',
+              borderRadius: '8px',
+              border: '1px solid rgba(239, 68, 68, 0.2)',
+              fontSize: '0.88rem',
+              lineHeight: '1.5',
+              marginBottom: '1.5rem'
+            }}>
+              <strong>ไม่สามารถเบิกจ่ายได้ (สำคัญ ⚠️):</strong> ในโมดูล การตัดจ่ายพัสดุ (Withdrawal) ขั้นตอนที่ 1 จำเป็นต้องเลือกชื่อสินค้าก่อนเพื่อแสดงรายการ Lot ในคลัง หากไม่มีชื่อในทะเบียนพัสดุ คุณจะไม่สามารถเลือกสินค้าตัวนี้เพื่อทำรายการเบิกจ่ายได้เลย (แม้ว่าจะมีของเหลืออยู่ในคลังจริงๆ ก็ตาม)
+            </div>
+
+            <p style={{ fontSize: '0.9rem', marginBottom: '1rem', color: 'var(--text-secondary)' }}>
+              กรุณากรอกรหัสผ่านเพื่อยืนยันการลบสินค้า: <strong>{items[deleteIndex]?.name}</strong>
+            </p>
+
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              if (deletePassword === '5640502') {
+                deleteItem(deleteIndex);
+                setDeleteIndex(null);
+              } else {
+                setDeleteError('รหัสผ่านไม่ถูกต้อง กรุณาลองใหม่อีกครั้ง');
+                setDeletePassword('');
+              }
+            }} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <input 
+                type="password"
+                placeholder="กรอกรหัสผ่าน..."
+                value={deletePassword}
+                onChange={(e) => setDeletePassword(e.target.value)}
+                style={{
+                  width: '100%',
+                  textAlign: 'center',
+                  letterSpacing: '0.2rem',
+                  fontSize: '1.1rem',
+                  fontWeight: 'bold'
+                }}
+                autoFocus
+              />
+
+              {deleteError && (
+                <div style={{ color: 'var(--danger)', fontSize: '0.85rem', fontWeight: 600, textAlign: 'center' }}>
+                  {deleteError}
+                </div>
+              )}
+
+              <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end', marginTop: '0.5rem', borderTop: '1px solid var(--glass-border)', paddingTop: '1.25rem' }}>
+                <button 
+                  type="button"
+                  className="btn btn-secondary" 
+                  onClick={() => setDeleteIndex(null)}
+                >
+                  ยกเลิก
+                </button>
+                <button 
+                  type="submit"
+                  className="btn btn-primary"
+                  style={{
+                    background: 'var(--danger)',
+                    borderColor: 'var(--danger)',
+                    color: '#fff'
+                  }}
+                >
+                  ยืนยันการลบ
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
