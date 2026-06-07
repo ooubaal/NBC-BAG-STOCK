@@ -1,21 +1,31 @@
 import React, { useState } from 'react';
-import { Database, CheckCircle2, AlertTriangle, Key, Save, RefreshCw, LogOut, Info } from 'lucide-react';
+import { Database, CheckCircle2, AlertTriangle, Key, Save, RefreshCw, LogOut, Info, AlertOctagon } from 'lucide-react';
 
-const Settings = ({ config, onSaveConfig, onDisconnect, onMigrate, syncStats, isMigrating, onBackup, onRestore }) => {
+const Settings = ({ config, onSaveConfig, onDisconnect, onMigrate, syncStats, isMigrating, onBackup, onRestore, onReset }) => {
   const [rawConfigInput, setRawConfigInput] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
 
   const parseFirebaseConfig = (text) => {
+    // 1. Clean and sanitize input text first to handle common mobile typing/copy-paste errors
+    let cleaned = text.trim();
+    // Replace all smart quotes (curly quotes) with standard double quotes
+    cleaned = cleaned.replace(/[\u201C\u201D\u2018\u2019]/g, '"');
+    // Replace multiple double quotes (like "" or """) with a single double quote
+    cleaned = cleaned.replace(/""+/g, '"');
+    // Replace multiple single quotes (like '' or ''') with a single double quote
+    cleaned = cleaned.replace(/''+/g, '"');
+    // Normalize any remaining single quotes to double quotes
+    cleaned = cleaned.replace(/'/g, '"');
+
     try {
       // Find JSON/JS Object inside text using regex
-      const match = text.match(/\{[\s\S]*\}/);
+      const match = cleaned.match(/\{[\s\S]*\}/);
       if (!match) {
         throw new Error("ไม่พบรูปแบบเครื่องหมายปีกกา { ... }");
       }
       
       const jsonLikeText = match[0]
-        .replace(/([a-zA-Z0-9]+):/g, '"$1":') // Wrap keys in double quotes
-        .replace(/'/g, '"')                 // Convert single quotes to double
+        .replace(/"?([a-zA-Z0-9]+)"?\s*:/g, '"$1":') // Wrap keys in double quotes, handling keys that are already quoted
         .replace(/,(\s*[\}\]])/g, '$1');   // Remove trailing commas
 
       const parsed = JSON.parse(jsonLikeText);
@@ -26,20 +36,21 @@ const Settings = ({ config, onSaveConfig, onDisconnect, onMigrate, syncStats, is
       
       return parsed;
     } catch (e) {
-      console.error(e);
-      // Fallback: try extraction via simple regex
+      console.error("JSON parsing failed, attempting regex fallback:", e);
+      // Fallback: try extraction via simple regex on the cleaned text
       const extractField = (field, source) => {
-        const regex = new RegExp(`['"]?${field}['"]?\\s*:\\s*['"]([^'"]+)['"]`);
+        // Since we sanitized all quotes to standard double quotes, regex is much simpler
+        const regex = new RegExp(`"?${field}"?\\s*:\\s*"([^"]+)"`);
         const m = source.match(regex);
         return m ? m[1] : null;
       };
 
-      const apiKey = extractField('apiKey', text);
-      const projectId = extractField('projectId', text);
-      const authDomain = extractField('authDomain', text);
-      const storageBucket = extractField('storageBucket', text);
-      const messagingSenderId = extractField('messagingSenderId', text);
-      const appId = extractField('appId', text);
+      const apiKey = extractField('apiKey', cleaned);
+      const projectId = extractField('projectId', cleaned);
+      const authDomain = extractField('authDomain', cleaned);
+      const storageBucket = extractField('storageBucket', cleaned);
+      const messagingSenderId = extractField('messagingSenderId', cleaned);
+      const appId = extractField('appId', cleaned);
 
       if (apiKey && projectId) {
         return { apiKey, projectId, authDomain, storageBucket, messagingSenderId, appId };
@@ -283,6 +294,51 @@ const Settings = ({ config, onSaveConfig, onDisconnect, onMigrate, syncStats, is
                 <AlertTriangle size={16} style={{ flexShrink: 0, marginTop: '2px' }} />
                 <span><strong>คำเตือน:</strong> การกู้คืนข้อมูลจะทำการเขียนทับข้อมูลสต็อกสินค้า สัญญาจัดซื้อ ทะเบียนสินค้า และ NCP เดิมทั้งหมด หากเชื่อมต่อคลาวด์อยู่ ข้อมูลกลางจะเปลี่ยนตามทันที</span>
               </div>
+            </div>
+          </div>
+
+          {/* Reset Program Tools */}
+          <div className="glass card" style={{ borderLeft: '3px solid var(--danger)' }}>
+            <h3 style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--danger)' }}>
+              <AlertOctagon size={20} />
+              รีเซ็ตระบบพัสดุทั้งหมด (Reset Database & System)
+            </h3>
+            <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '1.2rem' }}>
+              ทำการล้างข้อมูลการใช้งานทั้งหมดของแอปพลิเคชัน (ทะเบียนพัสดุ, ยอดในคลัง, ประวัติรับเข้า/ตัดจ่าย, สัญญาจัดซื้อ และคดี NCP) เสมือนเริ่มต้นโปรแกรมใหม่แบบสะอาด
+            </p>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div style={{ 
+                background: 'rgba(239, 68, 68, 0.08)', 
+                color: 'var(--danger)', 
+                padding: '0.75rem', 
+                borderRadius: '8px', 
+                border: '1px solid rgba(239, 68, 68, 0.2)',
+                fontSize: '0.78rem',
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: '0.5rem',
+                lineHeight: 1.4
+              }}>
+                <AlertTriangle size={16} style={{ flexShrink: 0, marginTop: '2px' }} />
+                <span><strong>ข้อแนะนำสำคัญ:</strong> แนะนำให้กดปุ่ม <strong>"สำรองข้อมูลเก็บลงเครื่องคอมพิวเตอร์"</strong> ด้านบนก่อนเริ่มทำการรีเซ็ต เพื่อความปลอดภัยในการกู้ข้อมูลภายหลัง หากมีการรีเซ็ตแล้วข้อมูลกลางบนคลาวด์ (Firestore) จะถูกลบถาวรทันที!</span>
+              </div>
+
+              <button 
+                className="btn btn-primary" 
+                onClick={onReset}
+                style={{ 
+                  width: '100%', 
+                  justifyContent: 'center',
+                  background: 'linear-gradient(135deg, #ef4444, #b91c1c)',
+                  borderColor: '#ef4444',
+                  color: '#fff',
+                  fontWeight: 600,
+                  boxShadow: '0 4px 12px rgba(239, 68, 68, 0.2)'
+                }}
+              >
+                🚨 รีเซ็ตล้างข้อมูลทั้งหมดในระบบ (Reset System Database)
+              </button>
             </div>
           </div>
 

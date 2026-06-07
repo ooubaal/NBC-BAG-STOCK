@@ -194,6 +194,13 @@ function App() {
           setDoc(doc(db, 'items', item.name), item)
             .catch(err => console.error("Error syncing item:", err));
         });
+        prev.forEach(prevItem => {
+          const stillExists = next.some(n => n.name === prevItem.name);
+          if (!stillExists) {
+            deleteDoc(doc(db, 'items', prevItem.name))
+              .catch(err => console.error("Error deleting item:", err));
+          }
+        });
       }
       return next;
     });
@@ -361,6 +368,46 @@ function App() {
     }
   };
 
+  const handleResetDatabase = async () => {
+    const warningMessage = 
+      "⚠️ คำเตือน: คุณกำลังจะทำการล้างข้อมูลระบบทั้งหมด! ⚠️\n\n" +
+      "การรีเซ็ตนี้จะลบข้อมูลต่อไปนี้ทั้งหมดอย่างถาวร:\n" +
+      "1. ทะเบียนพัสดุ (จะถูกรีเซ็ตกลับเป็นค่าเริ่มต้น)\n" +
+      "2. รายการพัสดุในคลังทั้งหมด\n" +
+      "3. ประวัติการรับเข้าและการตัดจ่ายทั้งหมด\n" +
+      "4. สัญญาจัดซื้อ (Mod 5) ทั้งหมด\n" +
+      "5. รายการเคลมสินค้า NCP (Mod 4) ทั้งหมด\n\n" +
+      "*** ข้อมูลในฐานข้อมูลคลาวด์ (หากมีการเชื่อมต่อ) จะถูกลบถาวรทันที! ***\n\n" +
+      "แนะนำให้คุณทำการสำรองข้อมูล (Download Backup) ไว้ก่อนดำเนินการต่อเพื่อความปลอดภัย\n\n" +
+      "คุณยืนยันที่จะทำการล้างข้อมูลทั้งหมดและเริ่มใหม่ใช่หรือไม่?";
+
+    if (window.confirm(warningMessage)) {
+      if (window.confirm("🚨 ยืนยันอีกครั้ง: คุณแน่ใจจริงๆ ใช่หรือไม่? ข้อมูลทั้งหมดที่ทำมาจะหายหมดแบบถาวรและไม่สามารถกู้คืนได้ (ยกเว้นมีไฟล์สำรอง) 🚨")) {
+        try {
+          if (db) {
+            const claimsText = localStorage.getItem('wms_claims');
+            if (claimsText) {
+              const claims = JSON.parse(claimsText);
+              for (const claim of claims) {
+                await deleteDoc(doc(db, 'claims', String(claim.id))).catch(err => console.error("Error deleting claim:", err));
+              }
+            }
+          }
+
+          updateItems(INITIAL_ITEMS);
+          updateInventory([]);
+          updateAgreements([]);
+          localStorage.setItem('wms_claims', '[]');
+
+          alert("🎉 รีเซ็ตโปรแกรมและล้างฐานข้อมูลระบบสำเร็จเรียบร้อยแล้ว!");
+        } catch (error) {
+          console.error("Database reset failed:", error);
+          alert("เกิดข้อผิดพลาดในการล้างฐานข้อมูล: " + error.message);
+        }
+      }
+    }
+  };
+
   const renderContent = () => {
     switch (activeTab) {
       case 'dashboard':
@@ -399,6 +446,7 @@ function App() {
             isMigrating={isMigrating}
             onBackup={handleBackup}
             onRestore={handleRestore}
+            onReset={handleResetDatabase}
           />
         );
       default:
