@@ -30,15 +30,71 @@ const Analytics = ({ inventory, items }) => {
     const allWithdrawals = itemRecords.flatMap(i => i.withdrawals || []);
     const totalWithdrawn = allWithdrawals.reduce((acc, curr) => acc + curr.amount, 0);
     
+    // Run-out prediction calculation
+    let dailyRate = 0;
+    let daysRemaining = null;
+    let predictionDateStr = '';
+    let predictionStatus; // 'outOfStock', 'runsOut', 'noUsage'
+    
+    if (totalStock === 0) {
+      predictionStatus = 'outOfStock';
+    } else if (allWithdrawals.length > 0) {
+      const dates = allWithdrawals.map(w => new Date(w.date).getTime()).filter(t => !isNaN(t));
+      if (dates.length > 0) {
+        const minDate = Math.min(...dates);
+        const minDateObj = new Date(minDate);
+        minDateObj.setHours(0, 0, 0, 0);
+        
+        const todayObj = new Date();
+        todayObj.setHours(0, 0, 0, 0);
+        
+        const diffTime = todayObj.getTime() - minDateObj.getTime();
+        const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+        const activeDays = Math.max(1, diffDays + 1);
+        
+        dailyRate = totalWithdrawn / activeDays;
+        
+        if (dailyRate > 0) {
+          daysRemaining = Math.ceil(totalStock / dailyRate);
+          predictionStatus = 'runsOut';
+          
+          const predTime = new Date().getTime() + (daysRemaining * 24 * 60 * 60 * 1000);
+          const predDate = new Date(predTime);
+          const dd = String(predDate.getDate()).padStart(2, '0');
+          const mm = String(predDate.getMonth() + 1).padStart(2, '0');
+          const yyyy = predDate.getFullYear() + 543; // Buddhist Era
+          predictionDateStr = `${dd}/${mm}/${yyyy}`;
+        } else {
+          predictionStatus = 'noUsage';
+        }
+      } else {
+        predictionStatus = 'noUsage';
+      }
+    } else {
+      predictionStatus = 'noUsage';
+    }
+    
     return {
       totalStock,
       lots,
       qcStats,
       totalWithdrawn,
       recordCount: itemRecords.length,
-      withdrawals: allWithdrawals
+      withdrawals: allWithdrawals,
+      dailyRate,
+      daysRemaining,
+      predictionDateStr,
+      predictionStatus
     };
   }, [inventory, selectedItem]);
+
+  const getPredictionColor = () => {
+    if (stats.predictionStatus === 'outOfStock') return '#ef4444';
+    if (stats.predictionStatus === 'noUsage') return 'rgba(255, 255, 255, 0.1)';
+    if (stats.daysRemaining <= 14) return '#ef4444';
+    if (stats.daysRemaining <= 30) return '#f59e0b';
+    return '#10b981';
+  };
 
   return (
     <div className="fade-in">
@@ -158,6 +214,23 @@ const Analytics = ({ inventory, items }) => {
         <div className="stat-card glass" style={{ borderTop: '4px solid var(--success)' }}>
           <div className="stat-label">สถานะ QC (Pass)</div>
           <div className="stat-value">{stats.qcStats['Pass'] || 0} Lot</div>
+        </div>
+        <div className="stat-card glass" style={{ borderTop: `4px solid ${getPredictionColor()}` }}>
+          <div className="stat-label">คาดการณ์ของหมด</div>
+          <div className="stat-value">
+            {stats.predictionStatus === 'outOfStock' && <span style={{ color: '#ef4444' }}>ตัดหมดแล้ว</span>}
+            {stats.predictionStatus === 'noUsage' && <span style={{ fontSize: '1.25rem', color: 'var(--text-muted)' }}>ไม่มีข้อมูลการใช้</span>}
+            {stats.predictionStatus === 'runsOut' && (
+              <>
+                {stats.daysRemaining > 365 ? '> 365' : stats.daysRemaining} <span style={{ fontSize: '1rem', fontWeight: 400 }}>วัน</span>
+              </>
+            )}
+          </div>
+          <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+            {stats.predictionStatus === 'outOfStock' && 'ไม่เหลือพัสดุในคลัง'}
+            {stats.predictionStatus === 'noUsage' && 'ยังไม่มีประวัติการตัดจ่าย'}
+            {stats.predictionStatus === 'runsOut' && `คาดว่าจะหมด: ${stats.predictionDateStr} (เฉลี่ย ${stats.dailyRate.toFixed(1)} ${currentUnit}/วัน)`}
+          </p>
         </div>
       </div>
 
