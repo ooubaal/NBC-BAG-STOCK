@@ -1440,7 +1440,7 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
             </div>
           </div>
 
-          <div className="glass card" style={{ overflowX: 'hidden', padding: '1rem' }}>
+          <div className="glass card" style={{ overflow: 'visible', padding: '1rem' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
               <thead>
                 <tr style={{ textAlign: 'left', borderBottom: '1px solid var(--glass-border)', color: 'var(--text-muted)' }}>
