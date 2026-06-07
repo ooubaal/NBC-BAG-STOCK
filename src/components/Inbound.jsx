@@ -2,6 +2,114 @@ import { useState } from 'react';
 import { Plus, Trash2, Save, Printer, Copy, Search, Upload, Download } from 'lucide-react';
 import ExcelJS from 'exceljs';
 
+const SearchableSelect = ({ value, onChange, options, placeholder, disabled }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [search, setSearch] = useState('');
+
+  const filtered = options.filter(opt => 
+    String(opt.label || '').toLowerCase().includes(search.toLowerCase())
+  );
+
+  const selectedOption = options.find(opt => opt.value === value);
+  const displayLabel = selectedOption ? selectedOption.label : (value || '');
+
+  return (
+    <div style={{ position: 'relative', width: '100%' }}>
+      <input 
+        type="text"
+        placeholder={placeholder}
+        value={isOpen ? search : displayLabel}
+        onChange={(e) => {
+          if (!isOpen) setIsOpen(true);
+          setSearch(e.target.value);
+        }}
+        onClick={() => {
+          setIsOpen(true);
+          setSearch('');
+        }}
+        disabled={disabled}
+        style={{
+          width: '100%',
+          fontSize: '0.78rem',
+          padding: '0.4rem 0.3rem',
+          background: 'var(--input-bg)',
+          color: 'var(--text-primary)',
+          border: '1px solid var(--glass-border)',
+          borderRadius: '4px',
+          cursor: disabled ? 'not-allowed' : 'pointer',
+          outline: 'none',
+          boxSizing: 'border-box'
+        }}
+      />
+      {isOpen && !disabled && (
+        <>
+          <div 
+            onClick={() => {
+              setIsOpen(false);
+              setSearch('');
+            }}
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              zIndex: 999
+            }}
+          />
+          <div style={{
+            position: 'absolute',
+            top: '105%',
+            left: 0,
+            right: 0,
+            maxHeight: '180px',
+            overflowY: 'auto',
+            background: '#1e1e2d',
+            border: '1px solid var(--glass-border)',
+            borderRadius: '4px',
+            boxShadow: '0 10px 15px -3px rgba(0,0,0,0.5)',
+            zIndex: 1000
+          }}>
+            {filtered.length === 0 ? (
+              <div style={{ padding: '0.5rem', color: 'var(--text-muted)', fontSize: '0.72rem', textAlign: 'center' }}>
+                ไม่พบข้อมูล
+              </div>
+            ) : (
+              filtered.map((opt) => (
+                <div 
+                  key={opt.value}
+                  onClick={() => {
+                    onChange(opt.value);
+                    setIsOpen(false);
+                    setSearch('');
+                  }}
+                  style={{
+                    padding: '0.4rem 0.5rem',
+                    fontSize: '0.78rem',
+                    color: opt.value === value ? 'var(--accent-color, #0ea5e9)' : 'var(--text-primary)',
+                    background: opt.value === value ? 'rgba(14, 165, 233, 0.1)' : 'transparent',
+                    cursor: 'pointer',
+                    transition: 'background 0.15s ease',
+                    textAlign: 'left'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = opt.value === value ? 'rgba(14, 165, 233, 0.1)' : 'transparent';
+                  }}
+                >
+                  {opt.label}
+                </div>
+              ))
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
+
 const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
   const [inboundTab, setInboundTab] = useState('draft'); // 'draft' or 'history'
   const [historySearch, setHistorySearch] = useState('');
@@ -1361,30 +1469,25 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
                       />
                     </td>
                     <td style={{ padding: '0.5rem 0.25rem', verticalAlign: 'top' }}>
-                      <select 
-                        style={{ fontSize: '0.78rem', padding: '0.4rem 0.3rem', width: '100%' }} 
+                      <SearchableSelect 
                         value={entry.itemName} 
-                        onChange={(e) => updateEntry(entry.id, 'itemName', e.target.value)}
-                      >
-                        {items.map(item => <option key={item.name} value={item.name}>{item.name}</option>)}
-                      </select>
+                        onChange={(val) => updateEntry(entry.id, 'itemName', val)}
+                        options={items.map(item => ({ value: item.name, label: item.name }))}
+                        placeholder="เลือกสินค้า..."
+                      />
                     </td>
                     <td style={{ padding: '0.5rem 0.25rem', verticalAlign: 'top' }}>
-                      <select 
+                      <SearchableSelect 
                         value={entry.agreementId || ''} 
-                        onChange={(e) => updateEntry(entry.id, 'agreementId', e.target.value)}
-                        style={{ fontSize: '0.78rem', padding: '0.4rem 0.3rem', width: '100%' }}
-                      >
-                        <option value="">-- ไม่ระบุ --</option>
-                        {agreements
-                          .filter(ag => ag.itemName === entry.itemName && ag.status !== 'Completed')
-                          .map(ag => (
-                            <option key={ag.id} value={ag.id}>
-                              {ag.id}
-                            </option>
-                          ))
-                        }
-                      </select>
+                        onChange={(val) => updateEntry(entry.id, 'agreementId', val)}
+                        options={[
+                          { value: '', label: '-- ไม่ระบุ --' },
+                          ...agreements
+                            .filter(ag => ag.itemName === entry.itemName && ag.status !== 'Completed')
+                            .map(ag => ({ value: ag.id, label: ag.id }))
+                        ]}
+                        placeholder="เลือกสัญญา..."
+                      />
                     </td>
                     <td style={{ padding: '0.5rem 0.25rem', verticalAlign: 'top' }}>
                       <input 
