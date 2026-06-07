@@ -236,7 +236,8 @@ function App() {
       if (db && Array.isArray(next)) {
         next.forEach(item => {
           if (item && item.name && item.name.trim()) {
-            setDoc(doc(db, 'items', item.name), item)
+            const safeId = encodeURIComponent(item.name.trim());
+            setDoc(doc(db, 'items', safeId), item)
               .catch(err => console.error("Error syncing item:", err));
           }
         });
@@ -245,7 +246,8 @@ function App() {
             if (prevItem && prevItem.name && prevItem.name.trim()) {
               const stillExists = next.some(n => n && n.name === prevItem.name);
               if (!stillExists) {
-                deleteDoc(doc(db, 'items', prevItem.name))
+                const safeId = encodeURIComponent(prevItem.name.trim());
+                deleteDoc(doc(db, 'items', safeId))
                   .catch(err => console.error("Error deleting item:", err));
               }
             }
@@ -324,7 +326,10 @@ function App() {
     try {
       // Upload Items
       for (const item of items) {
-        await setDoc(doc(db, 'items', item.name), item);
+        if (item && item.name) {
+          const safeId = encodeURIComponent(item.name.trim());
+          await setDoc(doc(db, 'items', safeId), item);
+        }
       }
       
       // Upload Inventory
