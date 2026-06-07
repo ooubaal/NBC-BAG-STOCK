@@ -10,7 +10,7 @@ const Settings = ({ config, onSaveConfig, onDisconnect, onMigrate, syncStats, is
 
   const handlePasswordSubmit = (e) => {
     e.preventDefault();
-    if (passwordInput === '5512264') {
+    if (passwordInput === '5640502') {
       setIsAuthorized(true);
       setPassError('');
     } else {
