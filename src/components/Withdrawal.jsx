@@ -1,6 +1,15 @@
 import { useState, useMemo } from 'react';
 import { MinusCircle, Search, Calendar, Package, AlertCircle, MapPin, Printer, ChevronDown } from 'lucide-react';
 
+const formatDateToDDMMYYYY = (dateStr) => {
+  if (!dateStr) return '';
+  const cleanDate = dateStr.split('T')[0];
+  const parts = cleanDate.split('-');
+  if (parts.length !== 3) return dateStr;
+  const [yyyy, mm, dd] = parts;
+  return `${dd}/${mm}/${yyyy}`;
+};
+
 const Withdrawal = ({ inventory, setInventory, items }) => {
   const [withdrawalTab, setWithdrawalTab] = useState('new'); // 'new' or 'history'
   const [selectedItem, setSelectedItem] = useState((items && items.length > 0) ? items[0].name : '');
@@ -1424,7 +1433,7 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
                           onChange={() => handleSelectHistory(w.id)}
                         />
                       </td>
-                      <td style={{ padding: '1rem' }}>{w.date}</td>
+                      <td style={{ padding: '1rem' }}>{formatDateToDDMMYYYY(w.date)}</td>
                       <td style={{ padding: '1rem', fontWeight: 600 }}>{w.itemName}</td>
                       <td style={{ padding: '1rem' }}>
                         <div>{w.supplierLot}</div>

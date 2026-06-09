@@ -32,6 +32,15 @@ import { doc, setDoc, collection, onSnapshot, deleteDoc, getDocs } from 'firebas
 
 const INITIAL_ITEMS = [];
 
+const formatDateToDDMMYYYY = (dateStr) => {
+  if (!dateStr) return '';
+  const cleanDate = dateStr.split('T')[0];
+  const parts = cleanDate.split('-');
+  if (parts.length !== 3) return dateStr;
+  const [yyyy, mm, dd] = parts;
+  return `${dd}/${mm}/${yyyy}`;
+};
+
 function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
   
@@ -889,7 +898,7 @@ const Dashboard = ({ inventory, items, claims, setActiveTab }) => {
                         ({item.quantity} {item.unit || 'ชิ้น'})
                       </span>
                     </div>
-                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Lot: {item.supplierLot} | {item.date}</div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Lot: {item.supplierLot} | {formatDateToDDMMYYYY(item.date)}</div>
                   </div>
                   <div className={`status-badge status-${item.qcStatus.toLowerCase()}`} style={{ fontSize: '0.65rem' }}>{item.qcStatus}</div>
                 </div>

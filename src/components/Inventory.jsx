@@ -22,6 +22,15 @@ const AcceptanceBadge = ({ status }) => {
   );
 };
 
+const formatDateToDDMMYYYY = (dateStr) => {
+  if (!dateStr) return '';
+  const cleanDate = dateStr.split('T')[0];
+  const parts = cleanDate.split('-');
+  if (parts.length !== 3) return dateStr;
+  const [yyyy, mm, dd] = parts;
+  return `${dd}/${mm}/${yyyy}`;
+};
+
 const Inventory = ({ inventory, setInventory }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [expandedRow, setExpandedRow] = useState(null);
@@ -396,7 +405,7 @@ const Inventory = ({ inventory, setInventory }) => {
               sortedInventory.map((item) => (
                 <React.Fragment key={item.id}>
                   <tr style={{ borderBottom: '1px solid var(--glass-border)', cursor: 'pointer', opacity: item.isCancelled ? 0.55 : 1 }}>
-                    <td style={{ padding: '1rem' }}>{item.date}</td>
+                    <td style={{ padding: '1rem' }}>{formatDateToDDMMYYYY(item.date)}</td>
                     <td style={{ padding: '1rem', fontWeight: 600 }}>{item.itemName}</td>
                     <td style={{ padding: '1rem' }}>
                       <div style={{ fontSize: '0.9rem', fontWeight: 500 }}>{item.supplierLot}</div>
@@ -410,11 +419,11 @@ const Inventory = ({ inventory, setInventory }) => {
                       ) : (
                         <span className={`status-badge status-${item.qcStatus.toLowerCase()}`}>{item.qcStatus}</span>
                       )}
-                      {item.qcUpdateDate && <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>Update: {item.qcUpdateDate}</div>}
+                      {item.qcUpdateDate && <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>Update: {formatDateToDDMMYYYY(item.qcUpdateDate)}</div>}
                     </td>
                     <td style={{ padding: '1rem' }}>
                       <div style={{ fontWeight: 600 }}>{item.location}</div>
-                      {item.locationUpdateDate && <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>Update: {item.locationUpdateDate}</div>}
+                      {item.locationUpdateDate && <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>Update: {formatDateToDDMMYYYY(item.locationUpdateDate)}</div>}
                     </td>
                     <td style={{ padding: '1rem' }}>
                       <div style={{ fontWeight: 700 }}>
@@ -438,7 +447,7 @@ const Inventory = ({ inventory, setInventory }) => {
                     </td>
                     <td style={{ padding: '1rem' }}>
                       <AcceptanceBadge status={item.acceptanceStatus} />
-                      {item.acceptanceUpdateDate && <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>Update: {item.acceptanceUpdateDate}</div>}
+                      {item.acceptanceUpdateDate && <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>Update: {formatDateToDDMMYYYY(item.acceptanceUpdateDate)}</div>}
                     </td>
                     <td style={{ padding: '1rem' }}>
                       <button 
@@ -595,7 +604,7 @@ const Inventory = ({ inventory, setInventory }) => {
                                   <tbody>
                                     {item.withdrawals.map(w => (
                                       <tr key={w.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)', opacity: w.isCancelled ? 0.55 : 1 }}>
-                                        <td style={{ padding: '0.75rem' }}>{w.date}</td>
+                                        <td style={{ padding: '0.75rem' }}>{formatDateToDDMMYYYY(w.date)}</td>
                                         <td style={{ padding: '0.75rem', color: 'var(--danger)', fontWeight: 600 }}>
                                           {w.isCancelled ? (
                                             <span style={{ textDecoration: 'line-through', opacity: 0.6 }}>-{w.amount}</span>

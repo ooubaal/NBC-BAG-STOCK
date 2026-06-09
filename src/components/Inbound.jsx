@@ -110,6 +110,15 @@ const SearchableSelect = ({ value, onChange, options, placeholder, disabled }) =
   );
 };
 
+const formatDateToDDMMYYYY = (dateStr) => {
+  if (!dateStr) return '';
+  const cleanDate = dateStr.split('T')[0];
+  const parts = cleanDate.split('-');
+  if (parts.length !== 3) return dateStr;
+  const [yyyy, mm, dd] = parts;
+  return `${dd}/${mm}/${yyyy}`;
+};
+
 const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
   const [inboundTab, setInboundTab] = useState('draft'); // 'draft' or 'history'
   const [historySearch, setHistorySearch] = useState('');
@@ -1973,7 +1982,7 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
                           style={{ cursor: 'pointer', width: '18px', height: '18px' }}
                         />
                       </td>
-                      <td style={{ padding: '1rem' }}>{item.date}</td>
+                      <td style={{ padding: '1rem' }}>{formatDateToDDMMYYYY(item.date)}</td>
                       <td style={{ padding: '1rem', fontWeight: 600 }}>{item.itemName}</td>
                       <td style={{ padding: '1rem' }}>
                         {(() => {
