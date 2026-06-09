@@ -1120,15 +1120,28 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
       return;
     }
 
+    const formatDateToDDMMYY = (dateStr) => {
+      if (!dateStr) return '-';
+      const parts = dateStr.split('-');
+      if (parts.length !== 3) return dateStr;
+      const [yyyy, mm, dd] = parts;
+      const yy = yyyy.substring(2);
+      return `${dd}/${mm}/${yy}`;
+    };
+
     const htmlContent = `
       <html>
         <head>
           <title>รายงานสรุปการรับเข้าพัสดุ - NBC STOCK</title>
           <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&display=swap" rel="stylesheet">
           <style>
+            @page {
+              size: A4;
+              margin: 15mm;
+            }
             body {
               font-family: 'Sarabun', sans-serif;
-              padding: 30px;
+              padding: 20px;
               color: #1f2937;
               background-color: #fff;
               font-size: 13px;
@@ -1143,19 +1156,112 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
               margin-bottom: 25px;
             }
             .title {
-              font-size: 22px;
+              font-size: 20px;
               font-weight: 700;
               color: #003366;
             }
             .meta-info {
               text-align: right;
-              font-size: 12px;
+              font-size: 11px;
+            }
+            .controls-bar {
+              background-color: #f8fafc;
+              border: 1px solid #e2e8f0;
+              padding: 16px;
+              border-radius: 8px;
+              margin-bottom: 25px;
+              display: flex;
+              flex-direction: column;
+              gap: 12px;
+              font-size: 13px;
+            }
+            .controls-row {
+              display: flex;
+              flex-wrap: wrap;
+              gap: 20px;
+              align-items: center;
+            }
+            .controls-section {
+              display: flex;
+              flex-direction: column;
+              gap: 6px;
+            }
+            .controls-section strong {
+              color: #003366;
+            }
+            .checkbox-group {
+              display: flex;
+              flex-wrap: wrap;
+              gap: 12px;
+            }
+            .checkbox-group label {
+              display: flex;
+              align-items: center;
+              gap: 6px;
+              cursor: pointer;
+              background-color: #fff;
+              padding: 4px 10px;
+              border-radius: 4px;
+              border: 1px solid #cbd5e1;
+              user-select: none;
+              font-weight: 500;
+            }
+            .checkbox-group label:hover {
+              background-color: #f1f5f9;
+              border-color: #94a3b8;
+            }
+            .width-inputs {
+              display: flex;
+              flex-wrap: wrap;
+              gap: 8px;
+            }
+            .width-input-item {
+              display: flex;
+              align-items: center;
+              gap: 4px;
+              background-color: #fff;
+              padding: 4px 8px;
+              border-radius: 4px;
+              border: 1px solid #cbd5e1;
+            }
+            .width-input-item span {
+              font-size: 11px;
+              color: #475569;
+            }
+            .width-input-item input {
+              width: 45px;
+              border: 1px solid #94a3b8;
+              border-radius: 3px;
+              padding: 2px 4px;
+              text-align: center;
+              font-size: 11px;
+              font-weight: 600;
+            }
+            .print-btn-container {
+              margin-left: auto;
+            }
+            .btn-print {
+              background-color: #ea580c;
+              color: white;
+              border: none;
+              padding: 10px 24px;
+              border-radius: 6px;
+              font-weight: 600;
+              font-size: 14px;
+              cursor: pointer;
+              font-family: 'Sarabun', sans-serif;
+              transition: all 0.2s;
+              box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            }
+            .btn-print:hover {
+              background-color: #c2410c;
             }
             table {
               width: 100%;
               border-collapse: collapse;
               margin-top: 15px;
               margin-bottom: 35px;
+              table-layout: auto;
             }
             th {
               background-color: #003366;
@@ -1188,28 +1294,6 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
               border-top: 1px solid #9ca3af;
               padding-top: 12px;
             }
-            .actions-bar {
-              background-color: #003366;
-              padding: 12px 20px;
-              border-radius: 6px;
-              display: flex;
-              justify-content: flex-end;
-              margin-bottom: 20px;
-            }
-            .btn-print {
-              background-color: #ea580c;
-              color: white;
-              border: none;
-              padding: 8px 20px;
-              border-radius: 4px;
-              font-weight: 600;
-              cursor: pointer;
-              font-family: 'Sarabun', sans-serif;
-              transition: all 0.2s;
-            }
-            .btn-print:hover {
-              background-color: #c2410c;
-            }
             .status-badge {
               display: inline-block;
               padding: 0.15rem 0.4rem;
@@ -1220,24 +1304,67 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
             .status-pass { background-color: #d1e7dd; color: #0f5132; }
             .status-quarantine { background-color: #fff3cd; color: #664d03; }
             .status-reject { background-color: #f8d7da; color: #842029; }
+            .nowrap {
+              white-space: nowrap;
+            }
             @media print {
-              .actions-bar {
-                display: none;
+              .controls-bar {
+                display: none !important;
               }
               body {
                 padding: 0;
+                margin: 0;
               }
             }
           </style>
         </head>
         <body>
-          <div class="actions-bar">
-            <button class="btn-print" onclick="window.print()">พิมพ์รายงาน / บันทึก PDF</button>
+          <div class="controls-bar">
+            <div class="controls-row">
+              <div class="controls-section" style="flex: 1; min-width: 300px;">
+                <strong>เลือกคอลัมน์ที่จะพิมพ์:</strong>
+                <div class="checkbox-group">
+                  <label><input type="checkbox" id="col-date" checked onchange="updateTable()"> วันที่รับเข้า</label>
+                  <label><input type="checkbox" id="col-item" checked onchange="updateTable()"> รายการสินค้า</label>
+                  <label><input type="checkbox" id="col-supplier" checked onchange="updateTable()"> Supplier Lot</label>
+                  <label><input type="checkbox" id="col-inhouse" checked onchange="updateTable()"> Inhouse Lot</label>
+                  <label><input type="checkbox" id="col-qc" checked onchange="updateTable()"> สถานะ QC</label>
+                  <label><input type="checkbox" id="col-location" checked onchange="updateTable()"> ที่เก็บ</label>
+                  <label><input type="checkbox" id="col-qty" checked onchange="updateTable()"> จำนวนรับ</label>
+                  <label><input type="checkbox" id="col-unit" checked onchange="updateTable()"> หน่วย</label>
+                </div>
+              </div>
+              
+              <div class="controls-section">
+                <strong>ขนาดตัวอักษรตาราง:</strong>
+                <select id="font-size-select" onchange="updateFontSize()" style="padding: 4px 8px; border-radius: 4px; border: 1px solid #cbd5e1; font-family: 'Sarabun'; cursor: pointer;">
+                  <option value="11px">11px</option>
+                  <option value="12px">12px</option>
+                  <option value="13px" selected>13px (ปกติ)</option>
+                  <option value="14px">14px</option>
+                  <option value="15px">15px</option>
+                  <option value="16px">16px</option>
+                  <option value="18px">18px</option>
+                </select>
+              </div>
+
+              <div class="print-btn-container">
+                <button class="btn-print" onclick="window.print()">พิมพ์รายงาน / บันทึก PDF</button>
+              </div>
+            </div>
+
+            <div class="controls-section" style="border-top: 1px dashed #cbd5e1; padding-top: 10px; margin-top: 5px;">
+              <strong>ปรับความกว้างคอลัมน์ (%):</strong>
+              <div class="width-inputs" id="width-inputs-container">
+                <!-- Generated by JS -->
+              </div>
+            </div>
           </div>
+
           <div class="header">
             <div>
               <div class="title">รายงานสรุปการรับเข้าพัสดุ (Material Inbound Summary Report)</div>
-              <div style="font-size: 12px; color: #555; margin-top: 5px;">ระบบบริหารจัดการคลังสินค้า NBC STOCK</div>
+              <div style="font-size: 11px; color: #555; margin-top: 5px;">ระบบบริหารจัดการคลังสินค้า NBC STOCK</div>
             </div>
             <div class="meta-info">
               <div><strong>วันที่ออกรายงาน:</strong> ${today}</div>
@@ -1246,27 +1373,27 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
             </div>
           </div>
 
-          <table>
+          <table id="report-table">
             <thead>
               <tr>
-                <th style="width: 10%;">วันที่รับเข้า</th>
-                <th style="width: 25%;">รายการสินค้า</th>
-                <th style="width: 12%;">Supplier Lot</th>
-                <th style="width: 12%;">Inhouse Lot</th>
-                <th style="width: 10%;">สถานะ QC</th>
-                <th style="width: 8%;">ที่เก็บ</th>
-                <th style="width: 10%; text-align: right;">จำนวนรับ</th>
-                <th style="width: 8%;">หน่วย</th>
+                <th id="th-date" class="col-date" style="width: 12%;">วันที่รับเข้า</th>
+                <th id="th-item" class="col-item" style="width: 30%;">รายการสินค้า</th>
+                <th id="th-supplier" class="col-supplier" style="width: 12%;">Supplier Lot</th>
+                <th id="th-inhouse" class="col-inhouse" style="width: 12%;">Inhouse Lot</th>
+                <th id="th-qc" class="col-qc" style="width: 10%;">สถานะ QC</th>
+                <th id="th-location" class="col-location" style="width: 10%;">ที่เก็บ</th>
+                <th id="th-qty" class="col-qty" style="width: 10%; text-align: right;">จำนวนรับ</th>
+                <th id="th-unit" class="col-unit" style="width: 4%;">หน่วย</th>
               </tr>
             </thead>
             <tbody>
               ${reportList.map(item => `
                 <tr style="${item.isCancelled ? 'opacity: 0.55; text-decoration: line-through;' : ''}">
-                  <td>${item.date}</td>
-                  <td style="font-weight: 600;">${item.itemName}</td>
-                  <td>${item.supplierLot || '-'}</td>
-                  <td>${item.inhouseLot || '-'}</td>
-                  <td>
+                  <td class="col-date nowrap">${formatDateToDDMMYY(item.date)}</td>
+                  <td class="col-item" style="font-weight: 600;">${item.itemName}</td>
+                  <td class="col-supplier">${item.supplierLot || '-'}</td>
+                  <td class="col-inhouse">${item.inhouseLot || '-'}</td>
+                  <td class="col-qc">
                     ${item.isCancelled ? '<span style="color: #ef4444; font-weight: bold;">ยกเลิกแล้ว</span>' : `
                     <span class="status-badge ${
                       item.qcStatus === 'Pass' ? 'status-pass' :
@@ -1275,15 +1402,15 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
                       ${item.qcStatus}
                     </span>`}
                   </td>
-                  <td style="font-weight: 600;">${item.location || '-'}</td>
-                  <td style="font-weight: 700; text-align: right;">${item.quantity.toLocaleString()}</td>
-                  <td>${item.unit || 'ชิ้น'}</td>
+                  <td class="col-location" style="font-weight: 600;">${item.location || '-'}</td>
+                  <td class="col-qty" style="font-weight: 700; text-align: right;">${item.quantity.toLocaleString()}</td>
+                  <td class="col-unit">${item.unit || 'ชิ้น'}</td>
                 </tr>
               `).join('')}
-              <tr class="total-row">
-                <td colspan="6" style="text-align: right;">รวมจำนวนรับเข้าทั้งสิ้น:</td>
-                <td style="color: #003366; text-align: right;">${reportList.reduce((sum, item) => sum + (item.isCancelled ? 0 : Number(item.quantity)), 0).toLocaleString()}</td>
-                <td>หน่วยตามรายการ</td>
+              <tr id="total-row" class="total-row">
+                <td id="total-label-cell" colspan="6" style="text-align: right;">รวมจำนวนรับเข้าทั้งสิ้น:</td>
+                <td id="total-val-cell" class="col-qty" style="color: #003366; text-align: right;">${reportList.reduce((sum, item) => sum + (item.isCancelled ? 0 : Number(item.quantity)), 0).toLocaleString()}</td>
+                <td id="total-unit-cell" class="col-unit">หน่วยตามรายการ</td>
               </tr>
             </tbody>
           </table>
@@ -1300,6 +1427,100 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
               <div style="margin-top: 5px; font-size: 11px; color: #6b7280;">วันที่: ...... / ...... / ......</div>
             </div>
           </div>
+
+          <script>
+            const colNames = {
+              date: 'วันที่รับเข้า',
+              item: 'รายการสินค้า',
+              supplier: 'Supplier Lot',
+              inhouse: 'Inhouse Lot',
+              qc: 'สถานะ QC',
+              location: 'ที่เก็บ',
+              qty: 'จำนวนรับ',
+              unit: 'หน่วย'
+            };
+            
+            const colWidths = {
+              date: 12,
+              item: 30,
+              supplier: 12,
+              inhouse: 12,
+              qc: 10,
+              location: 10,
+              qty: 10,
+              unit: 4
+            };
+
+            function renderWidthInputs() {
+              const container = document.getElementById('width-inputs-container');
+              container.innerHTML = '';
+              for (const [col, label] of Object.entries(colNames)) {
+                const isChecked = document.getElementById('col-' + col).checked;
+                if (isChecked) {
+                  const div = document.createElement('div');
+                  div.className = 'width-input-item';
+                  div.innerHTML = \`
+                    <span>\${label}:</span>
+                    <input type="number" min="1" max="100" value="\${colWidths[col]}" onchange="updateWidth('\${col}', this.value)">
+                    <span>%</span>
+                  \`;
+                  container.appendChild(div);
+                }
+              }
+            }
+
+            function updateWidth(col, val) {
+              const width = parseInt(val, 10) || colWidths[col];
+              colWidths[col] = width;
+              const th = document.getElementById('th-' + col);
+              if (th) {
+                th.style.width = width + '%';
+              }
+            }
+
+            function updateTable() {
+              const cols = ['date', 'item', 'supplier', 'inhouse', 'qc', 'location', 'qty', 'unit'];
+              cols.forEach(col => {
+                const checked = document.getElementById('col-' + col).checked;
+                const elements = document.querySelectorAll('.col-' + col);
+                elements.forEach(el => {
+                  el.style.display = checked ? '' : 'none';
+                });
+              });
+
+              // Handle total row
+              const qtyChecked = document.getElementById('col-qty').checked;
+              const unitChecked = document.getElementById('col-unit').checked;
+              const totalRow = document.getElementById('total-row');
+              if (!qtyChecked) {
+                totalRow.style.display = 'none';
+              } else {
+                totalRow.style.display = '';
+                const columnsBeforeQty = ['date', 'item', 'supplier', 'inhouse', 'qc', 'location'];
+                let visibleCountBeforeQty = 0;
+                columnsBeforeQty.forEach(col => {
+                  if (document.getElementById('col-' + col).checked) {
+                    visibleCountBeforeQty++;
+                  }
+                });
+                const totalLabelCell = document.getElementById('total-label-cell');
+                totalLabelCell.colSpan = visibleCountBeforeQty;
+                totalLabelCell.style.display = visibleCountBeforeQty > 0 ? '' : 'none';
+                document.getElementById('total-val-cell').style.display = '';
+                document.getElementById('total-unit-cell').style.display = unitChecked ? '' : 'none';
+              }
+              
+              renderWidthInputs();
+            }
+
+            function updateFontSize() {
+              const val = document.getElementById('font-size-select').value;
+              document.getElementById('report-table').style.fontSize = val;
+            }
+
+            // Init width inputs
+            renderWidthInputs();
+          </script>
         </body>
       </html>
     `;
