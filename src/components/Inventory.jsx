@@ -131,6 +131,18 @@ const Inventory = ({ inventory, setInventory }) => {
     if (sortType === 'date-desc') {
       return (b.date || '').localeCompare(a.date || '');
     }
+    if (sortType === 'supplierLot-asc') {
+      return (a.supplierLot || '').localeCompare(b.supplierLot || '', 'th');
+    }
+    if (sortType === 'supplierLot-desc') {
+      return (b.supplierLot || '').localeCompare(a.supplierLot || '', 'th');
+    }
+    if (sortType === 'inhouseLot-asc') {
+      return (a.inhouseLot || '').localeCompare(b.inhouseLot || '', 'th');
+    }
+    if (sortType === 'inhouseLot-desc') {
+      return (b.inhouseLot || '').localeCompare(a.inhouseLot || '', 'th');
+    }
     return 0;
   });
 
@@ -256,7 +268,66 @@ const Inventory = ({ inventory, setInventory }) => {
                   </select>
                 </div>
               </th>
-              <th style={{ padding: '1rem' }}>Supplier / Inhouse Lot</th>
+              <th style={{ padding: '1rem' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem' }}>
+                    <span>Supplier Lot</span>
+                    <select 
+                      value={sortType.startsWith('supplierLot-') ? sortType : 'none'} 
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setSortType(val === 'none' ? 'date-desc' : val);
+                      }}
+                      style={{ 
+                        width: 'auto', 
+                        padding: '0 0.2rem', 
+                        fontSize: '0.65rem', 
+                        height: '20px', 
+                        background: 'var(--input-bg)', 
+                        color: 'var(--accent-color)', 
+                        border: '1px solid var(--glass-border)', 
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontWeight: 'bold'
+                      }}
+                    >
+                      <option value="none">เรียงปกติ ↕️</option>
+                      <option value="supplierLot-asc">A-Z 🔼</option>
+                      <option value="supplierLot-desc">Z-A 🔽</option>
+                    </select>
+                  </div>
+                </div>
+              </th>
+              <th style={{ padding: '1rem' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem' }}>
+                    <span>Inhouse Lot</span>
+                    <select 
+                      value={sortType.startsWith('inhouseLot-') ? sortType : 'none'} 
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setSortType(val === 'none' ? 'date-desc' : val);
+                      }}
+                      style={{ 
+                        width: 'auto', 
+                        padding: '0 0.2rem', 
+                        fontSize: '0.65rem', 
+                        height: '20px', 
+                        background: 'var(--input-bg)', 
+                        color: 'var(--accent-color)', 
+                        border: '1px solid var(--glass-border)', 
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontWeight: 'bold'
+                      }}
+                    >
+                      <option value="none">เรียงปกติ ↕️</option>
+                      <option value="inhouseLot-asc">A-Z 🔼</option>
+                      <option value="inhouseLot-desc">Z-A 🔽</option>
+                    </select>
+                  </div>
+                </div>
+              </th>
               <th style={{ padding: '1rem' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
                   <span>สถานะ QC</span>
@@ -320,7 +391,7 @@ const Inventory = ({ inventory, setInventory }) => {
           </thead>
           <tbody>
             {sortedInventory.length === 0 ? (
-              <tr><td colSpan="8" style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>ไม่มีข้อมูลพัสดุ</td></tr>
+              <tr><td colSpan="9" style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>ไม่มีข้อมูลพัสดุ</td></tr>
             ) : (
               sortedInventory.map((item) => (
                 <React.Fragment key={item.id}>
@@ -328,8 +399,10 @@ const Inventory = ({ inventory, setInventory }) => {
                     <td style={{ padding: '1rem' }}>{item.date}</td>
                     <td style={{ padding: '1rem', fontWeight: 600 }}>{item.itemName}</td>
                     <td style={{ padding: '1rem' }}>
-                      <div style={{ fontSize: '0.9rem' }}>{item.supplierLot}</div>
-                      <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{item.inhouseLot}</div>
+                      <div style={{ fontSize: '0.9rem', fontWeight: 500 }}>{item.supplierLot}</div>
+                    </td>
+                    <td style={{ padding: '1rem' }}>
+                      <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{item.inhouseLot}</div>
                     </td>
                     <td style={{ padding: '1rem' }}>
                       {item.isCancelled ? (
@@ -381,7 +454,7 @@ const Inventory = ({ inventory, setInventory }) => {
                   
                   {expandedRow === item.id && (
                     <tr style={{ background: 'rgba(255,255,255,0.02)' }}>
-                      <td colSpan="8" style={{ padding: '1.5rem' }}>
+                      <td colSpan="9" style={{ padding: '1.5rem' }}>
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr', gap: '2rem' }}>
                           {/* Edit Status Section */}
                           <div className="glass card" style={{ padding: '1.2rem' }}>
