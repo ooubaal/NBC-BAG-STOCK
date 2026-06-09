@@ -495,6 +495,17 @@ const StatusLabels = ({ inventory = [] }) => {
                 width: 100%;
                 height: 133mm;
                 margin-bottom: 133mm; /* top half occupied, bottom empty */
+                padding: 1.5rem 2.5rem;
+              }
+              .label-container .title {
+                margin-bottom: 15px;
+                font-size: 32px;
+              }
+              .label-container .fields-list {
+                gap: 0.8rem;
+              }
+              .label-container .footer {
+                margin-top: 15px;
               }
             ` : ''}
 
@@ -507,6 +518,17 @@ const StatusLabels = ({ inventory = [] }) => {
               .label-container {
                 width: 100%;
                 height: 133mm;
+                padding: 1.5rem 2.5rem;
+              }
+              .label-container .title {
+                margin-bottom: 15px;
+                font-size: 32px;
+              }
+              .label-container .fields-list {
+                gap: 0.8rem;
+              }
+              .label-container .footer {
+                margin-top: 15px;
               }
             ` : ''}
 
