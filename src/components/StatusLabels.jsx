@@ -1000,18 +1000,15 @@ const StatusLabels = ({ inventory = [] }) => {
               {selectedItem1 && (
                 <div>
                   <label style={{ display: 'block', marginBottom: '0.4rem', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>เลือก Lot ที่ต้องการ</label>
-                  <select 
-                    style={{ width: '100%', fontSize: '0.82rem', padding: '0.5rem 0.6rem' }}
+                  <SearchableSelect 
                     value={selectedLotId1}
-                    onChange={(e) => handleLotChange1(e.target.value)}
-                  >
-                    <option value="">-- กรุณาเลือก Lot --</option>
-                    {lotsForItem1.map(l => (
-                      <option key={l.id} value={l.id}>
-                        {getLotLabelText(l)} ({l.qcStatus})
-                      </option>
-                    ))}
-                  </select>
+                    onChange={(val) => handleLotChange1(val)}
+                    options={lotsForItem1.map(l => ({
+                      value: String(l.id),
+                      label: `${getLotLabelText(l)} (${l.qcStatus})`
+                    }))}
+                    placeholder="ค้นหา Lot..."
+                  />
                 </div>
               )}
 
@@ -1103,18 +1100,15 @@ const StatusLabels = ({ inventory = [] }) => {
                 {selectedItem2 && (
                   <div>
                     <label style={{ display: 'block', marginBottom: '0.4rem', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>เลือก Lot ที่ต้องการ (ป้ายที่ 2)</label>
-                    <select 
-                      style={{ width: '100%', fontSize: '0.82rem', padding: '0.5rem 0.6rem' }}
+                    <SearchableSelect 
                       value={selectedLotId2}
-                      onChange={(e) => handleLotChange2(e.target.value)}
-                    >
-                      <option value="">-- กรุณาเลือก Lot --</option>
-                      {lotsForItem2.map(l => (
-                        <option key={l.id} value={l.id}>
-                          {getLotLabelText(l)} ({l.qcStatus})
-                        </option>
-                      ))}
-                    </select>
+                      onChange={(val) => handleLotChange2(val)}
+                      options={lotsForItem2.map(l => ({
+                        value: String(l.id),
+                        label: `${getLotLabelText(l)} (${l.qcStatus})`
+                      }))}
+                      placeholder="ค้นหา Lot ป้ายที่ 2..."
+                    />
                   </div>
                 )}
 
