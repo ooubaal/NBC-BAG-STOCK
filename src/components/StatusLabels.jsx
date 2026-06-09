@@ -835,11 +835,11 @@ const StatusLabels = ({ inventory = [] }) => {
               <label style={{
                 display: 'flex', 
                 alignItems: 'center', 
-                gap: '0.75rem', 
+                gap: '1.25rem', 
                 cursor: 'pointer',
                 background: layoutMode === 'full' ? 'rgba(245, 158, 11, 0.08)' : 'rgba(255,255,255,0.02)',
                 border: layoutMode === 'full' ? '1px solid var(--accent-color)' : '1px solid var(--glass-border)',
-                padding: '0.75rem 1rem',
+                padding: '1rem 1.25rem',
                 borderRadius: '8px',
                 transition: 'all 0.15s'
               }}>
@@ -849,8 +849,17 @@ const StatusLabels = ({ inventory = [] }) => {
                   value="full" 
                   checked={layoutMode === 'full'} 
                   onChange={() => setLayoutMode('full')}
-                  style={{ accentColor: 'var(--accent-color)' }}
+                  style={{ accentColor: 'var(--accent-color)', width: '18px', height: '18px', flexShrink: 0 }}
                 />
+                <div style={{ width: '48px', height: '48px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <svg width="48" height="36" viewBox="0 0 48 36" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ border: '1px solid var(--glass-border)', borderRadius: '4px', background: 'rgba(255,255,255,0.05)' }}>
+                    <rect x="2" y="2" width="44" height="32" rx="2" stroke="currentColor" strokeWidth="1.5" />
+                    <rect x="5" y="5" width="38" height="26" rx="1" fill="rgba(14, 165, 233, 0.15)" stroke="var(--accent-color)" strokeWidth="1" />
+                    <line x1="9" y1="12" x2="39" y2="12" stroke="var(--accent-color)" strokeWidth="1.5" />
+                    <line x1="9" y1="18" x2="25" y2="18" stroke="currentColor" strokeOpacity="0.3" strokeWidth="1" />
+                    <line x1="9" y1="23" x2="20" y2="23" stroke="currentColor" strokeOpacity="0.3" strokeWidth="1" />
+                  </svg>
+                </div>
                 <div>
                   <strong style={{ display: 'block', fontSize: '0.88rem' }}>รูปแบบที่ 1: เต็ม A4 แนวนอน (1 ป้าย / หน้า)</strong>
                   <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>ขยายป้ายขนาดใหญ่สุดเต็มกระดาษ A4 ในแนวนอน</span>
@@ -860,11 +869,11 @@ const StatusLabels = ({ inventory = [] }) => {
               <label style={{
                 display: 'flex', 
                 alignItems: 'center', 
-                gap: '0.75rem', 
+                gap: '1.25rem', 
                 cursor: 'pointer',
                 background: layoutMode === 'half-empty' ? 'rgba(245, 158, 11, 0.08)' : 'rgba(255,255,255,0.02)',
                 border: layoutMode === 'half-empty' ? '1px solid var(--accent-color)' : '1px solid var(--glass-border)',
-                padding: '0.75rem 1rem',
+                padding: '1rem 1.25rem',
                 borderRadius: '8px',
                 transition: 'all 0.15s'
               }}>
@@ -874,8 +883,18 @@ const StatusLabels = ({ inventory = [] }) => {
                   value="half-empty" 
                   checked={layoutMode === 'half-empty'} 
                   onChange={() => setLayoutMode('half-empty')}
-                  style={{ accentColor: 'var(--accent-color)' }}
+                  style={{ accentColor: 'var(--accent-color)', width: '18px', height: '18px', flexShrink: 0 }}
                 />
+                <div style={{ width: '48px', height: '48px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <svg width="36" height="48" viewBox="0 0 36 48" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ border: '1px solid var(--glass-border)', borderRadius: '4px', background: 'rgba(255,255,255,0.05)' }}>
+                    <rect x="2" y="2" width="32" height="44" rx="2" stroke="currentColor" strokeWidth="1.5" />
+                    <rect x="5" y="5" width="26" height="17" rx="1" fill="rgba(14, 165, 233, 0.15)" stroke="var(--accent-color)" strokeWidth="1" />
+                    <line x1="8" y1="9" x2="28" y2="9" stroke="var(--accent-color)" strokeWidth="1" />
+                    <line x1="8" y1="13" x2="20" y2="13" stroke="currentColor" strokeOpacity="0.3" strokeWidth="1" />
+                    <line x1="8" y1="17" x2="16" y2="17" stroke="currentColor" strokeOpacity="0.3" strokeWidth="1" />
+                    <rect x="5" y="26" width="26" height="17" rx="1" stroke="currentColor" strokeOpacity="0.2" strokeDasharray="2 2" strokeWidth="1" />
+                  </svg>
+                </div>
                 <div>
                   <strong style={{ display: 'block', fontSize: '0.88rem' }}>รูปแบบที่ 2: ครึ่งบน A4 (ครึ่งล่างว่าง)</strong>
                   <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>ป้ายขนาดพอดีสำหรับ A4 แนวตั้งพิมพ์ครึ่งบน เว้นครึ่งล่างว่างไว้</span>
@@ -885,11 +904,11 @@ const StatusLabels = ({ inventory = [] }) => {
               <label style={{
                 display: 'flex', 
                 alignItems: 'center', 
-                gap: '0.75rem', 
+                gap: '1.25rem', 
                 cursor: 'pointer',
                 background: layoutMode === 'half-dual' ? 'rgba(245, 158, 11, 0.08)' : 'rgba(255,255,255,0.02)',
                 border: layoutMode === 'half-dual' ? '1px solid var(--accent-color)' : '1px solid var(--glass-border)',
-                padding: '0.75rem 1rem',
+                padding: '1rem 1.25rem',
                 borderRadius: '8px',
                 transition: 'all 0.15s'
               }}>
@@ -899,8 +918,19 @@ const StatusLabels = ({ inventory = [] }) => {
                   value="half-dual" 
                   checked={layoutMode === 'half-dual'} 
                   onChange={() => setLayoutMode('half-dual')}
-                  style={{ accentColor: 'var(--accent-color)' }}
+                  style={{ accentColor: 'var(--accent-color)', width: '18px', height: '18px', flexShrink: 0 }}
                 />
+                <div style={{ width: '48px', height: '48px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <svg width="36" height="48" viewBox="0 0 36 48" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ border: '1px solid var(--glass-border)', borderRadius: '4px', background: 'rgba(255,255,255,0.05)' }}>
+                    <rect x="2" y="2" width="32" height="44" rx="2" stroke="currentColor" strokeWidth="1.5" />
+                    <rect x="5" y="5" width="26" height="17" rx="1" fill="rgba(14, 165, 233, 0.15)" stroke="var(--accent-color)" strokeWidth="1" />
+                    <line x1="8" y1="9" x2="28" y2="9" stroke="var(--accent-color)" strokeWidth="1" />
+                    <line x1="8" y1="13" x2="18" y2="13" stroke="currentColor" strokeOpacity="0.3" strokeWidth="1" />
+                    <rect x="5" y="26" width="26" height="17" rx="1" fill="rgba(245, 158, 11, 0.1)" stroke="var(--accent-color)" strokeWidth="1" />
+                    <line x1="8" y1="30" x2="28" y2="30" stroke="var(--accent-color)" strokeWidth="1" />
+                    <line x1="8" y1="34" x2="18" y2="34" stroke="currentColor" strokeOpacity="0.3" strokeWidth="1" />
+                  </svg>
+                </div>
                 <div>
                   <strong style={{ display: 'block', fontSize: '0.88rem' }}>รูปแบบที่ 3: ครึ่งบน A4 Lot หนึ่ง + ครึ่งล่างอีก Lot หนึ่ง (2 ป้าย / หน้า)</strong>
                   <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>พิมพ์สองป้ายในแผ่นเดียว โดยสแกนกระดาษ Lot แรกที่ครึ่งบน และ Lot ที่สองที่ครึ่งล่าง</span>
@@ -919,11 +949,11 @@ const StatusLabels = ({ inventory = [] }) => {
               <label style={{
                 display: 'flex', 
                 alignItems: 'center', 
-                gap: '0.75rem', 
+                gap: '1.25rem', 
                 cursor: 'pointer',
                 background: colorMode === 'full-color' ? 'rgba(245, 158, 11, 0.08)' : 'rgba(255,255,255,0.02)',
                 border: colorMode === 'full-color' ? '1px solid var(--accent-color)' : '1px solid var(--glass-border)',
-                padding: '0.75rem 1rem',
+                padding: '1rem 1.25rem',
                 borderRadius: '8px',
                 transition: 'all 0.15s'
               }}>
@@ -933,8 +963,17 @@ const StatusLabels = ({ inventory = [] }) => {
                   value="full-color" 
                   checked={colorMode === 'full-color'} 
                   onChange={() => setColorMode('full-color')}
-                  style={{ accentColor: 'var(--accent-color)' }}
+                  style={{ accentColor: 'var(--accent-color)', width: '18px', height: '18px', flexShrink: 0 }}
                 />
+                <div style={{ width: '48px', height: '48px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <svg width="48" height="36" viewBox="0 0 48 36" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ border: '1px solid var(--glass-border)', borderRadius: '4px' }}>
+                    <rect x="2" y="2" width="44" height="32" rx="2" fill="#f0fdf4" stroke="#16a34a" strokeWidth="2" />
+                    <rect x="8" y="7" width="32" height="6" rx="1" fill="#15803d" />
+                    <line x1="8" y1="18" x2="40" y2="18" stroke="#000000" strokeWidth="1.5" />
+                    <line x1="8" y1="24" x2="28" y2="24" stroke="#000000" strokeWidth="1.5" />
+                    <line x1="8" y1="29" x2="20" y2="29" stroke="#000000" strokeWidth="1.5" />
+                  </svg>
+                </div>
                 <div>
                   <strong style={{ display: 'block', fontSize: '0.88rem' }}>สีเต็มตามสถานะ (พื้นหลังมีสี เขียว / เหลือง / แดง)</strong>
                   <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>พิมพ์พื้นหลังมีสีตามสถานะ เพื่อให้สังเกตเห็นและจำแนกได้ชัดเจนที่สุด</span>
@@ -944,11 +983,11 @@ const StatusLabels = ({ inventory = [] }) => {
               <label style={{
                 display: 'flex', 
                 alignItems: 'center', 
-                gap: '0.75rem', 
+                gap: '1.25rem', 
                 cursor: 'pointer',
                 background: colorMode === 'white-bg-black-text' ? 'rgba(245, 158, 11, 0.08)' : 'rgba(255,255,255,0.02)',
                 border: colorMode === 'white-bg-black-text' ? '1px solid var(--accent-color)' : '1px solid var(--glass-border)',
-                padding: '0.75rem 1rem',
+                padding: '1rem 1.25rem',
                 borderRadius: '8px',
                 transition: 'all 0.15s'
               }}>
@@ -958,8 +997,17 @@ const StatusLabels = ({ inventory = [] }) => {
                   value="white-bg-black-text" 
                   checked={colorMode === 'white-bg-black-text'} 
                   onChange={() => setColorMode('white-bg-black-text')}
-                  style={{ accentColor: 'var(--accent-color)' }}
+                  style={{ accentColor: 'var(--accent-color)', width: '18px', height: '18px', flexShrink: 0 }}
                 />
+                <div style={{ width: '48px', height: '48px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <svg width="48" height="36" viewBox="0 0 48 36" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ border: '1px solid var(--glass-border)', borderRadius: '4px', background: '#ffffff' }}>
+                    <rect x="2" y="2" width="44" height="32" rx="2" fill="#ffffff" stroke="#000000" strokeWidth="2" />
+                    <rect x="8" y="7" width="32" height="6" rx="1" fill="#000000" />
+                    <line x1="8" y1="18" x2="40" y2="18" stroke="#000000" strokeWidth="1.5" />
+                    <line x1="8" y1="24" x2="28" y2="24" stroke="#000000" strokeWidth="1.5" />
+                    <line x1="8" y1="29" x2="20" y2="29" stroke="#000000" strokeWidth="1.5" />
+                  </svg>
+                </div>
                 <div>
                   <strong style={{ display: 'block', fontSize: '0.88rem' }}>ประหยัดหมึก (พื้นหลังขาว กรอบดำ อักษรดำ)</strong>
                   <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>ไม่มีสีพื้นหลัง ใช้ลายเส้นและตัวหนังสือสีดำล้วนทั้งหมด</span>
@@ -969,11 +1017,11 @@ const StatusLabels = ({ inventory = [] }) => {
               <label style={{
                 display: 'flex', 
                 alignItems: 'center', 
-                gap: '0.75rem', 
+                gap: '1.25rem', 
                 cursor: 'pointer',
                 background: colorMode === 'white-bg-colored-text' ? 'rgba(245, 158, 11, 0.08)' : 'rgba(255,255,255,0.02)',
                 border: colorMode === 'white-bg-colored-text' ? '1px solid var(--accent-color)' : '1px solid var(--glass-border)',
-                padding: '0.75rem 1rem',
+                padding: '1rem 1.25rem',
                 borderRadius: '8px',
                 transition: 'all 0.15s'
               }}>
@@ -983,8 +1031,17 @@ const StatusLabels = ({ inventory = [] }) => {
                   value="white-bg-colored-text" 
                   checked={colorMode === 'white-bg-colored-text'} 
                   onChange={() => setColorMode('white-bg-colored-text')}
-                  style={{ accentColor: 'var(--accent-color)' }}
+                  style={{ accentColor: 'var(--accent-color)', width: '18px', height: '18px', flexShrink: 0 }}
                 />
+                <div style={{ width: '48px', height: '48px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <svg width="48" height="36" viewBox="0 0 48 36" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ border: '1px solid var(--glass-border)', borderRadius: '4px', background: '#ffffff' }}>
+                    <rect x="2" y="2" width="44" height="32" rx="2" fill="#ffffff" stroke="#16a34a" strokeWidth="2" />
+                    <rect x="8" y="7" width="32" height="6" rx="1" fill="#15803d" />
+                    <line x1="8" y1="18" x2="40" y2="18" stroke="#16a34a" strokeWidth="1.5" />
+                    <line x1="8" y1="24" x2="28" y2="24" stroke="#16a34a" strokeWidth="1.5" />
+                    <line x1="8" y1="29" x2="20" y2="29" stroke="#16a34a" strokeWidth="1.5" />
+                  </svg>
+                </div>
                 <div>
                   <strong style={{ display: 'block', fontSize: '0.88rem' }}>พื้นหลังขาว กรอบและอักษรมีสีตามสถานะ</strong>
                   <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>ไม่มีสีพื้นหลัง ใช้กรอบและตัวหนังสือเป็นสี เขียว / เหลือง / แดง ตามสถานะ</span>
