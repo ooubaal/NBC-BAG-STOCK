@@ -110,6 +110,7 @@ const SearchableSelect = ({ value, onChange, options, placeholder }) => {
 
 const StatusLabels = ({ inventory = [] }) => {
   const [layoutMode, setLayoutMode] = useState('full'); // 'full', 'half-empty', 'half-dual'
+  const [colorMode, setColorMode] = useState('full-color'); // 'full-color', 'white-bg-black-text', 'white-bg-colored-text'
   
   // Lot 1 configuration states
   const [selectedItem1, setSelectedItem1] = useState('');
@@ -335,6 +336,113 @@ const StatusLabels = ({ inventory = [] }) => {
       ? getFormHtml(2, selectedItem2, lotDetails2, qcStatus2, customDate2, customQty2, responsible2)
       : '';
 
+    let colorStyles;
+    if (colorMode === 'white-bg-black-text') {
+      colorStyles = `
+        .label-container.quarantine, .label-container.pass, .label-container.reject {
+          border: 8px double #000000;
+          background-color: #ffffff;
+          color: #000000;
+        }
+        .label-container.quarantine .title,
+        .label-container.pass .title,
+        .label-container.reject .title {
+          color: #000000;
+        }
+        .field-value {
+          color: #000000;
+        }
+        .font-handwriting {
+          color: #000000 !important;
+        }
+      `;
+    } else if (colorMode === 'white-bg-colored-text') {
+      colorStyles = `
+        .label-container.quarantine {
+          border: 8px double #d97706;
+          background-color: #ffffff;
+          color: #b45309;
+        }
+        .label-container.quarantine .title {
+          color: #b45309;
+        }
+        .label-container.quarantine .field-value {
+          color: #b45309;
+        }
+        .label-container.quarantine .font-handwriting {
+          color: #b45309 !important;
+        }
+
+        .label-container.pass {
+          border: 8px double #16a34a;
+          background-color: #ffffff;
+          color: #15803d;
+        }
+        .label-container.pass .title {
+          color: #15803d;
+        }
+        .label-container.pass .field-value {
+          color: #15803d;
+        }
+        .label-container.pass .font-handwriting {
+          color: #15803d !important;
+        }
+
+        .label-container.reject {
+          border: 8px double #dc2626;
+          background-color: #ffffff;
+          color: #b91c1c;
+        }
+        .label-container.reject .title {
+          color: #b91c1c;
+        }
+        .label-container.reject .field-value {
+          color: #b91c1c;
+        }
+        .label-container.reject .font-handwriting {
+          color: #b91c1c !important;
+        }
+      `;
+    } else { // full-color
+      colorStyles = `
+        .label-container.quarantine {
+          border: 8px double #d97706;
+          background-color: #fffbeb;
+          color: #000000;
+        }
+        .label-container.quarantine .title {
+          color: #b45309;
+        }
+        .label-container.quarantine .field-value {
+          color: #000000;
+        }
+
+        .label-container.pass {
+          border: 8px double #16a34a;
+          background-color: #f0fdf4;
+          color: #000000;
+        }
+        .label-container.pass .title {
+          color: #15803d;
+        }
+        .label-container.pass .field-value {
+          color: #000000;
+        }
+
+        .label-container.reject {
+          border: 8px double #dc2626;
+          background-color: #fef2f2;
+          color: #000000;
+        }
+        .label-container.reject .title {
+          color: #b91c1c;
+        }
+        .label-container.reject .field-value {
+          color: #000000;
+        }
+      `;
+    }
+
     const htmlContent = `
       <html>
         <head>
@@ -415,29 +523,7 @@ const StatusLabels = ({ inventory = [] }) => {
             }
             
             /* QC Specific Color Themes */
-            .label-container.quarantine {
-              border: 8px double #d97706; /* Amber-600 */
-              background-color: #fffbeb;
-            }
-            .label-container.quarantine .title {
-              color: #b45309; /* Amber-700 */
-            }
-            
-            .label-container.pass {
-              border: 8px double #16a34a; /* Green-600 */
-              background-color: #f0fdf4;
-            }
-            .label-container.pass .title {
-              color: #15803d; /* Green-700 */
-            }
-            
-            .label-container.reject {
-              border: 8px double #dc2626; /* Red-600 */
-              background-color: #fef2f2;
-            }
-            .label-container.reject .title {
-              color: #b91c1c; /* Red-700 */
-            }
+            ${colorStyles}
 
             .title {
               font-size: 38px;
@@ -480,7 +566,6 @@ const StatusLabels = ({ inventory = [] }) => {
               border-bottom: 2px dashed #9ca3af;
               flex-grow: 1;
               padding-bottom: 4px;
-              color: #000;
             }
 
             .font-handwriting {
@@ -561,30 +646,70 @@ const StatusLabels = ({ inventory = [] }) => {
     const displayDate = customDate ? formatThaiDate(customDate) : 'DD/MM/YY (พ.ศ.)';
     const displayResp = responsible || 'ชื่อผู้รับผิดชอบ';
 
-    let qcClass = 'quarantine';
     let title = 'รอการตรวจสอบ(Quarantined)';
     let formNo = 'QSP 019/008';
     let dateLabel = 'วันที่รับ';
 
     if (qcStatus === 'Pass') {
-      qcClass = 'pass';
       title = 'ผ่านการตรวจสอบ (Passed)';
       formNo = 'QSP 019/009';
       dateLabel = 'Released date';
     } else if (qcStatus === 'Reject') {
-      qcClass = 'reject';
       title = 'การตรวจสอบไม่ผ่าน (Rejected)';
       formNo = 'QSP 019/010';
     }
 
+    // Determine colors based on colorMode and qcStatus
+    let cardBg = '#fffbeb';
+    let cardBorderColor = '#d97706';
+    let titleColor = '#b45309';
+    let textColor = '#000000';
+    let handwritingColor = '#1e3a8a';
+
+    if (qcStatus === 'Pass') {
+      cardBg = '#f0fdf4';
+      cardBorderColor = '#16a34a';
+      titleColor = '#15803d';
+    } else if (qcStatus === 'Reject') {
+      cardBg = '#fef2f2';
+      cardBorderColor = '#dc2626';
+      titleColor = '#b91c1c';
+    }
+
+    if (colorMode === 'white-bg-black-text') {
+      cardBg = '#ffffff';
+      cardBorderColor = '#000000';
+      titleColor = '#000000';
+      textColor = '#000000';
+      handwritingColor = '#000000';
+    } else if (colorMode === 'white-bg-colored-text') {
+      cardBg = '#ffffff';
+      if (qcStatus === 'Pass') {
+        cardBorderColor = '#16a34a';
+        titleColor = '#15803d';
+        textColor = '#15803d';
+        handwritingColor = '#15803d';
+      } else if (qcStatus === 'Reject') {
+        cardBorderColor = '#dc2626';
+        titleColor = '#b91c1c';
+        textColor = '#b91c1c';
+        handwritingColor = '#b91c1c';
+      } else { // Quarantine
+        cardBorderColor = '#d97706';
+        titleColor = '#b45309';
+        textColor = '#b45309';
+        handwritingColor = '#b45309';
+      }
+    }
+
     return (
-      <div className={`preview-label-card ${qcClass}`} style={{
+      <div className="preview-label-card" style={{
         border: '6px double',
-        borderColor: qcStatus === 'Pass' ? '#16a34a' : qcStatus === 'Reject' ? '#dc2626' : '#d97706',
-        background: qcStatus === 'Pass' ? '#f0fdf4' : qcStatus === 'Reject' ? '#fef2f2' : '#fffbeb',
+        borderColor: cardBorderColor,
+        background: cardBg,
         padding: '1.75rem 2.5rem',
         borderRadius: '8px',
-        color: '#000000',
+        color: textColor,
         minHeight: '260px',
         display: 'flex',
         flexDirection: 'column',
@@ -596,7 +721,7 @@ const StatusLabels = ({ inventory = [] }) => {
           fontSize: '1.45rem',
           fontWeight: 700,
           textAlign: 'center',
-          color: qcStatus === 'Pass' ? '#15803d' : qcStatus === 'Reject' ? '#b91c1c' : '#b45309',
+          color: titleColor,
           marginBottom: '1.5rem'
         }}>
           {title}
@@ -604,41 +729,41 @@ const StatusLabels = ({ inventory = [] }) => {
         
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', flexGrow: 1 }}>
           <div style={{ display: 'flex', fontSize: '0.98rem' }}>
-            <span style={{ fontWeight: 600, width: '150px' }}>ชื่อวัตถุดิบ/วัสดุ</span>
-            <span style={{ width: '20px', textAlign: 'center' }}>:</span>
-            <span style={{ borderBottom: '1px dashed #9ca3af', flexGrow: 1, fontWeight: 500 }}>{itemName || 'ชื่อวัตถุดิบ/วัสดุ'}</span>
+            <span style={{ fontWeight: 600, width: '150px', color: textColor }}>ชื่อวัตถุดิบ/วัสดุ</span>
+            <span style={{ width: '20px', textAlign: 'center', color: textColor }}>:</span>
+            <span style={{ borderBottom: '1px dashed #9ca3af', flexGrow: 1, fontWeight: 500, color: textColor }}>{itemName || 'ชื่อวัตถุดิบ/วัสดุ'}</span>
           </div>
 
           <div style={{ display: 'flex', fontSize: '0.98rem' }}>
-            <span style={{ fontWeight: 600, width: '150px' }}>Lot. No</span>
-            <span style={{ width: '20px', textAlign: 'center' }}>:</span>
-            <span style={{ borderBottom: '1px dashed #9ca3af', flexGrow: 1 }}>{displayLotNo}</span>
+            <span style={{ fontWeight: 600, width: '150px', color: textColor }}>Lot. No</span>
+            <span style={{ width: '20px', textAlign: 'center', color: textColor }}>:</span>
+            <span style={{ borderBottom: '1px dashed #9ca3af', flexGrow: 1, color: textColor }}>{displayLotNo}</span>
           </div>
 
           {qcStatus !== 'Reject' && (
             <div style={{ display: 'flex', fontSize: '0.98rem' }}>
-              <span style={{ fontWeight: 600, width: '150px' }}>{dateLabel}</span>
-              <span style={{ width: '20px', textAlign: 'center' }}>:</span>
-              <span style={{ borderBottom: '1px dashed #9ca3af', flexGrow: 1 }}>{displayDate}</span>
+              <span style={{ fontWeight: 600, width: '150px', color: textColor }}>{dateLabel}</span>
+              <span style={{ width: '20px', textAlign: 'center', color: textColor }}>:</span>
+              <span style={{ borderBottom: '1px dashed #9ca3af', flexGrow: 1, color: textColor }}>{displayDate}</span>
             </div>
           )}
 
           <div style={{ display: 'flex', fontSize: '0.98rem' }}>
-            <span style={{ fontWeight: 600, width: '150px' }}>จำนวน</span>
-            <span style={{ width: '20px', textAlign: 'center' }}>:</span>
-            <span style={{ borderBottom: '1px dashed #9ca3af', flexGrow: 1, fontWeight: 600 }}>{displayQty}</span>
+            <span style={{ fontWeight: 600, width: '150px', color: textColor }}>จำนวน</span>
+            <span style={{ width: '20px', textAlign: 'center', color: textColor }}>:</span>
+            <span style={{ borderBottom: '1px dashed #9ca3af', flexGrow: 1, fontWeight: 600, color: textColor }}>{displayQty}</span>
           </div>
 
           <div style={{ display: 'flex', fontSize: '0.98rem' }}>
-            <span style={{ fontWeight: 600, width: '150px' }}>ผู้รับผิดชอบ</span>
-            <span style={{ width: '20px', textAlign: 'center' }}>:</span>
+            <span style={{ fontWeight: 600, width: '150px', color: textColor }}>ผู้รับผิดชอบ</span>
+            <span style={{ width: '20px', textAlign: 'center', color: textColor }}>:</span>
             <span style={{ 
               borderBottom: '1px dashed #9ca3af', 
               flexGrow: 1, 
               fontFamily: "'Charm', cursive", 
               fontSize: '1.25rem', 
               fontWeight: 700, 
-              color: '#1e3a8a',
+              color: handwritingColor,
               lineHeight: 1,
               paddingLeft: '10px'
             }}>
@@ -681,7 +806,7 @@ const StatusLabels = ({ inventory = [] }) => {
           <div className="glass card" style={{ padding: '1.5rem' }}>
             <h3 style={{ margin: '0 0 1.25rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1.05rem', fontWeight: 700 }}>
               <Printer size={18} color="var(--accent-color)" />
-              1. เลือกรูปแบบจัดหน้า A4
+              1. เลือกรูปแบบจัดหน้า A4 & โทนสีป้าย
             </h3>
             
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
@@ -757,6 +882,90 @@ const StatusLabels = ({ inventory = [] }) => {
                 <div>
                   <strong style={{ display: 'block', fontSize: '0.88rem' }}>รูปแบบที่ 3: ครึ่งบน A4 Lot หนึ่ง + ครึ่งล่างอีก Lot หนึ่ง (2 ป้าย / หน้า)</strong>
                   <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>พิมพ์สองป้ายในแผ่นเดียว โดยสแกนกระดาษ Lot แรกที่ครึ่งบน และ Lot ที่สองที่ครึ่งล่าง</span>
+                </div>
+              </label>
+            </div>
+
+            <hr style={{ border: '0', borderTop: '1px solid var(--glass-border)', margin: '1.5rem 0' }} />
+            
+            <h3 style={{ margin: '0 0 1.25rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1.05rem', fontWeight: 700 }}>
+              <Tag size={18} color="var(--accent-color)" />
+              เลือกโทนสีการพิมพ์ป้าย
+            </h3>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              <label style={{
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '0.75rem', 
+                cursor: 'pointer',
+                background: colorMode === 'full-color' ? 'rgba(245, 158, 11, 0.08)' : 'rgba(255,255,255,0.02)',
+                border: colorMode === 'full-color' ? '1px solid var(--accent-color)' : '1px solid var(--glass-border)',
+                padding: '0.75rem 1rem',
+                borderRadius: '8px',
+                transition: 'all 0.15s'
+              }}>
+                <input 
+                  type="radio" 
+                  name="colorMode" 
+                  value="full-color" 
+                  checked={colorMode === 'full-color'} 
+                  onChange={() => setColorMode('full-color')}
+                  style={{ accentColor: 'var(--accent-color)' }}
+                />
+                <div>
+                  <strong style={{ display: 'block', fontSize: '0.88rem' }}>สีเต็มตามสถานะ (พื้นหลังมีสี เขียว / เหลือง / แดง)</strong>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>พิมพ์พื้นหลังมีสีตามสถานะ เพื่อให้สังเกตเห็นและจำแนกได้ชัดเจนที่สุด</span>
+                </div>
+              </label>
+
+              <label style={{
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '0.75rem', 
+                cursor: 'pointer',
+                background: colorMode === 'white-bg-black-text' ? 'rgba(245, 158, 11, 0.08)' : 'rgba(255,255,255,0.02)',
+                border: colorMode === 'white-bg-black-text' ? '1px solid var(--accent-color)' : '1px solid var(--glass-border)',
+                padding: '0.75rem 1rem',
+                borderRadius: '8px',
+                transition: 'all 0.15s'
+              }}>
+                <input 
+                  type="radio" 
+                  name="colorMode" 
+                  value="white-bg-black-text" 
+                  checked={colorMode === 'white-bg-black-text'} 
+                  onChange={() => setColorMode('white-bg-black-text')}
+                  style={{ accentColor: 'var(--accent-color)' }}
+                />
+                <div>
+                  <strong style={{ display: 'block', fontSize: '0.88rem' }}>ประหยัดหมึก (พื้นหลังขาว กรอบดำ อักษรดำ)</strong>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>ไม่มีสีพื้นหลัง ใช้ลายเส้นและตัวหนังสือสีดำล้วนทั้งหมด</span>
+                </div>
+              </label>
+
+              <label style={{
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '0.75rem', 
+                cursor: 'pointer',
+                background: colorMode === 'white-bg-colored-text' ? 'rgba(245, 158, 11, 0.08)' : 'rgba(255,255,255,0.02)',
+                border: colorMode === 'white-bg-colored-text' ? '1px solid var(--accent-color)' : '1px solid var(--glass-border)',
+                padding: '0.75rem 1rem',
+                borderRadius: '8px',
+                transition: 'all 0.15s'
+              }}>
+                <input 
+                  type="radio" 
+                  name="colorMode" 
+                  value="white-bg-colored-text" 
+                  checked={colorMode === 'white-bg-colored-text'} 
+                  onChange={() => setColorMode('white-bg-colored-text')}
+                  style={{ accentColor: 'var(--accent-color)' }}
+                />
+                <div>
+                  <strong style={{ display: 'block', fontSize: '0.88rem' }}>พื้นหลังขาว กรอบและอักษรมีสีตามสถานะ</strong>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>ไม่มีสีพื้นหลัง ใช้กรอบและตัวหนังสือเป็นสี เขียว / เหลือง / แดง ตามสถานะ</span>
                 </div>
               </label>
             </div>
