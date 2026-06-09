@@ -402,15 +402,28 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
       return;
     }
 
+    const formatDateToDDMMYY = (dateStr) => {
+      if (!dateStr) return '-';
+      const parts = dateStr.split('-');
+      if (parts.length !== 3) return dateStr;
+      const [yyyy, mm, dd] = parts;
+      const yy = yyyy.substring(2);
+      return `${dd}/${mm}/${yy}`;
+    };
+
     const htmlContent = `
       <html>
         <head>
           <title>รายงานสรุปการตัดจ่ายพัสดุ - NBC STOCK</title>
           <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&display=swap" rel="stylesheet">
           <style>
+            @page {
+              size: A4;
+              margin: 15mm;
+            }
             body {
               font-family: 'Sarabun', sans-serif;
-              padding: 30px;
+              padding: 20px;
               color: #1f2937;
               background-color: #fff;
               font-size: 13px;
@@ -425,19 +438,90 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
               margin-bottom: 25px;
             }
             .title {
-              font-size: 22px;
+              font-size: 20px;
               font-weight: 700;
               color: #003366;
             }
             .meta-info {
               text-align: right;
-              font-size: 12px;
+              font-size: 11px;
+            }
+            .controls-bar {
+              background-color: #f8fafc;
+              border: 1px solid #e2e8f0;
+              padding: 16px;
+              border-radius: 8px;
+              margin-bottom: 25px;
+              display: flex;
+              flex-direction: column;
+              gap: 12px;
+              font-size: 13px;
+            }
+            .controls-row {
+              display: flex;
+              flex-wrap: wrap;
+              gap: 20px;
+              align-items: center;
+            }
+            .controls-section {
+              display: flex;
+              flex-direction: column;
+              gap: 6px;
+            }
+            .controls-section strong {
+              color: #003366;
+            }
+            .checkbox-group {
+              display: flex;
+              flex-wrap: wrap;
+              gap: 12px;
+            }
+            .checkbox-group label {
+              display: flex;
+              align-items: center;
+              gap: 6px;
+              cursor: pointer;
+              background-color: #fff;
+              padding: 4px 10px;
+              border-radius: 4px;
+              border: 1px solid #cbd5e1;
+              user-select: none;
+              font-weight: 500;
+            }
+            .checkbox-group label:hover {
+              background-color: #f1f5f9;
+              border-color: #94a3b8;
+            }
+            .width-inputs {
+              display: flex;
+              flex-wrap: wrap;
+              gap: 8px;
+            }
+            .print-btn-container {
+              margin-left: auto;
+            }
+            .btn-print {
+              background-color: #ea580c;
+              color: white;
+              border: none;
+              padding: 10px 24px;
+              border-radius: 6px;
+              font-weight: 600;
+              font-size: 14px;
+              cursor: pointer;
+              font-family: 'Sarabun', sans-serif;
+              transition: all 0.2s;
+              box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            }
+            .btn-print:hover {
+              background-color: #c2410c;
             }
             table {
               width: 100%;
               border-collapse: collapse;
               margin-top: 15px;
               margin-bottom: 35px;
+              table-layout: auto;
             }
             th {
               background-color: #003366;
@@ -470,46 +554,67 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
               border-top: 1px solid #9ca3af;
               padding-top: 12px;
             }
-            .actions-bar {
-              background-color: #003366;
-              padding: 12px 20px;
-              border-radius: 6px;
-              display: flex;
-              justify-content: flex-end;
-              margin-bottom: 20px;
-            }
-            .btn-print {
-              background-color: #ea580c;
-              color: white;
-              border: none;
-              padding: 8px 20px;
-              border-radius: 4px;
-              font-weight: 600;
-              cursor: pointer;
-              font-family: 'Sarabun', sans-serif;
-              transition: all 0.2s;
-            }
-            .btn-print:hover {
-              background-color: #c2410c;
+            .nowrap {
+              white-space: nowrap;
             }
             @media print {
-              .actions-bar {
-                display: none;
+              .controls-bar {
+                display: none !important;
               }
               body {
                 padding: 0;
+                margin: 0;
               }
             }
           </style>
         </head>
         <body>
-          <div class="actions-bar">
-            <button class="btn-print" onclick="window.print()">พิมพ์รายงาน / บันทึก PDF</button>
+          <div class="controls-bar">
+            <div class="controls-row">
+              <div class="controls-section" style="flex: 1; min-width: 300px;">
+                <strong>เลือกคอลัมน์ที่จะพิมพ์:</strong>
+                <div class="checkbox-group">
+                  <label><input type="checkbox" id="col-date" checked onchange="updateTable()"> วันที่ตัดจ่าย</label>
+                  <label><input type="checkbox" id="col-item" checked onchange="updateTable()"> รายการสินค้า</label>
+                  <label><input type="checkbox" id="col-supplier" checked onchange="updateTable()"> Supplier Lot</label>
+                  <label><input type="checkbox" id="col-inhouse" checked onchange="updateTable()"> Inhouse Lot</label>
+                  <label><input type="checkbox" id="col-qty" checked onchange="updateTable()"> จำนวนตัดจ่าย</label>
+                  <label><input type="checkbox" id="col-unit" checked onchange="updateTable()"> หน่วย</label>
+                  <label><input type="checkbox" id="col-location" checked onchange="updateTable()"> ที่เก็บเดิม</label>
+                  <label><input type="checkbox" id="col-reason" checked onchange="updateTable()"> เหตุผล / หมายเหตุ</label>
+                </div>
+              </div>
+              
+              <div class="controls-section">
+                <strong>ขนาดตัวอักษรตาราง:</strong>
+                <select id="font-size-select" onchange="updateFontSize()" style="padding: 4px 8px; border-radius: 4px; border: 1px solid #cbd5e1; font-family: 'Sarabun'; cursor: pointer;">
+                  <option value="11px">11px</option>
+                  <option value="12px">12px</option>
+                  <option value="13px" selected>13px (ปกติ)</option>
+                  <option value="14px">14px</option>
+                  <option value="15px">15px</option>
+                  <option value="16px">16px</option>
+                  <option value="18px">18px</option>
+                </select>
+              </div>
+
+              <div class="print-btn-container">
+                <button class="btn-print" onclick="window.print()">พิมพ์รายงาน / บันทึก PDF</button>
+              </div>
+            </div>
+
+            <div class="controls-section" style="border-top: 1px dashed #cbd5e1; padding-top: 10px; margin-top: 5px;">
+              <strong>ปรับความกว้างคอลัมน์ (%):</strong>
+              <div class="width-inputs" id="width-inputs-container">
+                <!-- Generated by JS -->
+              </div>
+            </div>
           </div>
+
           <div class="header">
             <div>
               <div class="title">รายงานสรุปการตัดจ่ายพัสดุ (Material Withdrawal Summary Report)</div>
-              <div style="font-size: 12px; color: #555; margin-top: 5px;">ระบบบริหารจัดการคลังสินค้า NBC STOCK</div>
+              <div style="font-size: 11px; color: #555; margin-top: 5px;">ระบบบริหารจัดการคลังสินค้า NBC STOCK</div>
             </div>
             <div class="meta-info">
               <div><strong>วันที่ออกรายงาน:</strong> ${today}</div>
@@ -518,38 +623,38 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
             </div>
           </div>
 
-          <table>
+          <table id="report-table">
             <thead>
               <tr>
-                <th style="width: 10%;">วันที่ตัดจ่าย</th>
-                <th style="width: 25%;">รายการสินค้า</th>
-                <th style="width: 12%;">Supplier Lot</th>
-                <th style="width: 12%;">Inhouse Lot</th>
-                <th style="width: 10%; text-align: right;">จำนวนตัดจ่าย</th>
-                <th style="width: 7%;">หน่วย</th>
-                <th style="width: 8%;">ที่เก็บเดิม</th>
-                <th style="width: 16%;">เหตุผล / หมายเหตุ</th>
+                <th id="th-date" class="col-date" style="width: 10%;">วันที่ตัดจ่าย</th>
+                <th id="th-item" class="col-item" style="width: 25%;">รายการสินค้า</th>
+                <th id="th-supplier" class="col-supplier" style="width: 12%;">Supplier Lot</th>
+                <th id="th-inhouse" class="col-inhouse" style="width: 12%;">Inhouse Lot</th>
+                <th id="th-qty" class="col-qty" style="width: 10%; text-align: right;">จำนวนตัดจ่าย</th>
+                <th id="th-unit" class="col-unit" style="width: 7%;">หน่วย</th>
+                <th id="th-location" class="col-location" style="width: 8%;">ที่เก็บเดิม</th>
+                <th id="th-reason" class="col-reason" style="width: 16%;">เหตุผล / หมายเหตุ</th>
               </tr>
             </thead>
             <tbody>
               ${reportList.map(w => `
                 <tr style="${w.isCancelled ? 'opacity: 0.55; text-decoration: line-through;' : ''}">
-                  <td>${w.date}</td>
-                  <td style="font-weight: 600;">${w.itemName}</td>
-                  <td>${w.supplierLot}</td>
-                  <td>${w.inhouseLot || '-'}</td>
-                  <td style="font-weight: 700; color: #dc2626; text-align: right;">
+                  <td class="col-date nowrap">${formatDateToDDMMYY(w.date)}</td>
+                  <td class="col-item" style="font-weight: 600;">${w.itemName}</td>
+                  <td class="col-supplier">${w.supplierLot || '-'}</td>
+                  <td class="col-inhouse">${w.inhouseLot || '-'}</td>
+                  <td class="col-qty" style="font-weight: 700; color: #dc2626; text-align: right;">
                     ${w.isCancelled ? `<s>-${w.amount.toLocaleString()}</s> <span style="font-size: 10px; color: #ef4444; display: block;">(ยกเลิกแล้ว)</span>` : `-${w.amount.toLocaleString()}`}
                   </td>
-                  <td>${w.unit}</td>
-                  <td>${w.location || '-'}</td>
-                  <td>${w.isCancelled ? `(ยกเลิกการตัดจ่าย) ${w.reason || ''}` : (w.reason || '-')}</td>
+                  <td class="col-unit">${w.unit || 'ชิ้น'}</td>
+                  <td class="col-location">${w.location || '-'}</td>
+                  <td class="col-reason">${w.isCancelled ? `(ยกเลิกการตัดจ่าย) ${w.reason || ''}` : (w.reason || '-')}</td>
                 </tr>
               `).join('')}
-              <tr class="total-row">
-                <td colspan="4" style="text-align: right;">รวมจำนวนตัดจ่ายทั้งสิ้น:</td>
-                <td style="color: #dc2626; text-align: right;">-${reportList.reduce((sum, w) => sum + (w.isCancelled ? 0 : w.amount), 0).toLocaleString()}</td>
-                <td colspan="3">หน่วยตามรายการ</td>
+              <tr id="total-row" class="total-row">
+                <td id="total-label-cell" colspan="4" style="text-align: right;">รวมจำนวนตัดจ่ายทั้งสิ้น:</td>
+                <td id="total-val-cell" class="col-qty" style="color: #dc2626; text-align: right;">-${reportList.reduce((sum, w) => sum + (w.isCancelled ? 0 : w.amount), 0).toLocaleString()}</td>
+                <td id="total-unit-cell" class="col-unit" colspan="3">หน่วยตามรายการ</td>
               </tr>
             </tbody>
           </table>
@@ -566,6 +671,119 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
               <div style="margin-top: 5px; font-size: 11px; color: #6b7280;">วันที่: ...... / ...... / ......</div>
             </div>
           </div>
+
+          <script>
+            const colNames = {
+              date: 'วันที่ตัดจ่าย',
+              item: 'รายการสินค้า',
+              supplier: 'Supplier Lot',
+              inhouse: 'Inhouse Lot',
+              qty: 'จำนวนตัดจ่าย',
+              unit: 'หน่วย',
+              location: 'ที่เก็บเดิม',
+              reason: 'เหตุผล / หมายเหตุ'
+            };
+            
+            const colWidths = {
+              date: 10,
+              item: 25,
+              supplier: 12,
+              inhouse: 12,
+              qty: 10,
+              unit: 7,
+              location: 8,
+              reason: 16
+            };
+
+            function renderWidthInputs() {
+              const container = document.getElementById('width-inputs-container');
+              container.innerHTML = '';
+              for (const [col, label] of Object.entries(colNames)) {
+                const isChecked = document.getElementById('col-' + col).checked;
+                if (isChecked) {
+                  const div = document.createElement('div');
+                  div.className = 'width-input-item';
+                  div.style.cssText = 'display: flex; align-items: center; gap: 8px; background-color: #fff; padding: 4px 8px; border-radius: 4px; border: 1px solid #cbd5e1;';
+                  div.innerHTML = \`
+                    <span style="font-size: 11px; font-weight: 600; color: #475569;">\${label}:</span>
+                    <input type="range" min="1" max="100" value="\${colWidths[col]}" oninput="updateWidth('\${col}', this.value)" style="width: 70px; accent-color: #ea580c; cursor: pointer; height: 4px;">
+                    <span id="val-\${col}" style="font-size: 11px; font-weight: 700; color: #ea580c; min-width: 28px;">\${colWidths[col]}%</span>
+                  \`;
+                  container.appendChild(div);
+                }
+              }
+            }
+
+            function updateWidth(col, val) {
+              const width = parseInt(val, 10) || colWidths[col];
+              colWidths[col] = width;
+              const th = document.getElementById('th-' + col);
+              if (th) {
+                th.style.width = width + '%';
+              }
+              const valSpan = document.getElementById('val-' + col);
+              if (valSpan) {
+                valSpan.textContent = width + '%';
+              }
+            }
+
+            function updateTable() {
+              const cols = ['date', 'item', 'supplier', 'inhouse', 'qty', 'unit', 'location', 'reason'];
+              cols.forEach(col => {
+                const checked = document.getElementById('col-' + col).checked;
+                const elements = document.querySelectorAll('.col-' + col);
+                elements.forEach(el => {
+                  el.style.display = checked ? '' : 'none';
+                });
+              });
+
+              // Handle total row
+              const qtyChecked = document.getElementById('col-qty').checked;
+              const unitChecked = document.getElementById('col-unit').checked;
+              const locationChecked = document.getElementById('col-location').checked;
+              const reasonChecked = document.getElementById('col-reason').checked;
+              
+              const totalRow = document.getElementById('total-row');
+              if (!qtyChecked) {
+                totalRow.style.display = 'none';
+              } else {
+                totalRow.style.display = '';
+                const columnsBeforeQty = ['date', 'item', 'supplier', 'inhouse'];
+                let visibleCountBeforeQty = 0;
+                columnsBeforeQty.forEach(col => {
+                  if (document.getElementById('col-' + col).checked) {
+                    visibleCountBeforeQty++;
+                  }
+                });
+                
+                const totalLabelCell = document.getElementById('total-label-cell');
+                totalLabelCell.colSpan = visibleCountBeforeQty;
+                totalLabelCell.style.display = visibleCountBeforeQty > 0 ? '' : 'none';
+                
+                document.getElementById('total-val-cell').style.display = '';
+                
+                // Count visible columns after qty
+                let visibleCountAfterQty = 0;
+                if (unitChecked) visibleCountAfterQty++;
+                if (locationChecked) visibleCountAfterQty++;
+                if (reasonChecked) visibleCountAfterQty++;
+                
+                const totalUnitCell = document.getElementById('total-unit-cell');
+                totalUnitCell.colSpan = visibleCountAfterQty;
+                totalUnitCell.style.display = visibleCountAfterQty > 0 ? '' : 'none';
+              }
+              
+              renderWidthInputs();
+            }
+
+            function updateFontSize() {
+              const val = document.getElementById('font-size-select').value;
+              document.getElementById('report-table').style.fontSize = val;
+            }
+
+            // Init width inputs
+            renderWidthInputs();
+          </script>
         </body>
       </html>
     `;

@@ -347,146 +347,253 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
       return;
     }
 
+    const formatDateToDDMMYY = (dateStr) => {
+      if (!dateStr) return '-';
+      const parts = dateStr.split('-');
+      if (parts.length !== 3) return dateStr;
+      const [yyyy, mm, dd] = parts;
+      const yy = yyyy.substring(2);
+      return `${dd}/${mm}/${yy}`;
+    };
+
     const htmlContent = `
       <html>
         <head>
           <title>รายงานสัญญาจัดซื้อค้างรับทั้งหมด - NBC Stock</title>
+          <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&display=swap" rel="stylesheet">
           <style>
-            @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&display=swap');
+            @page {
+              size: A4;
+              margin: 15mm;
+            }
             body {
               font-family: 'Sarabun', sans-serif;
-              color: #222;
-              padding: 2.5rem;
+              padding: 20px;
+              color: #1f2937;
               background-color: #fff;
+              font-size: 13px;
               line-height: 1.5;
             }
-            .header-container {
+            .header {
               display: flex;
               justify-content: space-between;
-              align-items: flex-start;
+              align-items: flex-end;
               border-bottom: 2px solid #003366;
-              padding-bottom: 1.5rem;
-              margin-bottom: 2rem;
+              padding-bottom: 12px;
+              margin-bottom: 25px;
             }
-            .title-section h1 {
-              font-size: 1.8rem;
-              margin: 0;
-              color: #003366;
+            .title {
+              font-size: 20px;
               font-weight: 700;
+              color: #003366;
             }
-            .title-section p {
-              margin: 0.25rem 0 0 0;
-              color: #555;
-              font-size: 0.9rem;
-            }
-            .meta-section {
+            .meta-info {
               text-align: right;
-              font-size: 0.9rem;
+              font-size: 11px;
             }
-            .meta-section p {
-              margin: 0.2rem 0;
+            .controls-bar {
+              background-color: #f8fafc;
+              border: 1px solid #e2e8f0;
+              padding: 16px;
+              border-radius: 8px;
+              margin-bottom: 25px;
+              display: flex;
+              flex-direction: column;
+              gap: 12px;
+              font-size: 13px;
+            }
+            .controls-row {
+              display: flex;
+              flex-wrap: wrap;
+              gap: 20px;
+              align-items: center;
+            }
+            .controls-section {
+              display: flex;
+              flex-direction: column;
+              gap: 6px;
+            }
+            .controls-section strong {
+              color: #003366;
+            }
+            .checkbox-group {
+              display: flex;
+              flex-wrap: wrap;
+              gap: 12px;
+            }
+            .checkbox-group label {
+              display: flex;
+              align-items: center;
+              gap: 6px;
+              cursor: pointer;
+              background-color: #fff;
+              padding: 4px 10px;
+              border-radius: 4px;
+              border: 1px solid #cbd5e1;
+              user-select: none;
+              font-weight: 500;
+            }
+            .checkbox-group label:hover {
+              background-color: #f1f5f9;
+              border-color: #94a3b8;
+            }
+            .width-inputs {
+              display: flex;
+              flex-wrap: wrap;
+              gap: 8px;
+            }
+            .print-btn-container {
+              margin-left: auto;
+            }
+            .btn-print {
+              background-color: #ea580c;
+              color: white;
+              border: none;
+              padding: 10px 24px;
+              border-radius: 6px;
+              font-weight: 600;
+              font-size: 14px;
+              cursor: pointer;
+              font-family: 'Sarabun', sans-serif;
+              transition: all 0.2s;
+              box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            }
+            .btn-print:hover {
+              background-color: #c2410c;
             }
             table {
               width: 100%;
               border-collapse: collapse;
-              margin-bottom: 3rem;
-              font-size: 0.85rem;
+              margin-top: 15px;
+              margin-bottom: 35px;
+              table-layout: auto;
             }
             th {
               background-color: #003366;
               color: #fff;
               font-weight: 600;
-              padding: 0.6rem;
               text-align: left;
+              padding: 8px;
               border: 1px solid #ddd;
             }
             td {
-              padding: 0.6rem;
+              padding: 8px;
               border: 1px solid #ddd;
             }
             tr:nth-child(even) {
               background-color: #f9f9f9;
             }
             .total-row {
-              font-weight: 700;
               background-color: #f0f4f8 !important;
-            }
-            .no-print-btn {
-              position: fixed;
-              top: 1rem;
-              right: 1rem;
-              background: #003366;
-              color: white;
-              border: none;
-              padding: 0.6rem 1.2rem;
-              font-size: 0.9rem;
-              font-weight: bold;
-              border-radius: 4px;
-              cursor: pointer;
-              box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-              z-index: 9999;
+              font-weight: 700;
             }
             .status-badge {
               display: inline-block;
               padding: 0.15rem 0.4rem;
               border-radius: 4px;
-              font-size: 0.75rem;
+              font-size: 11px;
               font-weight: bold;
             }
             .status-active { background-color: #e0f7fa; color: #006064; }
             .status-expired { background-color: #ffebee; color: #b71c1c; }
+            .nowrap {
+              white-space: nowrap;
+            }
             @media print {
-              .no-print-btn {
-                display: none;
+              .controls-bar {
+                display: none !important;
               }
               body {
                 padding: 0;
+                margin: 0;
               }
             }
           </style>
         </head>
         <body>
-          <button class="no-print-btn" onclick="window.print()">พิมพ์รายงาน / บันทึก PDF</button>
+          <div class="controls-bar">
+            <div class="controls-row">
+              <div class="controls-section" style="flex: 1; min-width: 300px;">
+                <strong>เลือกคอลัมน์ที่จะพิมพ์:</strong>
+                <div class="checkbox-group">
+                  <label><input type="checkbox" id="col-agreement" checked onchange="updateTable()"> เลขที่สัญญา</label>
+                  <label><input type="checkbox" id="col-supplier" checked onchange="updateTable()"> ผู้จัดจำหน่าย</label>
+                  <label><input type="checkbox" id="col-item" checked onchange="updateTable()"> สินค้าจัดซื้อ</label>
+                  <label><input type="checkbox" id="col-totalqty" checked onchange="updateTable()"> ยอดสัญญา</label>
+                  <label><input type="checkbox" id="col-acceptedqty" checked onchange="updateTable()"> รับแล้ว (ผ่าน)</label>
+                  <label><input type="checkbox" id="col-pendingqty" checked onchange="updateTable()"> รอตรวจรับ</label>
+                  <label><input type="checkbox" id="col-outstandingqty" checked onchange="updateTable()"> ยอดค้างรับ</label>
+                  <label><input type="checkbox" id="col-unit" checked onchange="updateTable()"> หน่วย</label>
+                  <label><input type="checkbox" id="col-enddate" checked onchange="updateTable()"> วันหมดอายุสัญญา</label>
+                  <label><input type="checkbox" id="col-status" checked onchange="updateTable()"> สถานะสัญญา</label>
+                </div>
+              </div>
+              
+              <div class="controls-section">
+                <strong>ขนาดตัวอักษรตาราง:</strong>
+                <select id="font-size-select" onchange="updateFontSize()" style="padding: 4px 8px; border-radius: 4px; border: 1px solid #cbd5e1; font-family: 'Sarabun'; cursor: pointer;">
+                  <option value="11px">11px</option>
+                  <option value="12px">12px</option>
+                  <option value="13px" selected>13px (ปกติ)</option>
+                  <option value="14px">14px</option>
+                  <option value="15px">15px</option>
+                  <option value="16px">16px</option>
+                  <option value="18px">18px</option>
+                </select>
+              </div>
 
-          <div class="header-container">
-            <div class="title-section">
-              <h1>รายงานสัญญาจัดซื้อค้างรับทั้งหมด (Outstanding Purchase Agreements Report)</h1>
-              <p>ระบบบริหารจัดการคลังสินค้า NBC STOCK | ข้อมูลสัญญาค้างส่งมอบ</p>
+              <div class="print-btn-container">
+                <button class="btn-print" onclick="window.print()">พิมพ์รายงาน / บันทึก PDF</button>
+              </div>
             </div>
-            <div class="meta-section">
-              <p><strong>วันที่ออกรายงาน:</strong> ${today}</p>
-              <p><strong>จำนวนสัญญาค้างรับ:</strong> ${outstandingAgreements.length} รายการ</p>
+
+            <div class="controls-section" style="border-top: 1px dashed #cbd5e1; padding-top: 10px; margin-top: 5px;">
+              <strong>ปรับความกว้างคอลัมน์ (%):</strong>
+              <div class="width-inputs" id="width-inputs-container">
+                <!-- Generated by JS -->
+              </div>
             </div>
           </div>
 
-          <table>
+          <div class="header">
+            <div>
+              <div class="title">รายงานสัญญาจัดซื้อค้างรับทั้งหมด (Outstanding Purchase Agreements Report)</div>
+              <div style="font-size: 11px; color: #555; margin-top: 5px;">ระบบบริหารจัดการคลังสินค้า NBC STOCK | ข้อมูลสัญญาค้างส่งมอบ</div>
+            </div>
+            <div class="meta-info">
+              <div><strong>วันที่ออกรายงาน:</strong> ${today}</div>
+              <div><strong>จำนวนสัญญาค้างรับ:</strong> ${outstandingAgreements.length} รายการ</div>
+            </div>
+          </div>
+
+          <table id="report-table">
             <thead>
               <tr>
-                <th>เลขที่สัญญา</th>
-                <th>ผู้จัดจำหน่าย (Supplier)</th>
-                <th>สินค้าจัดซื้อ</th>
-                <th style="text-align: right;">ยอดสัญญา</th>
-                <th style="text-align: right;">รับแล้ว (ผ่าน)</th>
-                <th style="text-align: right;">รอตรวจรับ</th>
-                <th style="text-align: right; color: #b71c1c;">ยอดค้างรับ</th>
-                <th>หน่วย</th>
-                <th>วันหมดอายุสัญญา</th>
-                <th>สถานะสัญญา</th>
+                <th id="th-agreement" class="col-agreement" style="width: 10%;">เลขที่สัญญา</th>
+                <th id="th-supplier" class="col-supplier" style="width: 15%;">ผู้จัดจำหน่าย (Supplier)</th>
+                <th id="th-item" class="col-item" style="width: 20%;">สินค้าจัดซื้อ</th>
+                <th id="th-totalqty" class="col-totalqty" style="width: 8%; text-align: right;">ยอดสัญญา</th>
+                <th id="th-acceptedqty" class="col-acceptedqty" style="width: 8%; text-align: right;">รับแล้ว (ผ่าน)</th>
+                <th id="th-pendingqty" class="col-pendingqty" style="width: 8%; text-align: right;">รอตรวจรับ</th>
+                <th id="th-outstandingqty" class="col-outstandingqty" style="width: 10%; text-align: right; color: #b71c1c;">ยอดค้างรับ</th>
+                <th id="th-unit" class="col-unit" style="width: 5%;">หน่วย</th>
+                <th id="th-enddate" class="col-enddate" style="width: 8%;">วันหมดอายุสัญญา</th>
+                <th id="th-status" class="col-status" style="width: 8%;">สถานะสัญญา</th>
               </tr>
             </thead>
             <tbody>
               ${outstandingAgreements.map(ag => `
                 <tr>
-                  <td style="font-weight: 600;">${ag.id}</td>
-                  <td>${ag.supplier}</td>
-                  <td style="font-weight: 600;">${ag.itemName}</td>
-                  <td style="text-align: right;">${ag.totalQty.toLocaleString()}</td>
-                  <td style="text-align: right; color: #0f5132;">${ag.acceptedQty.toLocaleString()}</td>
-                  <td style="text-align: right; color: #664d03;">${ag.pendingQty.toLocaleString()}</td>
-                  <td style="text-align: right; font-weight: 700; color: #b71c1c;">${ag.outstandingQty.toLocaleString()}</td>
-                  <td>${ag.unit}</td>
-                  <td>${ag.endDate || "-"}</td>
-                  <td>
+                  <td class="col-agreement" style="font-weight: 600;">${ag.id}</td>
+                  <td class="col-supplier">${ag.supplier}</td>
+                  <td class="col-item" style="font-weight: 600;">${ag.itemName}</td>
+                  <td class="col-totalqty" style="text-align: right;">${ag.totalQty.toLocaleString()}</td>
+                  <td class="col-acceptedqty" style="text-align: right; color: #0f5132;">${ag.acceptedQty.toLocaleString()}</td>
+                  <td class="col-pendingqty" style="text-align: right; color: #664d03;">${ag.pendingQty.toLocaleString()}</td>
+                  <td class="col-outstandingqty" style="text-align: right; font-weight: 700; color: #b71c1c;">${ag.outstandingQty.toLocaleString()}</td>
+                  <td class="col-unit">${ag.unit}</td>
+                  <td class="col-enddate nowrap">${formatDateToDDMMYY(ag.endDate)}</td>
+                  <td class="col-status">
                     <span class="status-badge ${
                       ag.displayStatus === 'Expired' ? 'status-expired' : 'status-active'
                     }">
@@ -495,34 +602,36 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
                   </td>
                 </tr>
               `).join("")}
-              <tr class="total-row">
-                <td colspan="3" style="text-align: right;">รวมทั้งหมด</td>
-                <td style="text-align: right;">
+              <tr id="total-row" class="total-row">
+                <td id="total-label-cell" colspan="3" style="text-align: right;">รวมทั้งหมด:</td>
+                <td id="total-totalqty-cell" class="col-totalqty" style="text-align: right;">
                   ${outstandingAgreements.reduce((sum, ag) => sum + ag.totalQty, 0).toLocaleString()}
                 </td>
-                <td style="text-align: right;">
+                <td id="total-acceptedqty-cell" class="col-acceptedqty" style="text-align: right; color: #0f5132;">
                   ${outstandingAgreements.reduce((sum, ag) => sum + ag.acceptedQty, 0).toLocaleString()}
                 </td>
-                <td style="text-align: right;">
+                <td id="total-pendingqty-cell" class="col-pendingqty" style="text-align: right; color: #664d03;">
                   ${outstandingAgreements.reduce((sum, ag) => sum + ag.pendingQty, 0).toLocaleString()}
                 </td>
-                <td style="text-align: right; color: #b71c1c; font-size: 0.95rem;">
+                <td id="total-outstandingqty-cell" class="col-outstandingqty" style="text-align: right; color: #b71c1c; font-size: 0.95rem;">
                   ${outstandingAgreements.reduce((sum, ag) => sum + ag.outstandingQty, 0).toLocaleString()}
                 </td>
-                <td colspan="3">หน่วยตามรายการ</td>
+                <td id="total-unit-cell" class="col-unit">หน่วยตามรายการ</td>
+                <td id="total-enddate-cell" class="col-enddate"></td>
+                <td id="total-status-cell" class="col-status"></td>
               </tr>
             </tbody>
           </table>
 
           <div style="margin-top: 4rem; display: flex; justify-content: space-between; font-size: 0.9rem;">
             <div style="text-align: center; width: 40%;">
-              <p style="margin-bottom: 3.5rem;"></p>
+              <br><br>
               <p>____________________________________</p>
               <p><strong>ผู้ตรวจสอบรายงาน</strong></p>
               <p>วันที่: ...... / ...... / ......</p>
             </div>
             <div style="text-align: center; width: 40%;">
-              <p style="margin-bottom: 3.5rem;"></p>
+              <br><br>
               <p>____________________________________</p>
               <p><strong>ผู้อนุมัติรายงาน</strong></p>
               <p>วันที่: ...... / ...... / ......</p>
@@ -530,11 +639,118 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
           </div>
 
           <script>
-            window.onload = function() {
-              setTimeout(function() {
-                window.print();
-              }, 300);
+            const colNames = {
+              agreement: 'เลขที่สัญญา',
+              supplier: 'ผู้จัดจำหน่าย',
+              item: 'สินค้าจัดซื้อ',
+              totalqty: 'ยอดสัญญา',
+              acceptedqty: 'รับแล้ว (ผ่าน)',
+              pendingqty: 'รอตรวจรับ',
+              outstandingqty: 'ยอดค้างรับ',
+              unit: 'หน่วย',
+              enddate: 'วันหมดอายุสัญญา',
+              status: 'สถานะสัญญา'
+            };
+            
+            const colWidths = {
+              agreement: 10,
+              supplier: 15,
+              item: 20,
+              totalqty: 8,
+              acceptedqty: 8,
+              pendingqty: 8,
+              outstandingqty: 10,
+              unit: 5,
+              enddate: 8,
+              status: 8
+            };
+
+            function renderWidthInputs() {
+              const container = document.getElementById('width-inputs-container');
+              container.innerHTML = '';
+              for (const [col, label] of Object.entries(colNames)) {
+                const isChecked = document.getElementById('col-' + col).checked;
+                if (isChecked) {
+                  const div = document.createElement('div');
+                  div.className = 'width-input-item';
+                  div.style.cssText = 'display: flex; align-items: center; gap: 8px; background-color: #fff; padding: 4px 8px; border-radius: 4px; border: 1px solid #cbd5e1;';
+                  div.innerHTML = \`
+                    <span style="font-size: 11px; font-weight: 600; color: #475569;">\${label}:</span>
+                    <input type="range" min="1" max="100" value="\${colWidths[col]}" oninput="updateWidth('\${col}', this.value)" style="width: 70px; accent-color: #ea580c; cursor: pointer; height: 4px;">
+                    <span id="val-\${col}" style="font-size: 11px; font-weight: 700; color: #ea580c; min-width: 28px;">\${colWidths[col]}%</span>
+                  \`;
+                  container.appendChild(div);
+                }
+              }
             }
+
+            function updateWidth(col, val) {
+              const width = parseInt(val, 10) || colWidths[col];
+              colWidths[col] = width;
+              const th = document.getElementById('th-' + col);
+              if (th) {
+                th.style.width = width + '%';
+              }
+              const valSpan = document.getElementById('val-' + col);
+              if (valSpan) {
+                valSpan.textContent = width + '%';
+              }
+            }
+
+            function updateTable() {
+              const cols = ['agreement', 'supplier', 'item', 'totalqty', 'acceptedqty', 'pendingqty', 'outstandingqty', 'unit', 'enddate', 'status'];
+              cols.forEach(col => {
+                const checked = document.getElementById('col-' + col).checked;
+                const elements = document.querySelectorAll('.col-' + col);
+                elements.forEach(el => {
+                  el.style.display = checked ? '' : 'none';
+                });
+              });
+
+              // Handle total row
+              const totalqtyChecked = document.getElementById('col-totalqty').checked;
+              const acceptedqtyChecked = document.getElementById('col-acceptedqty').checked;
+              const pendingqtyChecked = document.getElementById('col-pendingqty').checked;
+              const outstandingqtyChecked = document.getElementById('col-outstandingqty').checked;
+              
+              const totalRow = document.getElementById('total-row');
+              if (!totalqtyChecked && !acceptedqtyChecked && !pendingqtyChecked && !outstandingqtyChecked) {
+                totalRow.style.display = 'none';
+              } else {
+                totalRow.style.display = '';
+                
+                const columnsBeforeTotalQty = ['agreement', 'supplier', 'item'];
+                let visibleCountBeforeTotalQty = 0;
+                columnsBeforeTotalQty.forEach(col => {
+                  if (document.getElementById('col-' + col).checked) {
+                    visibleCountBeforeTotalQty++;
+                  }
+                });
+                
+                const totalLabelCell = document.getElementById('total-label-cell');
+                totalLabelCell.colSpan = visibleCountBeforeTotalQty;
+                totalLabelCell.style.display = visibleCountBeforeTotalQty > 0 ? '' : 'none';
+                
+                document.getElementById('total-totalqty-cell').style.display = totalqtyChecked ? '' : 'none';
+                document.getElementById('total-acceptedqty-cell').style.display = acceptedqtyChecked ? '' : 'none';
+                document.getElementById('total-pendingqty-cell').style.display = pendingqtyChecked ? '' : 'none';
+                document.getElementById('total-outstandingqty-cell').style.display = outstandingqtyChecked ? '' : 'none';
+                
+                document.getElementById('total-unit-cell').style.display = document.getElementById('col-unit').checked ? '' : 'none';
+                document.getElementById('total-enddate-cell').style.display = document.getElementById('col-enddate').checked ? '' : 'none';
+                document.getElementById('total-status-cell').style.display = document.getElementById('col-status').checked ? '' : 'none';
+              }
+              
+              renderWidthInputs();
+            }
+
+            function updateFontSize() {
+              const val = document.getElementById('font-size-select').value;
+              document.getElementById('report-table').style.fontSize = val;
+            }
+
+            // Init width inputs
+            renderWidthInputs();
           </script>
         </body>
       </html>

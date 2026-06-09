@@ -1459,10 +1459,11 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
                 if (isChecked) {
                   const div = document.createElement('div');
                   div.className = 'width-input-item';
+                  div.style.cssText = 'display: flex; align-items: center; gap: 8px; background-color: #fff; padding: 4px 8px; border-radius: 4px; border: 1px solid #cbd5e1;';
                   div.innerHTML = \`
-                    <span>\${label}:</span>
-                    <input type="number" min="1" max="100" value="\${colWidths[col]}" onchange="updateWidth('\${col}', this.value)">
-                    <span>%</span>
+                    <span style="font-size: 11px; font-weight: 600; color: #475569;">\${label}:</span>
+                    <input type="range" min="1" max="100" value="\${colWidths[col]}" oninput="updateWidth('\${col}', this.value)" style="width: 70px; accent-color: #ea580c; cursor: pointer; height: 4px;">
+                    <span id="val-\${col}" style="font-size: 11px; font-weight: 700; color: #ea580c; min-width: 28px;">\${colWidths[col]}%</span>
                   \`;
                   container.appendChild(div);
                 }
@@ -1475,6 +1476,10 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
               const th = document.getElementById('th-' + col);
               if (th) {
                 th.style.width = width + '%';
+              }
+              const valSpan = document.getElementById('val-' + col);
+              if (valSpan) {
+                valSpan.textContent = width + '%';
               }
             }
 
