@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { 
   LayoutDashboard, 
   Package, 
@@ -12,7 +12,8 @@ import {
   PackageOpen,
   MinusCircle,
   ClipboardList,
-  Calendar
+  Calendar,
+  Tag
 } from 'lucide-react';
 import './App.css';
 
@@ -25,6 +26,7 @@ import ProductRegistry from './components/ProductRegistry';
 import Withdrawal from './components/Withdrawal';
 import SettingsTab from './components/Settings';
 import Agreements from './components/Agreements';
+import StatusLabels from './components/StatusLabels';
 import { initFirebase } from './firebase';
 import { doc, setDoc, collection, onSnapshot, deleteDoc, getDocs } from 'firebase/firestore';
 
@@ -105,16 +107,26 @@ function App() {
 
   // 2. Initialize Firebase dynamically on boot or when config changes
   useEffect(() => {
+    let active = true;
     if (firebaseConfig) {
       const res = initFirebase(firebaseConfig);
       if (res && res.db) {
-        setDb(res.db);
+        Promise.resolve().then(() => {
+          if (active) setDb(res.db);
+        });
       } else {
-        setDb(null);
+        Promise.resolve().then(() => {
+          if (active) setDb(null);
+        });
       }
     } else {
-      setDb(null);
+      Promise.resolve().then(() => {
+        if (active) setDb(null);
+      });
     }
+    return () => {
+      active = false;
+    };
   }, [firebaseConfig]);
 
   // 3. Real-time synchronisation for Items
@@ -612,6 +624,8 @@ function App() {
         return <NCP inventory={inventory} items={items} claims={claims} setClaims={updateClaims} />;
       case 'agreements':
         return <Agreements agreements={agreements} setAgreements={updateAgreements} inventory={inventory} setInventory={updateInventory} items={items} />;
+      case 'labels':
+        return <StatusLabels inventory={inventory} />;
       case 'settings':
         return (
           <SettingsTab 
@@ -696,6 +710,12 @@ function App() {
             onClick={() => setActiveTab('agreements')}
             icon={<ClipboardList size={20} />}
             label="สัญญาจัดซื้อ"
+          />
+          <NavItem 
+            active={activeTab === 'labels'} 
+            onClick={() => setActiveTab('labels')}
+            icon={<Tag size={20} />}
+            label="พิมพ์ป้ายสถานะ"
           />
         </nav>
 

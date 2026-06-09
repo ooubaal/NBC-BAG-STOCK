@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Database, CheckCircle2, AlertTriangle, Key, Save, RefreshCw, LogOut, Info, AlertOctagon } from 'lucide-react';
 
 const Settings = ({ config, onSaveConfig, onDisconnect, onMigrate, syncStats, isMigrating, onBackup, onRestore, onReset }) => {
@@ -40,7 +40,7 @@ const Settings = ({ config, onSaveConfig, onDisconnect, onMigrate, syncStats, is
       
       const jsonLikeText = match[0]
         .replace(/"?([a-zA-Z0-9]+)"?\s*:/g, '"$1":') // Wrap keys in double quotes, handling keys that are already quoted
-        .replace(/,(\s*[\}\]])/g, '$1');   // Remove trailing commas
+        .replace(/,(\s*[}\]])/g, '$1');   // Remove trailing commas
 
       const parsed = JSON.parse(jsonLikeText);
       
@@ -70,7 +70,7 @@ const Settings = ({ config, onSaveConfig, onDisconnect, onMigrate, syncStats, is
         return { apiKey, projectId, authDomain, storageBucket, messagingSenderId, appId };
       }
       
-      throw new Error("ไม่สามารถวิเคราะห์รูปแบบไฟล์ได้ กรุณาก๊อปปี้มาทั้งบล็อก firebaseConfig");
+      throw new Error("ไม่สามารถวิเคราะห์รูปแบบไฟล์ได้ กรุณาก๊อปปี้มาทั้งบล็อก firebaseConfig", { cause: e });
     }
   };
 
@@ -313,6 +313,7 @@ const Settings = ({ config, onSaveConfig, onDisconnect, onMigrate, syncStats, is
                         // Reset input value so same file can be uploaded again
                         e.target.value = '';
                       } catch (err) {
+                        console.error(err);
                         alert("ไฟล์สำรองข้อมูลไม่ถูกต้อง กรุณาอัปโหลดไฟล์ .json ที่ถูกต้อง");
                       }
                     };
