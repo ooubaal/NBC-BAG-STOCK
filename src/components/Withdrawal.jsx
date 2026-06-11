@@ -20,6 +20,7 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
   const [reasonType, setReasonType] = useState('ตัดจ่าย');
   const [searchQuery, setSearchQuery] = useState('');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [lotSearchQuery, setLotSearchQuery] = useState('');
   
   // History search and selection states
   const [historySearch, setHistorySearch] = useState('');
@@ -55,7 +56,19 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
 
   // Filter available lots that have remaining stock and match selected item
   const availableLots = useMemo(() => {
-    return inventory.filter(i => i.itemName === selectedItem && i.remainingQty > 0);
+    return inventory.filter(i => {
+      const matchItem = i.itemName === selectedItem && i.remainingQty > 0;
+      if (!matchItem) return false;
+      if (!lotSearchQuery) return true;
+      const search = lotSearchQuery.toLowerCase();
+      return i.supplierLot.toLowerCase().includes(search) || 
+             (i.inhouseLot && i.inhouseLot.toLowerCase().includes(search)) ||
+             (i.location && i.location.toLowerCase().includes(search));
+    });
+  }, [inventory, selectedItem, lotSearchQuery]);
+
+  const totalLotsCount = useMemo(() => {
+    return inventory.filter(i => i.itemName === selectedItem && i.remainingQty > 0).length;
   }, [inventory, selectedItem]);
 
   const activeLot = useMemo(() => {
@@ -1121,6 +1134,7 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
                               setActiveLotId(null);
                               setIsDropdownOpen(false);
                               setSearchQuery('');
+                              setLotSearchQuery('');
                             }}
                           >
                             {item.name} {item.unit ? `(${item.unit})` : ''}
@@ -1133,12 +1147,45 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
               </div>
             </div>
 
-            <h4 style={{ marginBottom: '1rem', color: 'var(--text-secondary)' }}>Lot ที่มีสินค้าพร้อมใช้ ({availableLots.length})</h4>
+            <h4 style={{ marginBottom: '1rem', color: 'var(--text-secondary)' }}>
+              Lot ที่มีสินค้าพร้อมใช้ ({availableLots.length === totalLotsCount ? availableLots.length : `${availableLots.length} จาก ${totalLotsCount}`})
+            </h4>
+
+            {totalLotsCount > 0 && (
+              <div 
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  border: '1px solid var(--glass-border)',
+                  borderRadius: '8px',
+                  background: 'var(--glass-bg)',
+                  padding: '0.45rem 0.75rem',
+                  marginBottom: '1rem'
+                }}
+              >
+                <Search size={16} color="var(--text-muted)" style={{ marginRight: '0.5rem', flexShrink: 0 }} />
+                <input
+                  type="text"
+                  placeholder="ค้นหาตาม Supplier Lot, Inhouse Lot หรือสถานที่เก็บ..."
+                  value={lotSearchQuery}
+                  onChange={(e) => setLotSearchQuery(e.target.value)}
+                  style={{
+                    border: 'none',
+                    outline: 'none',
+                    background: 'transparent',
+                    width: '100%',
+                    color: 'var(--text-primary)',
+                    fontSize: '0.88rem'
+                  }}
+                />
+              </div>
+            )}
+
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', maxHeight: '400px', overflowY: 'auto' }}>
               {availableLots.length === 0 ? (
                 <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)', border: '1px dashed var(--glass-border)', borderRadius: '8px' }}>
                   <Package size={32} style={{ marginBottom: '0.5rem', opacity: 0.5 }} />
-                  <p>ไม่มีสินค้าคงเหลือในสต็อก</p>
+                  <p>{totalLotsCount > 0 ? 'ไม่พบ Lot ที่ตรงกับคำค้นหา' : 'ไม่มีสินค้าคงเหลือในสต็อก'}</p>
                 </div>
               ) : (
                 availableLots.map(lot => (
