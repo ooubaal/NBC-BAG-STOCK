@@ -1,6 +1,28 @@
 import { useState, useMemo } from 'react';
 import { List, TrendingDown, ChevronDown } from 'lucide-react';
 
+const AcceptanceBadge = ({ status }) => {
+  const normalizedStatus = status || '';
+  const styles = {
+    '': { bg: 'rgba(255, 255, 255, 0.05)', text: 'var(--text-muted, #888)', label: 'ยังไม่ได้วางบิล' },
+    'Pending': { bg: 'rgba(245, 158, 11, 0.15)', text: '#f59e0b', label: 'รอการตรวจรับ' },
+    'Accepted': { bg: 'rgba(16, 185, 129, 0.15)', text: '#10b981', label: 'ตรวจรับผ่าน' },
+    'Rejected': { bg: 'rgba(239, 68, 68, 0.15)', text: '#ef4444', label: 'ปฏิเสธการรับ' }
+  };
+  const current = styles[normalizedStatus] || styles[''];
+  return (
+    <span style={{ 
+      padding: '0.15rem 0.5rem', 
+      borderRadius: '4px', 
+      fontSize: '0.7rem', 
+      fontWeight: 600, 
+      backgroundColor: current.bg, 
+      color: current.text,
+      whiteSpace: 'nowrap'
+    }}>{current.label}</span>
+  );
+};
+
 const Analytics = ({ inventory, items }) => {
   const [selectedItem, setSelectedItem] = useState((items && items.length > 0) ? items[0].name : '');
   const [searchQuery, setSearchQuery] = useState('');
@@ -19,7 +41,8 @@ const Analytics = ({ inventory, items }) => {
       inhouseLot: i.inhouseLot, 
       qty: i.remainingQty, 
       status: i.qcStatus, 
-      location: i.location 
+      location: i.location,
+      acceptanceStatus: i.acceptanceStatus
     }));
     const qcStats = itemRecords.reduce((acc, curr) => {
       acc[curr.qcStatus] = (acc[curr.qcStatus] || 0) + 1;
@@ -247,12 +270,13 @@ const Analytics = ({ inventory, items }) => {
                   <th style={{ padding: '0.5rem' }}>Inhouse Lot</th>
                   <th style={{ padding: '0.5rem' }}>คงเหลือ ({currentUnit})</th>
                   <th style={{ padding: '0.5rem' }}>ที่เก็บ</th>
-                  <th style={{ padding: '0.5rem' }}>สถานะ</th>
+                  <th style={{ padding: '0.5rem' }}>สถานะจัดซื้อ/วางบิล</th>
+                  <th style={{ padding: '0.5rem' }}>สถานะ QC</th>
                 </tr>
               </thead>
               <tbody>
                 {stats.lots.length === 0 ? (
-                  <tr><td colSpan="5" style={{ padding: '1rem', textAlign: 'center' }}>ไม่มีข้อมูล</td></tr>
+                  <tr><td colSpan="6" style={{ padding: '1rem', textAlign: 'center' }}>ไม่มีข้อมูล</td></tr>
                 ) : (
                   stats.lots.map((l, i) => (
                     <tr key={i} style={{ borderBottom: '1px solid var(--glass-border)' }}>
@@ -260,6 +284,9 @@ const Analytics = ({ inventory, items }) => {
                       <td style={{ padding: '0.75rem' }}>{l.inhouseLot || '-'}</td>
                       <td style={{ padding: '0.75rem', fontWeight: 600 }}>{l.qty}</td>
                       <td style={{ padding: '0.75rem' }}>{l.location}</td>
+                      <td style={{ padding: '0.75rem' }}>
+                        <AcceptanceBadge status={l.acceptanceStatus} />
+                      </td>
                       <td style={{ padding: '0.75rem' }}>
                         <span className={`status-badge status-${l.status.toLowerCase()}`} style={{ fontSize: '0.65rem' }}>{l.status}</span>
                       </td>
