@@ -865,8 +865,6 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
               line-height: 1.3;
               margin: 0;
               padding: 10mm;
-              position: relative;
-              min-height: 277mm;
               box-sizing: border-box;
             }
             .title-container {
@@ -911,10 +909,10 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
               padding-right: 8px;
             }
             .footer {
-              position: absolute;
-              bottom: 0;
-              left: 0;
-              right: 0;
+              position: fixed;
+              bottom: 8mm;
+              left: 10mm;
+              right: 10mm;
               display: flex;
               justify-content: space-between;
               font-size: 11px;
@@ -952,7 +950,8 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
                 display: none;
               }
               body {
-                padding: 10mm;
+                margin: 10mm 10mm 20mm 10mm;
+                padding: 0;
               }
             }
           </style>
