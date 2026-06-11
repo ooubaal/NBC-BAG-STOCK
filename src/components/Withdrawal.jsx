@@ -855,7 +855,7 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
           <style>
             @page {
               size: A4 portrait;
-              margin: 10mm;
+              margin: 0;
             }
             body {
               font-family: 'Sarabun', sans-serif;
@@ -864,7 +864,7 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
               font-size: 13px;
               line-height: 1.3;
               margin: 0;
-              padding: 0;
+              padding: 10mm;
             }
             .title-container {
               text-align: center;
@@ -942,7 +942,7 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
                 display: none;
               }
               body {
-                padding: 0;
+                padding: 10mm;
               }
             }
           </style>
