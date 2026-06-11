@@ -824,9 +824,9 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
     // Only print active (non-cancelled) items to reflect "จริงที่จ่าย"
     const activeList = reportList.filter(w => !w.isCancelled);
 
-    // Create exactly 33 rows
+    // Create exactly 30 rows
     const rows = [];
-    for (let i = 0; i < 33; i++) {
+    for (let i = 0; i < 30; i++) {
       if (i < activeList.length) {
         const item = activeList[i];
         rows.push({
