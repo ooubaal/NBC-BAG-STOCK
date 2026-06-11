@@ -944,13 +944,13 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
             @media print {
               @page {
                 size: auto;
-                margin: 0mm;
+                margin: 10mm 10mm 20mm 10mm;
               }
               .actions-bar {
                 display: none;
               }
               body {
-                margin: 10mm 10mm 20mm 10mm;
+                margin: 0;
                 padding: 0;
               }
             }
