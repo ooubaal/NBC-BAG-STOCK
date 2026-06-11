@@ -1034,7 +1034,7 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
           </table>
 
           <div class="footer">
-            <span>แบบฟอร์มเลขที่ BSD-014/001</span>
+            <span>แบบฟอร์มเลขที่ BSP 014/001</span>
             <span>แก้ไขครั้งที่ 03/2564</span>
           </div>
 
