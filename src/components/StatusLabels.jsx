@@ -214,7 +214,16 @@ const StatusLabels = ({ inventory = [] }) => {
     }
 
     const getFormHtml = (lotNum, itemName, lotDetails, qcStatus, customDate, customQty, responsible) => {
-      const displayLotNo = lotDetails ? (lotDetails.supplierLot || lotDetails.inhouseLot || lotDetails.id) : '-';
+      let displayLotNo = '-';
+      if (lotDetails) {
+        const supLot = lotDetails.supplierLot || '';
+        const inhLot = lotDetails.inhouseLot || '';
+        if (supLot && inhLot) {
+          displayLotNo = `${supLot} (${inhLot})`;
+        } else {
+          displayLotNo = supLot || inhLot || lotDetails.id || '-';
+        }
+      }
       const displayQty = `${customQty || '0'} ${lotDetails?.unit || 'ชิ้น'}`;
       const displayResp = responsible || '';
 
@@ -663,7 +672,16 @@ const StatusLabels = ({ inventory = [] }) => {
 
   // Preview helper components
   const renderPreview = (itemName, lotDetails, qcStatus, customDate, customQty, responsible) => {
-    const displayLotNo = lotDetails ? (lotDetails.supplierLot || lotDetails.inhouseLot || lotDetails.id) : 'LOT-XXXXX-XX';
+    let displayLotNo = 'LOT-XXXXX-XX';
+    if (lotDetails) {
+      const supLot = lotDetails.supplierLot || '';
+      const inhLot = lotDetails.inhouseLot || '';
+      if (supLot && inhLot) {
+        displayLotNo = `${supLot} (${inhLot})`;
+      } else {
+        displayLotNo = supLot || inhLot || lotDetails.id || 'LOT-XXXXX-XX';
+      }
+    }
     const displayQty = `${customQty || '0'} ${lotDetails?.unit || 'ชิ้น'}`;
     const displayDate = customDate ? formatThaiDate(customDate) : 'DD/MM/YY (พ.ศ.)';
     const displayResp = responsible || 'ชื่อผู้รับผิดชอบ';
