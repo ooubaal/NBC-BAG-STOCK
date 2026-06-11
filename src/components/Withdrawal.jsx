@@ -850,12 +850,12 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
     const htmlContent = `
       <html>
         <head>
-          <title>ใบเบิก-จ่ายวัตถุดิบ - NBC STOCK</title>
+          <title></title>
           <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&display=swap" rel="stylesheet">
           <style>
             @page {
-              size: A4 portrait;
-              margin: 0;
+              size: auto;
+              margin: 0mm;
             }
             body {
               font-family: 'Sarabun', sans-serif;
@@ -938,6 +938,10 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
               background-color: #c2410c;
             }
             @media print {
+              @page {
+                size: auto;
+                margin: 0mm;
+              }
               .actions-bar {
                 display: none;
               }
@@ -995,6 +999,7 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
 
           <script>
             window.onload = function() {
+              document.title = "";
               setTimeout(function() {
                 window.print();
               }, 300);
