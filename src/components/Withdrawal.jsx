@@ -941,17 +941,41 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
             .btn-print:hover {
               background-color: #c2410c;
             }
+            .print-page-header-spacer {
+              display: none;
+            }
+            .print-page-footer-spacer {
+              display: none;
+            }
             @media print {
               @page {
                 size: auto;
-                margin: 10mm 10mm 20mm 10mm;
+                margin: 0mm;
               }
               .actions-bar {
                 display: none;
               }
               body {
                 margin: 0;
+                padding: 10mm;
+              }
+              .print-page-header-spacer {
+                display: table-row;
+              }
+              .print-page-header-spacer th {
+                border: none !important;
+                height: 10mm;
                 padding: 0;
+                background: transparent;
+              }
+              .print-page-footer-spacer {
+                display: table-row;
+              }
+              .print-page-footer-spacer td {
+                border: none !important;
+                height: 20mm;
+                padding: 0;
+                background: transparent;
               }
             }
           </style>
@@ -970,6 +994,9 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
 
           <table>
             <thead>
+              <tr class="print-page-header-spacer">
+                <th colspan="8"></th>
+              </tr>
               <tr>
                 <th style="width: 6%;">ลำดับที่</th>
                 <th style="width: 38%;">รายการ</th>
@@ -995,6 +1022,11 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
                 </tr>
               `).join('')}
             </tbody>
+            <tfoot>
+              <tr class="print-page-footer-spacer">
+                <td colspan="8"></td>
+              </tr>
+            </tfoot>
           </table>
 
           <div class="footer">
