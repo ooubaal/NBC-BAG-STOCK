@@ -824,9 +824,13 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
     // Only print active (non-cancelled) items to reflect "จริงที่จ่าย"
     const activeList = reportList.filter(w => !w.isCancelled);
 
-    // Create exactly 30 rows
+    // Create a dynamic list of rows: if the active items fit in 20 rows, pad up to 20.
+    // If there are more than 20 items, display all of them (it will naturally split into multiple pages).
     const rows = [];
-    for (let i = 0; i < 30; i++) {
+    const minRowCount = 20;
+    const totalRowsToCreate = Math.max(activeList.length, minRowCount);
+
+    for (let i = 0; i < totalRowsToCreate; i++) {
       if (i < activeList.length) {
         const item = activeList[i];
         rows.push({
@@ -838,7 +842,7 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
         });
       } else {
         rows.push({
-          no: i + 1,
+          no: '',
           itemName: '',
           unitPack: '',
           amountReq: '',
