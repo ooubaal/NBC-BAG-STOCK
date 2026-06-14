@@ -927,8 +927,42 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
               padding: 12px 20px;
               border-radius: 6px;
               display: flex;
-              justify-content: flex-end;
+              align-items: center;
+              justify-content: space-between;
+              gap: 20px;
               margin-bottom: 15px;
+              color: white;
+            }
+            .edit-inputs {
+              display: flex;
+              gap: 15px;
+              flex-wrap: wrap;
+              flex-grow: 1;
+            }
+            .input-group {
+              display: flex;
+              align-items: center;
+              gap: 8px;
+            }
+            .input-group label {
+              font-size: 12px;
+              color: #94a3b8;
+              font-weight: 600;
+              white-space: nowrap;
+            }
+            .input-group input {
+              background-color: #1e293b;
+              border: 1px solid #334155;
+              color: white;
+              padding: 6px 10px;
+              border-radius: 4px;
+              font-family: 'Sarabun', sans-serif;
+              font-size: 13px;
+              outline: none;
+              min-width: 140px;
+            }
+            .input-group input:focus {
+              border-color: #ea580c;
             }
             .btn-print {
               background-color: #ea580c;
@@ -941,6 +975,7 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
               font-family: 'Sarabun', sans-serif;
               font-size: 13px;
               transition: all 0.2s;
+              white-space: nowrap;
             }
             .btn-print:hover {
               background-color: #c2410c;
@@ -957,7 +992,7 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
                 margin: 0mm;
               }
               .actions-bar {
-                display: none;
+                display: none !important;
               }
               body {
                 margin: 0;
@@ -986,11 +1021,25 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
         </head>
         <body>
           <div class="actions-bar">
+            <div class="edit-inputs">
+              <div class="input-group">
+                <label>ชื่อเอกสาร:</label>
+                <input type="text" id="input-title" value="ใบเบิก-จ่ายวัตถุดิบ" oninput="updateHeaderFooter()" />
+              </div>
+              <div class="input-group">
+                <label>แบบฟอร์มเลขที่:</label>
+                <input type="text" id="input-form-no" value="BSP 014/001" oninput="updateHeaderFooter()" />
+              </div>
+              <div class="input-group">
+                <label>แก้ไขครั้งที่:</label>
+                <input type="text" id="input-revision" value="03/2564" oninput="updateHeaderFooter()" />
+              </div>
+            </div>
             <button class="btn-print" onclick="window.print()">พิมพ์เอกสาร / บันทึก PDF</button>
           </div>
           
           <div class="title-container">
-            <h1 class="title">ใบเบิก-จ่ายวัตถุดิบ</h1>
+            <h1 class="title" id="doc-title">ใบเบิก-จ่ายวัตถุดิบ</h1>
           </div>
           <div class="date-row">
             วันที่ _______________ เดือน ___________________________ พ.ศ. _________________
@@ -1034,16 +1083,23 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
           </table>
 
           <div class="footer">
-            <span>แบบฟอร์มเลขที่ BSP 014/001</span>
-            <span>แก้ไขครั้งที่ 03/2564</span>
+            <span id="footer-form-no">แบบฟอร์มเลขที่ BSP 014/001</span>
+            <span id="footer-revision">แก้ไขครั้งที่ 03/2564</span>
           </div>
 
           <script>
+            function updateHeaderFooter() {
+              const titleVal = document.getElementById('input-title').value;
+              const formNoVal = document.getElementById('input-form-no').value;
+              const revisionVal = document.getElementById('input-revision').value;
+              
+              document.getElementById('doc-title').innerText = titleVal;
+              document.getElementById('footer-form-no').innerText = 'แบบฟอร์มเลขที่ ' + formNoVal;
+              document.getElementById('footer-revision').innerText = 'แก้ไขครั้งที่ ' + revisionVal;
+            }
+
             window.onload = function() {
               document.title = "";
-              setTimeout(function() {
-                window.print();
-              }, 300);
             }
           </script>
         </body>
