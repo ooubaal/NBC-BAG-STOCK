@@ -273,28 +273,26 @@ const Inventory = ({ inventory, setInventory }) => {
               </th>
               <th style={{ padding: '1rem', minWidth: '225px' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span>วันที่รับ (ช่วง)</span>
-                    <select 
-                      value={sortType.startsWith('date-') ? sortType : 'date-desc'} 
-                      onChange={(e) => setSortType(e.target.value)}
-                      style={{ 
-                        width: 'auto', 
-                        padding: '0 0.2rem', 
-                        fontSize: '0.65rem', 
-                        height: '20px', 
-                        background: 'var(--input-bg)', 
-                        color: 'var(--accent-color)', 
-                        border: '1px solid var(--glass-border)', 
-                        borderRadius: '4px',
-                        cursor: 'pointer',
-                        fontWeight: 'bold'
-                      }}
-                    >
-                      <option value="date-desc">ล่าสุดอยู่บน 🔽</option>
-                      <option value="date-asc">เก่าสุดอยู่บน 🔼</option>
-                    </select>
-                  </div>
+                  <span>วันที่รับ (ช่วง)</span>
+                  <select 
+                    value={sortType.startsWith('date-') ? sortType : 'date-desc'} 
+                    onChange={(e) => setSortType(e.target.value)}
+                    style={{ 
+                      width: 'fit-content', 
+                      padding: '0 0.2rem', 
+                      fontSize: '0.65rem', 
+                      height: '20px', 
+                      background: 'var(--input-bg)', 
+                      color: 'var(--accent-color)', 
+                      border: '1px solid var(--glass-border)', 
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      fontWeight: 'bold'
+                    }}
+                  >
+                    <option value="date-desc">ล่าสุดอยู่บน 🔽</option>
+                    <option value="date-asc">เก่าสุดอยู่บน 🔼</option>
+                  </select>
                   <div style={{ display: 'flex', gap: '0.2rem', alignItems: 'center' }}>
                     <input 
                       type="date" 
@@ -314,32 +312,30 @@ const Inventory = ({ inventory, setInventory }) => {
               </th>
               <th style={{ padding: '1rem' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem' }}>
-                    <span>รายการสินค้า</span>
-                    <select 
-                      value={sortType.startsWith('name-') ? sortType : 'none'} 
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setSortType(val === 'none' ? 'date-desc' : val);
-                      }}
-                      style={{ 
-                        width: 'auto', 
-                        padding: '0 0.2rem', 
-                        fontSize: '0.65rem', 
-                        height: '20px', 
-                        background: 'var(--input-bg)', 
-                        color: 'var(--accent-color)', 
-                        border: '1px solid var(--glass-border)', 
-                        borderRadius: '4px',
-                        cursor: 'pointer',
-                        fontWeight: 'bold'
-                      }}
-                    >
-                      <option value="none">เรียงปกติ ↕️</option>
-                      <option value="name-asc">ก-ฮ / A-Z 🔼</option>
-                      <option value="name-desc">ฮ-ก / Z-A 🔽</option>
-                    </select>
-                  </div>
+                  <span>รายการสินค้า</span>
+                  <select 
+                    value={sortType.startsWith('name-') ? sortType : 'none'} 
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setSortType(val === 'none' ? 'date-desc' : val);
+                    }}
+                    style={{ 
+                      width: 'fit-content', 
+                      padding: '0 0.2rem', 
+                      fontSize: '0.65rem', 
+                      height: '20px', 
+                      background: 'var(--input-bg)', 
+                      color: 'var(--accent-color)', 
+                      border: '1px solid var(--glass-border)', 
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      fontWeight: 'bold'
+                    }}
+                  >
+                    <option value="none">เรียงปกติ ↕️</option>
+                    <option value="name-asc">ก-ฮ / A-Z 🔼</option>
+                    <option value="name-desc">ฮ-ก / Z-A 🔽</option>
+                  </select>
                   <select 
                     value={filterItem} 
                     onChange={(e) => setFilterItem(e.target.value)}
@@ -352,62 +348,58 @@ const Inventory = ({ inventory, setInventory }) => {
               </th>
               <th style={{ padding: '1rem' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem' }}>
-                    <span>Supplier Lot</span>
-                    <select 
-                      value={sortType.startsWith('supplierLot-') ? sortType : 'none'} 
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setSortType(val === 'none' ? 'date-desc' : val);
-                      }}
-                      style={{ 
-                        width: 'auto', 
-                        padding: '0 0.2rem', 
-                        fontSize: '0.65rem', 
-                        height: '20px', 
-                        background: 'var(--input-bg)', 
-                        color: 'var(--accent-color)', 
-                        border: '1px solid var(--glass-border)', 
-                        borderRadius: '4px',
-                        cursor: 'pointer',
-                        fontWeight: 'bold'
-                      }}
-                    >
-                      <option value="none">เรียงปกติ ↕️</option>
-                      <option value="supplierLot-asc">A-Z 🔼</option>
-                      <option value="supplierLot-desc">Z-A 🔽</option>
-                    </select>
-                  </div>
+                  <span>Supplier Lot</span>
+                  <select 
+                    value={sortType.startsWith('supplierLot-') ? sortType : 'none'} 
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setSortType(val === 'none' ? 'date-desc' : val);
+                    }}
+                    style={{ 
+                      width: 'fit-content', 
+                      padding: '0 0.2rem', 
+                      fontSize: '0.65rem', 
+                      height: '20px', 
+                      background: 'var(--input-bg)', 
+                      color: 'var(--accent-color)', 
+                      border: '1px solid var(--glass-border)', 
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      fontWeight: 'bold'
+                    }}
+                  >
+                    <option value="none">เรียงปกติ ↕️</option>
+                    <option value="supplierLot-asc">A-Z 🔼</option>
+                    <option value="supplierLot-desc">Z-A 🔽</option>
+                  </select>
                 </div>
               </th>
               <th style={{ padding: '1rem' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem' }}>
-                    <span>Inhouse Lot</span>
-                    <select 
-                      value={sortType.startsWith('inhouseLot-') ? sortType : 'none'} 
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setSortType(val === 'none' ? 'date-desc' : val);
-                      }}
-                      style={{ 
-                        width: 'auto', 
-                        padding: '0 0.2rem', 
-                        fontSize: '0.65rem', 
-                        height: '20px', 
-                        background: 'var(--input-bg)', 
-                        color: 'var(--accent-color)', 
-                        border: '1px solid var(--glass-border)', 
-                        borderRadius: '4px',
-                        cursor: 'pointer',
-                        fontWeight: 'bold'
-                      }}
-                    >
-                      <option value="none">เรียงปกติ ↕️</option>
-                      <option value="inhouseLot-asc">A-Z 🔼</option>
-                      <option value="inhouseLot-desc">Z-A 🔽</option>
-                    </select>
-                  </div>
+                  <span>Inhouse Lot</span>
+                  <select 
+                    value={sortType.startsWith('inhouseLot-') ? sortType : 'none'} 
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setSortType(val === 'none' ? 'date-desc' : val);
+                    }}
+                    style={{ 
+                      width: 'fit-content', 
+                      padding: '0 0.2rem', 
+                      fontSize: '0.65rem', 
+                      height: '20px', 
+                      background: 'var(--input-bg)', 
+                      color: 'var(--accent-color)', 
+                      border: '1px solid var(--glass-border)', 
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      fontWeight: 'bold'
+                    }}
+                  >
+                    <option value="none">เรียงปกติ ↕️</option>
+                    <option value="inhouseLot-asc">A-Z 🔼</option>
+                    <option value="inhouseLot-desc">Z-A 🔽</option>
+                  </select>
                 </div>
               </th>
               <th style={{ padding: '1rem' }}>
