@@ -41,6 +41,20 @@ const formatDateToDDMMYYYY = (dateStr) => {
   return `${dd}/${mm}/${yyyy}`;
 };
 
+const safeSetLocalStorage = (key, value) => {
+  try {
+    localStorage.setItem(key, value);
+  } catch (error) {
+    console.error("LocalStorage write failed:", error);
+    if (error.name === 'QuotaExceededError' || error.code === 22) {
+      if (!window._wms_storage_warning_shown) {
+        window._wms_storage_warning_shown = true;
+        alert("⚠️ คำเตือน: พื้นที่เก็บข้อมูลของเบราว์เซอร์เต็มแล้ว! ไม่สามารถบันทึกข้อมูลสำรองชั่วคราวในเครื่องนี้ได้ (แต่อุปกรณ์ที่ต่อระบบแชร์คลาวด์/Firebase จะยังคงทำงานและบันทึกข้อมูลได้อย่างปลอดภัย)");
+      }
+    }
+  }
+};
+
 function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
   
@@ -290,19 +304,19 @@ function App() {
 
   // Save data to LocalStorage as cache
   useEffect(() => {
-    localStorage.setItem('wms_inventory', JSON.stringify(inventory));
+    safeSetLocalStorage('wms_inventory', JSON.stringify(inventory));
   }, [inventory]);
 
   useEffect(() => {
-    localStorage.setItem('wms_items', JSON.stringify(items));
+    safeSetLocalStorage('wms_items', JSON.stringify(items));
   }, [items]);
 
   useEffect(() => {
-    localStorage.setItem('wms_agreements', JSON.stringify(agreements));
+    safeSetLocalStorage('wms_agreements', JSON.stringify(agreements));
   }, [agreements]);
 
   useEffect(() => {
-    localStorage.setItem('wms_claims', JSON.stringify(claims));
+    safeSetLocalStorage('wms_claims', JSON.stringify(claims));
   }, [claims]);
 
   // 5. Intercept state updates to sync with Firestore
@@ -527,7 +541,7 @@ function App() {
 
         // Update NCP claims in LocalStorage
         const claims = backupData.claims || [];
-        localStorage.setItem('wms_claims', JSON.stringify(claims));
+        safeSetLocalStorage('wms_claims', JSON.stringify(claims));
 
         // If cloud database is connected, synchronize claims
         if (db && claims.length > 0) {
@@ -601,7 +615,7 @@ function App() {
           setInventory([]);
           setAgreements([]);
           setClaims([]);
-          localStorage.setItem('wms_claims', '[]');
+          safeSetLocalStorage('wms_claims', '[]');
 
           if (firebaseConfig && firebaseConfig.projectId) {
             localStorage.setItem('wms_synced_project_id', firebaseConfig.projectId);

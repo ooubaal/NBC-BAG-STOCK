@@ -836,10 +836,11 @@ const Inventory = ({ inventory, setInventory }) => {
       {selectedIds.length > 0 && (
         <div style={{
           position: 'fixed',
-          top: '50%',
-          right: '1.5rem',
-          transform: 'translateY(-50%)',
-          width: '320px',
+          bottom: '1.5rem',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          width: '95%',
+          maxWidth: '1200px',
           background: 'rgba(15, 23, 42, 0.75)',
           backdropFilter: 'blur(12px)',
           border: '1px solid rgba(14, 165, 233, 0.35)',
@@ -850,40 +851,40 @@ const Inventory = ({ inventory, setInventory }) => {
           display: 'flex',
           flexDirection: 'column',
           gap: '1rem',
-          animation: 'slideLeft 0.35s cubic-bezier(0.16, 1, 0.3, 1)',
-          maxHeight: '90vh',
-          overflowY: 'auto'
+          animation: 'slideUp 0.35s cubic-bezier(0.16, 1, 0.3, 1)'
         }}>
           {/* Header */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', borderBottom: '1px solid var(--glass-border)', paddingBottom: '0.75rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--glass-border)', paddingBottom: '0.75rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
               <span style={{ 
                 background: 'var(--accent-color, #0ea5e9)', 
                 color: '#fff', 
                 padding: '0.2rem 0.6rem', 
                 borderRadius: '20px', 
-                fontSize: '0.75rem', 
+                fontSize: '0.8rem', 
                 fontWeight: 'bold' 
               }}>
                 เลือกแล้ว {selectedIds.length} รายการ
               </span>
-              <button 
-                className="btn btn-secondary" 
-                style={{ padding: '0.2rem 0.5rem', fontSize: '0.7rem' }}
-                onClick={() => setSelectedIds([])}
-              >
-                ยกเลิกเลือกทั้งหมด
-              </button>
+              <h3 style={{ fontSize: '1rem', margin: 0, fontWeight: 'bold', color: '#fff' }}>
+                จัดการสถานะแบบกลุ่ม (Bulk Update)
+              </h3>
             </div>
-            <h3 style={{ fontSize: '0.95rem', margin: 0, fontWeight: 'bold', color: '#fff' }}>
-              จัดการสถานะแบบกลุ่ม (Bulk Update)
-            </h3>
+            <button 
+              className="btn btn-secondary" 
+              style={{ padding: '0.25rem 0.75rem', fontSize: '0.75rem' }}
+              onClick={() => setSelectedIds([])}
+            >
+              ยกเลิกการเลือกทั้งหมด
+            </button>
           </div>
 
           {/* Form Content */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1.5rem', alignItems: 'flex-start' }}>
             {/* QC Option */}
             <div style={{ 
+              flex: '1', 
+              minWidth: '280px', 
               background: 'rgba(255,255,255,0.02)', 
               padding: '0.75rem 1rem', 
               borderRadius: '8px', 
@@ -899,11 +900,11 @@ const Inventory = ({ inventory, setInventory }) => {
                 อัปเดตสถานะ QC
               </label>
               {bulkUpdateQC && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.5rem' }}>
+                <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
                   <select 
                     value={bulkQCValue} 
                     onChange={(e) => setBulkQCValue(e.target.value)}
-                    style={{ padding: '0.35rem', fontSize: '0.8rem', background: 'var(--input-bg)', color: 'var(--text-primary)', border: '1px solid var(--glass-border)', borderRadius: '4px', width: '100%' }}
+                    style={{ flex: 1, padding: '0.35rem', fontSize: '0.8rem', background: 'var(--input-bg)', color: 'var(--text-primary)', border: '1px solid var(--glass-border)', borderRadius: '4px' }}
                   >
                     <option value="Pass">Pass</option>
                     <option value="Quarantine">Quarantine</option>
@@ -913,7 +914,7 @@ const Inventory = ({ inventory, setInventory }) => {
                     type="date" 
                     value={bulkQCDate} 
                     onChange={(e) => setBulkQCDate(e.target.value)}
-                    style={{ padding: '0.35rem', fontSize: '0.8rem', background: 'var(--input-bg)', color: 'var(--text-primary)', border: '1px solid var(--glass-border)', borderRadius: '4px', width: '100%' }}
+                    style={{ flex: 1.2, padding: '0.35rem', fontSize: '0.8rem', background: 'var(--input-bg)', color: 'var(--text-primary)', border: '1px solid var(--glass-border)', borderRadius: '4px' }}
                   />
                 </div>
               )}
@@ -921,6 +922,8 @@ const Inventory = ({ inventory, setInventory }) => {
 
             {/* Acceptance Option */}
             <div style={{ 
+              flex: '1', 
+              minWidth: '280px', 
               background: 'rgba(255,255,255,0.02)', 
               padding: '0.75rem 1rem', 
               borderRadius: '8px', 
@@ -933,14 +936,14 @@ const Inventory = ({ inventory, setInventory }) => {
                   onChange={(e) => setBulkUpdateAcceptance(e.target.checked)} 
                   style={{ width: '16px', height: '16px', cursor: 'pointer' }}
                 />
-                อัปเดตจัดซื้อ / วางบิล
+                อัปเดตสถานะจัดซื้อ / วางบิล
               </label>
               {bulkUpdateAcceptance && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.5rem' }}>
+                <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
                   <select 
                     value={bulkAcceptanceValue} 
                     onChange={(e) => setBulkAcceptanceValue(e.target.value)}
-                    style={{ padding: '0.35rem', fontSize: '0.8rem', background: 'var(--input-bg)', color: 'var(--text-primary)', border: '1px solid var(--glass-border)', borderRadius: '4px', width: '100%' }}
+                    style={{ flex: 1, padding: '0.35rem', fontSize: '0.8rem', background: 'var(--input-bg)', color: 'var(--text-primary)', border: '1px solid var(--glass-border)', borderRadius: '4px' }}
                   >
                     <option value="">ยังไม่ได้วางบิล</option>
                     <option value="Pending">รอการตรวจรับ</option>
@@ -951,7 +954,7 @@ const Inventory = ({ inventory, setInventory }) => {
                     type="date" 
                     value={bulkAcceptanceDate} 
                     onChange={(e) => setBulkAcceptanceDate(e.target.value)}
-                    style={{ padding: '0.35rem', fontSize: '0.8rem', background: 'var(--input-bg)', color: 'var(--text-primary)', border: '1px solid var(--glass-border)', borderRadius: '4px', width: '100%' }}
+                    style={{ flex: 1.2, padding: '0.35rem', fontSize: '0.8rem', background: 'var(--input-bg)', color: 'var(--text-primary)', border: '1px solid var(--glass-border)', borderRadius: '4px' }}
                   />
                 </div>
               )}
@@ -959,6 +962,8 @@ const Inventory = ({ inventory, setInventory }) => {
 
             {/* Location Option */}
             <div style={{ 
+              flex: '1', 
+              minWidth: '280px', 
               background: 'rgba(255,255,255,0.02)', 
               padding: '0.75rem 1rem', 
               borderRadius: '8px', 
@@ -974,19 +979,19 @@ const Inventory = ({ inventory, setInventory }) => {
                 อัปเดตสถานที่เก็บ
               </label>
               {bulkUpdateLocation && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.5rem' }}>
+                <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
                   <input 
                     type="text" 
                     placeholder="สถานที่เก็บ..." 
                     value={bulkLocationValue} 
                     onChange={(e) => setBulkLocationValue(e.target.value)}
-                    style={{ padding: '0.35rem', fontSize: '0.8rem', background: 'var(--input-bg)', color: 'var(--text-primary)', border: '1px solid var(--glass-border)', borderRadius: '4px', width: '100%' }}
+                    style={{ flex: 1, padding: '0.35rem', fontSize: '0.8rem', background: 'var(--input-bg)', color: 'var(--text-primary)', border: '1px solid var(--glass-border)', borderRadius: '4px' }}
                   />
                   <input 
                     type="date" 
                     value={bulkLocationDate} 
                     onChange={(e) => setBulkLocationDate(e.target.value)}
-                    style={{ padding: '0.35rem', fontSize: '0.8rem', background: 'var(--input-bg)', color: 'var(--text-primary)', border: '1px solid var(--glass-border)', borderRadius: '4px', width: '100%' }}
+                    style={{ flex: 1.2, padding: '0.35rem', fontSize: '0.8rem', background: 'var(--input-bg)', color: 'var(--text-primary)', border: '1px solid var(--glass-border)', borderRadius: '4px' }}
                   />
                 </div>
               )}
@@ -994,14 +999,7 @@ const Inventory = ({ inventory, setInventory }) => {
           </div>
 
           {/* Footer Actions */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', borderTop: '1px solid var(--glass-border)', paddingTop: '0.75rem', marginTop: '0.25rem' }}>
-            <button 
-              className="btn btn-primary" 
-              onClick={handleBulkUpdate}
-              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', width: '100%' }}
-            >
-              <Save size={16} /> บันทึกการอัปเดตกลุ่ม
-            </button>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', borderTop: '1px solid var(--glass-border)', paddingTop: '0.75rem', marginTop: '0.25rem' }}>
             <button 
               className="btn btn-secondary" 
               onClick={() => {
@@ -1011,9 +1009,15 @@ const Inventory = ({ inventory, setInventory }) => {
                 setBulkUpdateLocation(false);
                 setBulkLocationValue('');
               }}
-              style={{ justifyContent: 'center', width: '100%' }}
             >
               ยกเลิก
+            </button>
+            <button 
+              className="btn btn-primary" 
+              onClick={handleBulkUpdate}
+              style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+            >
+              <Save size={16} /> บันทึกการอัปเดตกลุ่ม
             </button>
           </div>
         </div>

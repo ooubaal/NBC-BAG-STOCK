@@ -206,14 +206,3 @@ td {
     opacity: 1;
   }
 }
-
-@keyframes slideLeft {
-  from {
-    transform: translate(100px, -50%);
-    opacity: 0;
-  }
-  to {
-    transform: translate(0, -50%);
-    opacity: 1;
-  }
-}

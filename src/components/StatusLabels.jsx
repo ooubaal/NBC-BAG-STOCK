@@ -1,6 +1,16 @@
 import { useState, useMemo } from 'react';
 import { Tag, Printer, Eye } from 'lucide-react';
 
+const escapeHTML = (str) => {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+};
+
 const SearchableSelect = ({ value, onChange, options, placeholder }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState('');
@@ -227,6 +237,11 @@ const StatusLabels = ({ inventory = [] }) => {
       const displayQty = `${customQty || '0'} ${lotDetails?.unit || 'ชิ้น'}`;
       const displayResp = responsible || '';
 
+      const escItemName = escapeHTML(itemName);
+      const escLotNo = escapeHTML(displayLotNo);
+      const escQty = escapeHTML(displayQty);
+      const escResp = escapeHTML(displayResp);
+
       if (qcStatus === 'Pass') {
         const displayDate = customDate ? formatThaiDate(customDate) : '-';
         return `
@@ -236,12 +251,12 @@ const StatusLabels = ({ inventory = [] }) => {
               <div class="field-item">
                 <span class="field-label">ชื่อวัตถุดิบ/วัสดุ</span>
                 <span class="field-colon">:</span>
-                <span class="field-value">${itemName}</span>
+                <span class="field-value">${escItemName}</span>
               </div>
               <div class="field-item">
                 <span class="field-label">Lot. No</span>
                 <span class="field-colon">:</span>
-                <span class="field-value">${displayLotNo}</span>
+                <span class="field-value">${escLotNo}</span>
               </div>
               <div class="field-item">
                 <span class="field-label">Released date</span>
@@ -251,12 +266,12 @@ const StatusLabels = ({ inventory = [] }) => {
               <div class="field-item">
                 <span class="field-label">จำนวน</span>
                 <span class="field-colon">:</span>
-                <span class="field-value">${displayQty}</span>
+                <span class="field-value">${escQty}</span>
               </div>
               <div class="field-item">
                 <span class="field-label">ผู้รับผิดชอบ</span>
                 <span class="field-colon">:</span>
-                <span class="field-value font-handwriting">${displayResp}</span>
+                <span class="field-value font-handwriting">${escResp}</span>
               </div>
             </div>
             <div class="footer">
@@ -273,22 +288,22 @@ const StatusLabels = ({ inventory = [] }) => {
               <div class="field-item">
                 <span class="field-label">ชื่อวัตถุดิบ/วัสดุ</span>
                 <span class="field-colon">:</span>
-                <span class="field-value">${itemName}</span>
+                <span class="field-value">${escItemName}</span>
               </div>
               <div class="field-item">
                 <span class="field-label">Lot. No</span>
                 <span class="field-colon">:</span>
-                <span class="field-value">${displayLotNo}</span>
+                <span class="field-value">${escLotNo}</span>
               </div>
               <div class="field-item">
                 <span class="field-label">จำนวน</span>
                 <span class="field-colon">:</span>
-                <span class="field-value">${displayQty}</span>
+                <span class="field-value">${escQty}</span>
               </div>
               <div class="field-item">
                 <span class="field-label">ผู้รับผิดชอบ</span>
                 <span class="field-colon">:</span>
-                <span class="field-value font-handwriting">${displayResp}</span>
+                <span class="field-value font-handwriting">${escResp}</span>
               </div>
             </div>
             <div class="footer">
@@ -306,12 +321,12 @@ const StatusLabels = ({ inventory = [] }) => {
               <div class="field-item">
                 <span class="field-label">ชื่อวัตถุดิบ/วัสดุ</span>
                 <span class="field-colon">:</span>
-                <span class="field-value">${itemName}</span>
+                <span class="field-value">${escItemName}</span>
               </div>
               <div class="field-item">
                 <span class="field-label">Lot. No</span>
                 <span class="field-colon">:</span>
-                <span class="field-value">${displayLotNo}</span>
+                <span class="field-value">${escLotNo}</span>
               </div>
               <div class="field-item">
                 <span class="field-label">วันที่รับ</span>
@@ -321,12 +336,12 @@ const StatusLabels = ({ inventory = [] }) => {
               <div class="field-item">
                 <span class="field-label">จำนวน</span>
                 <span class="field-colon">:</span>
-                <span class="field-value">${displayQty}</span>
+                <span class="field-value">${escQty}</span>
               </div>
               <div class="field-item">
                 <span class="field-label">ผู้รับผิดชอบ</span>
                 <span class="field-colon">:</span>
-                <span class="field-value font-handwriting">${displayResp}</span>
+                <span class="field-value font-handwriting">${escResp}</span>
               </div>
             </div>
             <div class="footer">

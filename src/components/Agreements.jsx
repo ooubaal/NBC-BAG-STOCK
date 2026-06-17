@@ -1,6 +1,16 @@
 import { useState, useMemo } from 'react';
 import { Plus, Check, X, FileText, ShieldAlert, PackageOpen, ChevronDown, ChevronUp, UserCheck, AlertTriangle, Search, Edit2, Trash2, Paperclip, Eye } from 'lucide-react';
 
+const escapeHTML = (str) => {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+};
+
 const Agreements = ({ agreements, setAgreements, inventory, setInventory, items }) => {
   const [activeTab, setActiveTab] = useState('list'); // 'list' or 'new'
   const [expandedAgreementId, setExpandedAgreementId] = useState(null);
@@ -39,6 +49,11 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
     if (e) e.preventDefault();
     if (!editForm.totalQty || !editForm.supplier) {
       alert("กรุณากรอกข้อมูลที่จำเป็นให้ครบถ้วน (จำนวนทั้งหมด, ผู้จัดจำหน่าย)");
+      return;
+    }
+
+    if (Number(editForm.totalQty) <= 0) {
+      alert("กรุณาระบุจำนวนจัดซื้อตามสัญญาให้ถูกต้อง (ต้องมีค่ามากกว่า 0)");
       return;
     }
 
@@ -211,6 +226,11 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
     e.preventDefault();
     if (!newAgreement.id || !newAgreement.totalQty || !newAgreement.supplier) {
       alert("กรุณากรอกข้อมูลที่จำเป็นให้ครบถ้วน (เลขที่สัญญา, จำนวนทั้งหมด, ผู้จัดจำหน่าย)");
+      return;
+    }
+
+    if (Number(newAgreement.totalQty) <= 0) {
+      alert("กรุณาระบุจำนวนจัดซื้อตามสัญญาให้ถูกต้อง (ต้องมีค่ามากกว่า 0)");
       return;
     }
 
@@ -584,14 +604,14 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
             <tbody>
               ${outstandingAgreements.map(ag => `
                 <tr>
-                  <td class="col-agreement" style="font-weight: 600;">${ag.id}</td>
-                  <td class="col-supplier">${ag.supplier}</td>
-                  <td class="col-item" style="font-weight: 600;">${ag.itemName}</td>
+                  <td class="col-agreement" style="font-weight: 600;">${escapeHTML(ag.id)}</td>
+                  <td class="col-supplier">${escapeHTML(ag.supplier)}</td>
+                  <td class="col-item" style="font-weight: 600;">${escapeHTML(ag.itemName)}</td>
                   <td class="col-totalqty" style="text-align: right;">${ag.totalQty.toLocaleString()}</td>
                   <td class="col-acceptedqty" style="text-align: right; color: #0f5132;">${ag.acceptedQty.toLocaleString()}</td>
                   <td class="col-pendingqty" style="text-align: right; color: #664d03;">${ag.pendingQty.toLocaleString()}</td>
                   <td class="col-outstandingqty" style="text-align: right; font-weight: 700; color: #b71c1c;">${ag.outstandingQty.toLocaleString()}</td>
-                  <td class="col-unit">${ag.unit}</td>
+                  <td class="col-unit">${escapeHTML(ag.unit)}</td>
                   <td class="col-enddate nowrap">${formatDateToDDMMYY(ag.endDate)}</td>
                   <td class="col-status">
                     <span class="status-badge ${
@@ -1499,14 +1519,14 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
                                   newWindow.document.write(`
                                     <html>
                                       <head>
-                                        <title>${file.name}</title>
+                                        <title>${escapeHTML(file.name)}</title>
                                         <style>
                                           body { margin: 0; background: #0f172a; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
                                           img { max-width: 100%; max-height: 100vh; object-fit: contain; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
                                         </style>
                                       </head>
                                       <body>
-                                        <img src="${file.data}" alt="${file.name}" />
+                                        <img src="${file.data}" alt="${escapeHTML(file.name)}" />
                                       </body>
                                     </html>
                                   `);

@@ -10,6 +10,16 @@ const formatDateToDDMMYYYY = (dateStr) => {
   return `${dd}/${mm}/${yyyy}`;
 };
 
+const escapeHTML = (str) => {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+};
+
 const Withdrawal = ({ inventory, setInventory, items }) => {
   const [withdrawalTab, setWithdrawalTab] = useState('new'); // 'new' or 'history'
   const [selectedItem, setSelectedItem] = useState((items && items.length > 0) ? items[0].name : '');
@@ -361,15 +371,15 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
               ${withdrawalList.map(w => `
                 <tr style="${w.isCancelled ? 'opacity: 0.55; text-decoration: line-through;' : ''}">
                   <td>${w.date}</td>
-                  <td style="font-weight: 600;">${w.itemName}</td>
-                  <td>${w.supplierLot}</td>
-                  <td>${w.inhouseLot || '-'}</td>
+                  <td style="font-weight: 600;">${escapeHTML(w.itemName)}</td>
+                  <td>${escapeHTML(w.supplierLot)}</td>
+                  <td>${escapeHTML(w.inhouseLot) || '-'}</td>
                   <td style="font-weight: 700; color: #dc2626; text-align: right;">
                     ${w.isCancelled ? `<s>-${w.amount}</s> <span style="font-size: 10px; color: #ef4444; display: block;">(ยกเลิกแล้ว)</span>` : `-${w.amount}`}
                   </td>
-                  <td>${w.unit}</td>
-                  <td>${w.location || '-'}</td>
-                  <td>${w.isCancelled ? `(ยกเลิกการตัดจ่าย) ${w.reason || ''}` : (w.reason || '-')}</td>
+                  <td>${escapeHTML(w.unit)}</td>
+                  <td>${escapeHTML(w.location) || '-'}</td>
+                  <td>${w.isCancelled ? `(ยกเลิกการตัดจ่าย) ${escapeHTML(w.reason)}` : escapeHTML(w.reason || '-')}</td>
                 </tr>
               `).join('')}
               <tr class="total-row">
@@ -664,15 +674,15 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
               ${reportList.map(w => `
                 <tr style="${w.isCancelled ? 'opacity: 0.55; text-decoration: line-through;' : ''}">
                   <td class="col-date nowrap">${formatDateToDDMMYY(w.date)}</td>
-                  <td class="col-item" style="font-weight: 600;">${w.itemName}</td>
-                  <td class="col-supplier">${w.supplierLot || '-'}</td>
-                  <td class="col-inhouse">${w.inhouseLot || '-'}</td>
+                  <td class="col-item" style="font-weight: 600;">${escapeHTML(w.itemName)}</td>
+                  <td class="col-supplier">${escapeHTML(w.supplierLot) || '-'}</td>
+                  <td class="col-inhouse">${escapeHTML(w.inhouseLot) || '-'}</td>
                   <td class="col-qty" style="font-weight: 700; color: #dc2626; text-align: right;">
                     ${w.isCancelled ? `<s>-${w.amount.toLocaleString()}</s> <span style="font-size: 10px; color: #ef4444; display: block;">(ยกเลิกแล้ว)</span>` : `-${w.amount.toLocaleString()}`}
                   </td>
-                  <td class="col-unit">${w.unit || 'ชิ้น'}</td>
-                  <td class="col-location">${w.location || '-'}</td>
-                  <td class="col-reason">${w.isCancelled ? `(ยกเลิกการตัดจ่าย) ${w.reason || ''}` : (w.reason || '-')}</td>
+                  <td class="col-unit">${escapeHTML(w.unit) || 'ชิ้น'}</td>
+                  <td class="col-location">${escapeHTML(w.location) || '-'}</td>
+                  <td class="col-reason">${w.isCancelled ? `(ยกเลิกการตัดจ่าย) ${escapeHTML(w.reason)}` : escapeHTML(w.reason || '-')}</td>
                 </tr>
               `).join('')}
               <tr id="total-row" class="total-row">
@@ -1067,8 +1077,8 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
               ${rows.map(r => `
                 <tr>
                   <td class="center">${r.no}</td>
-                  <td style="padding-left: 8px; font-weight: ${r.itemName ? '600' : 'normal'};">${r.itemName}</td>
-                  <td class="center">${r.unitPack}</td>
+                  <td style="padding-left: 8px; font-weight: ${r.itemName ? '600' : 'normal'};">${escapeHTML(r.itemName)}</td>
+                  <td class="center">${escapeHTML(r.unitPack)}</td>
                   <td class="right">${r.amountReq ? r.amountReq.toLocaleString() : ''}</td>
                   <td class="center"></td>
                   <td class="right" style="font-weight: bold;">${r.amountIssued ? r.amountIssued.toLocaleString() : ''}</td>

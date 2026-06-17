@@ -119,6 +119,16 @@ const formatDateToDDMMYYYY = (dateStr) => {
   return `${dd}/${mm}/${yyyy}`;
 };
 
+const escapeHTML = (str) => {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+};
+
 const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
   const [inboundTab, setInboundTab] = useState('draft'); // 'draft' or 'history'
   const [historySearch, setHistorySearch] = useState('');
@@ -256,9 +266,15 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
 
   const handleSave = () => {
     // Basic validation
-    const isValid = entries.every(e => e.itemName && e.quantity && e.supplierLot);
-    if (!isValid) {
+    const hasRequired = entries.every(e => e.itemName && e.quantity && e.supplierLot);
+    if (!hasRequired) {
       alert("กรุณากรอกข้อมูลที่จำเป็นให้ครบถ้วน (รายการสินค้า, จำนวน, Supplier Lot)");
+      return;
+    }
+
+    const hasValidQty = entries.every(e => Number(e.quantity) > 0);
+    if (!hasValidQty) {
+      alert("กรุณากรอกจำนวนให้ถูกต้อง (ต้องมีค่ามากกว่า 0)");
       return;
     }
 
@@ -793,21 +809,21 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
               ${entries.map(e => `
                 <tr>
                   <td>${e.date || "-"}</td>
-                  <td style="font-weight: 600;">${e.itemName || "-"}</td>
-                  <td>${e.supplierLot || "-"}</td>
-                  <td>${e.inhouseLot || "-"}</td>
+                  <td style="font-weight: 600;">${escapeHTML(e.itemName) || "-"}</td>
+                  <td>${escapeHTML(e.supplierLot) || "-"}</td>
+                  <td>${escapeHTML(e.inhouseLot) || "-"}</td>
                   <td>
                     <span class="status-badge ${
                       e.qcStatus === 'Pass' ? 'status-pass' :
                       e.qcStatus === 'Reject' ? 'status-reject' : 'status-quarantine'
                     }">
-                      ${e.qcStatus}
+                      ${escapeHTML(e.qcStatus)}
                     </span>
                   </td>
-                  <td>${e.packSize || "-"}</td>
+                  <td>${escapeHTML(e.packSize) || "-"}</td>
                   <td style="font-weight: 700; text-align: right;">${e.quantity || "0"}</td>
-                  <td>${e.unit || "ชิ้น"}</td>
-                  <td>${e.location || "-"}</td>
+                  <td>${escapeHTML(e.unit) || "ชิ้น"}</td>
+                  <td>${escapeHTML(e.location) || "-"}</td>
                 </tr>
               `).join("")}
               <tr class="total-row">
@@ -1084,22 +1100,22 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
               ${itemsToPrint.map(e => `
                 <tr style="${e.isCancelled ? 'opacity: 0.55; text-decoration: line-through;' : ''}">
                   <td>${e.date || "-"}</td>
-                  <td style="font-weight: 600;">${e.itemName || "-"}</td>
-                  <td>${e.supplierLot || "-"}</td>
-                  <td>${e.inhouseLot || "-"}</td>
+                  <td style="font-weight: 600;">${escapeHTML(e.itemName) || "-"}</td>
+                  <td>${escapeHTML(e.supplierLot) || "-"}</td>
+                  <td>${escapeHTML(e.inhouseLot) || "-"}</td>
                   <td>
                     ${e.isCancelled ? '<span style="color: #ef4444; font-weight: bold;">ยกเลิกแล้ว</span>' : `
                     <span class="status-badge ${
                       e.qcStatus === 'Pass' ? 'status-pass' :
                       e.qcStatus === 'Reject' ? 'status-reject' : 'status-quarantine'
                     }">
-                      ${e.qcStatus}
+                      ${escapeHTML(e.qcStatus)}
                     </span>`}
                   </td>
-                  <td>${e.packSize || "-"}</td>
+                  <td>${escapeHTML(e.packSize) || "-"}</td>
                   <td style="font-weight: 700; text-align: right;">${e.quantity || "0"}</td>
-                  <td>${e.unit || "ชิ้น"}</td>
-                  <td>${e.location || "-"}</td>
+                  <td>${escapeHTML(e.unit) || "ชิ้น"}</td>
+                  <td>${escapeHTML(e.location) || "-"}</td>
                 </tr>
               `).join("")}
               <tr class="total-row">
@@ -1438,21 +1454,21 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
               ${reportList.map(item => `
                 <tr style="${item.isCancelled ? 'opacity: 0.55; text-decoration: line-through;' : ''}">
                   <td class="col-date nowrap">${formatDateToDDMMYY(item.date)}</td>
-                  <td class="col-item" style="font-weight: 600;">${item.itemName}</td>
-                  <td class="col-supplier">${item.supplierLot || '-'}</td>
-                  <td class="col-inhouse">${item.inhouseLot || '-'}</td>
+                  <td class="col-item" style="font-weight: 600;">${escapeHTML(item.itemName)}</td>
+                  <td class="col-supplier">${escapeHTML(item.supplierLot) || '-'}</td>
+                  <td class="col-inhouse">${escapeHTML(item.inhouseLot) || '-'}</td>
                   <td class="col-qc">
                     ${item.isCancelled ? '<span style="color: #ef4444; font-weight: bold;">ยกเลิกแล้ว</span>' : `
                     <span class="status-badge ${
                       item.qcStatus === 'Pass' ? 'status-pass' :
                       item.qcStatus === 'Reject' ? 'status-reject' : 'status-quarantine'
                     }">
-                      ${item.qcStatus}
+                      ${escapeHTML(item.qcStatus)}
                     </span>`}
                   </td>
-                  <td class="col-location" style="font-weight: 600;">${item.location || '-'}</td>
+                  <td class="col-location" style="font-weight: 600;">${escapeHTML(item.location) || '-'}</td>
                   <td class="col-qty" style="font-weight: 700; text-align: right;">${item.quantity.toLocaleString()}</td>
-                  <td class="col-unit">${item.unit || 'ชิ้น'}</td>
+                  <td class="col-unit">${escapeHTML(item.unit) || 'ชิ้น'}</td>
                 </tr>
               `).join('')}
               <tr id="total-row" class="total-row">
