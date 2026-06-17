@@ -271,7 +271,7 @@ const Inventory = ({ inventory, setInventory }) => {
                   onChange={() => toggleSelectAll(sortedInventory.map(item => item.id))}
                 />
               </th>
-              <th style={{ padding: '0.6rem 0.8rem', minWidth: '225px' }}>
+              <th style={{ padding: '0.6rem 0.8rem', minWidth: '120px' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', alignItems: 'flex-start' }}>
                   <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>วันที่รับ (ช่วง)</span>
                   <select 
@@ -295,19 +295,19 @@ const Inventory = ({ inventory, setInventory }) => {
                     <option value="date-desc">ล่าสุดอยู่บน 🔽</option>
                     <option value="date-asc">เก่าสุดอยู่บน 🔼</option>
                   </select>
-                  <div style={{ display: 'flex', gap: '0.2rem', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem', width: '100%' }}>
                     <input 
                       type="date" 
                       value={filterStartDate} 
                       onChange={(e) => setFilterStartDate(e.target.value)} 
-                      style={{ padding: '0.2rem', fontSize: '0.65rem', height: '24px', width: '95px', background: 'var(--input-bg)', color: 'var(--text-primary)', border: '1px solid var(--glass-border)', borderRadius: '4px' }} 
+                      style={{ padding: '0.2rem', fontSize: '0.65rem', height: '24px', width: '100%', maxWidth: '105px', background: 'var(--input-bg)', color: 'var(--text-primary)', border: '1px solid var(--glass-border)', borderRadius: '4px' }} 
                     />
-                    <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>-</span>
+                    <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', paddingLeft: '0.1rem' }}>ถึง</span>
                     <input 
                       type="date" 
                       value={filterEndDate} 
                       onChange={(e) => setFilterEndDate(e.target.value)} 
-                      style={{ padding: '0.2rem', fontSize: '0.65rem', height: '24px', width: '95px', background: 'var(--input-bg)', color: 'var(--text-primary)', border: '1px solid var(--glass-border)', borderRadius: '4px' }} 
+                      style={{ padding: '0.2rem', fontSize: '0.65rem', height: '24px', width: '100%', maxWidth: '105px', background: 'var(--input-bg)', color: 'var(--text-primary)', border: '1px solid var(--glass-border)', borderRadius: '4px' }} 
                     />
                   </div>
                 </div>
