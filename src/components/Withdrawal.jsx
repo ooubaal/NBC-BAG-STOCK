@@ -28,13 +28,7 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
   const [historyStartDate, setHistoryStartDate] = useState('');
   const [historyEndDate, setHistoryEndDate] = useState('');
 
-  // Column filter states for Withdrawal history
-  const [withdrawalFilterDate, setWithdrawalFilterDate] = useState('');
-  const [withdrawalFilterItem, setWithdrawalFilterItem] = useState('');
-  const [withdrawalFilterLot, setWithdrawalFilterLot] = useState('');
-  const [withdrawalFilterQty, setWithdrawalFilterQty] = useState('');
-  const [withdrawalFilterLocation, setWithdrawalFilterLocation] = useState('');
-  const [withdrawalFilterReason, setWithdrawalFilterReason] = useState('');
+
 
   // Gather all historical withdrawals from inventory lots
   const historicalWithdrawals = useMemo(() => {
@@ -100,22 +94,9 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
         matchesDate = matchesDate && w.date <= historyEndDate;
       }
       
-      // Column Filters
-      const formattedDate = formatDateToDDMMYYYY(w.date);
-      const matchColDate = !withdrawalFilterDate || formattedDate.toLowerCase().includes(withdrawalFilterDate.toLowerCase());
-      const matchColItem = !withdrawalFilterItem || w.itemName.toLowerCase().includes(withdrawalFilterItem.toLowerCase());
-      const matchColLot = !withdrawalFilterLot || 
-                         w.supplierLot.toLowerCase().includes(withdrawalFilterLot.toLowerCase()) || 
-                         (w.inhouseLot && w.inhouseLot.toLowerCase().includes(withdrawalFilterLot.toLowerCase()));
-      const matchColQty = !withdrawalFilterQty || 
-                         String(w.amount).toLowerCase().includes(withdrawalFilterQty.toLowerCase()) || 
-                         w.unit.toLowerCase().includes(withdrawalFilterQty.toLowerCase());
-      const matchColLocation = !withdrawalFilterLocation || (w.location && w.location.toLowerCase().includes(withdrawalFilterLocation.toLowerCase()));
-      const matchColReason = !withdrawalFilterReason || (w.reason && w.reason.toLowerCase().includes(withdrawalFilterReason.toLowerCase()));
-
-      return matchesSearch && matchesDate && matchColDate && matchColItem && matchColLot && matchColQty && matchColLocation && matchColReason;
+      return matchesSearch && matchesDate;
     });
-  }, [historicalWithdrawals, historySearch, historyStartDate, historyEndDate, withdrawalFilterDate, withdrawalFilterItem, withdrawalFilterLot, withdrawalFilterQty, withdrawalFilterLocation, withdrawalFilterReason]);
+  }, [historicalWithdrawals, historySearch, historyStartDate, historyEndDate]);
 
   const handleWithdraw = () => {
     if (!activeLotId) {
@@ -1551,7 +1532,7 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
               />
             </div>
 
-            {(historySearch || historyStartDate || historyEndDate || withdrawalFilterDate || withdrawalFilterItem || withdrawalFilterLot || withdrawalFilterQty || withdrawalFilterLocation || withdrawalFilterReason) && (
+            {(historySearch || historyStartDate || historyEndDate) && (
               <button 
                 className="btn btn-secondary" 
                 style={{ padding: '0.4rem 0.8rem', fontSize: '0.75rem' }}
@@ -1559,12 +1540,6 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
                   setHistorySearch('');
                   setHistoryStartDate('');
                   setHistoryEndDate('');
-                  setWithdrawalFilterDate('');
-                  setWithdrawalFilterItem('');
-                  setWithdrawalFilterLot('');
-                  setWithdrawalFilterQty('');
-                  setWithdrawalFilterLocation('');
-                  setWithdrawalFilterReason('');
                 }}
               >
                 ล้างตัวกรองทั้งหมด
@@ -1590,64 +1565,6 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
                   <th style={{ padding: '1rem' }}>ที่เก็บเดิม</th>
                   <th style={{ padding: '1rem' }}>เหตุผล / หมายเหตุ</th>
                   <th style={{ padding: '1rem' }}>จัดการ</th>
-                </tr>
-                <tr style={{ borderBottom: '1px solid var(--glass-border)' }}>
-                  <th style={{ padding: '0.5rem 1rem' }}></th>
-                  <th style={{ padding: '0.5rem 1rem' }}>
-                    <input 
-                      type="text" 
-                      placeholder="กรอง..." 
-                      value={withdrawalFilterDate} 
-                      onChange={(e) => setWithdrawalFilterDate(e.target.value)} 
-                      style={{ width: '100%', padding: '0.3rem', fontSize: '0.8rem', border: '1px solid var(--glass-border)', borderRadius: '4px', background: 'var(--input-bg)', color: 'var(--text-primary)' }}
-                    />
-                  </th>
-                  <th style={{ padding: '0.5rem 1rem' }}>
-                    <input 
-                      type="text" 
-                      placeholder="กรอง..." 
-                      value={withdrawalFilterItem} 
-                      onChange={(e) => setWithdrawalFilterItem(e.target.value)} 
-                      style={{ width: '100%', padding: '0.3rem', fontSize: '0.8rem', border: '1px solid var(--glass-border)', borderRadius: '4px', background: 'var(--input-bg)', color: 'var(--text-primary)' }}
-                    />
-                  </th>
-                  <th style={{ padding: '0.5rem 1rem' }}>
-                    <input 
-                      type="text" 
-                      placeholder="กรอง..." 
-                      value={withdrawalFilterLot} 
-                      onChange={(e) => setWithdrawalFilterLot(e.target.value)} 
-                      style={{ width: '100%', padding: '0.3rem', fontSize: '0.8rem', border: '1px solid var(--glass-border)', borderRadius: '4px', background: 'var(--input-bg)', color: 'var(--text-primary)' }}
-                    />
-                  </th>
-                  <th style={{ padding: '0.5rem 1rem' }}>
-                    <input 
-                      type="text" 
-                      placeholder="กรอง..." 
-                      value={withdrawalFilterQty} 
-                      onChange={(e) => setWithdrawalFilterQty(e.target.value)} 
-                      style={{ width: '100%', padding: '0.3rem', fontSize: '0.8rem', border: '1px solid var(--glass-border)', borderRadius: '4px', background: 'var(--input-bg)', color: 'var(--text-primary)' }}
-                    />
-                  </th>
-                  <th style={{ padding: '0.5rem 1rem' }}>
-                    <input 
-                      type="text" 
-                      placeholder="กรอง..." 
-                      value={withdrawalFilterLocation} 
-                      onChange={(e) => setWithdrawalFilterLocation(e.target.value)} 
-                      style={{ width: '100%', padding: '0.3rem', fontSize: '0.8rem', border: '1px solid var(--glass-border)', borderRadius: '4px', background: 'var(--input-bg)', color: 'var(--text-primary)' }}
-                    />
-                  </th>
-                  <th style={{ padding: '0.5rem 1rem' }}>
-                    <input 
-                      type="text" 
-                      placeholder="กรอง..." 
-                      value={withdrawalFilterReason} 
-                      onChange={(e) => setWithdrawalFilterReason(e.target.value)} 
-                      style={{ width: '100%', padding: '0.3rem', fontSize: '0.8rem', border: '1px solid var(--glass-border)', borderRadius: '4px', background: 'var(--input-bg)', color: 'var(--text-primary)' }}
-                    />
-                  </th>
-                  <th style={{ padding: '0.5rem 1rem' }}></th>
                 </tr>
               </thead>
               <tbody>

@@ -126,14 +126,7 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
   const [historyStartDate, setHistoryStartDate] = useState('');
   const [historyEndDate, setHistoryEndDate] = useState('');
 
-  // Column filter states for Inbound history
-  const [inboundFilterDate, setInboundFilterDate] = useState('');
-  const [inboundFilterItem, setInboundFilterItem] = useState('');
-  const [inboundFilterAgreement, setInboundFilterAgreement] = useState('');
-  const [inboundFilterLot, setInboundFilterLot] = useState('');
-  const [inboundFilterQC, setInboundFilterQC] = useState('All');
-  const [inboundFilterLocation, setInboundFilterLocation] = useState('');
-  const [inboundFilterQty, setInboundFilterQty] = useState('');
+
 
   const getLatestInhouseLot = (itemName) => {
     if (!itemName) return '-';
@@ -872,22 +865,7 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
       matchesDate = matchesDate && item.date <= historyEndDate;
     }
 
-    // Column Filters
-    const formattedDate = formatDateToDDMMYYYY(item.date);
-    const matchColDate = !inboundFilterDate || formattedDate.toLowerCase().includes(inboundFilterDate.toLowerCase());
-    const matchColItem = !inboundFilterItem || (item.itemName && item.itemName.toLowerCase().includes(inboundFilterItem.toLowerCase()));
-    const matchColAgreement = !inboundFilterAgreement || (item.agreementId && item.agreementId.toLowerCase().includes(inboundFilterAgreement.toLowerCase()));
-    const matchColLot = !inboundFilterLot || 
-                       (item.supplierLot && item.supplierLot.toLowerCase().includes(inboundFilterLot.toLowerCase())) ||
-                       (item.inhouseLot && item.inhouseLot.toLowerCase().includes(inboundFilterLot.toLowerCase()));
-    const matchColQC = inboundFilterQC === 'All' || item.qcStatus === inboundFilterQC;
-    const matchColLocation = !inboundFilterLocation || (item.location && item.location.toLowerCase().includes(inboundFilterLocation.toLowerCase()));
-    const matchColQty = !inboundFilterQty || 
-                       String(item.quantity).toLowerCase().includes(inboundFilterQty.toLowerCase()) || 
-                       String(item.remainingQty).toLowerCase().includes(inboundFilterQty.toLowerCase()) || 
-                       (item.unit && item.unit.toLowerCase().includes(inboundFilterQty.toLowerCase()));
-
-    return matchesSearch && matchesDate && matchColDate && matchColItem && matchColAgreement && matchColLot && matchColQC && matchColLocation && matchColQty;
+    return matchesSearch && matchesDate;
   });
 
   const toggleSelectHistory = (id) => {
@@ -1988,7 +1966,7 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
               />
             </div>
 
-            {(historySearch || historyStartDate || historyEndDate || inboundFilterDate || inboundFilterItem || inboundFilterAgreement || inboundFilterLot || inboundFilterQC !== 'All' || inboundFilterLocation || inboundFilterQty) && (
+            {(historySearch || historyStartDate || historyEndDate) && (
               <button 
                 className="btn btn-secondary" 
                 style={{ padding: '0.4rem 0.8rem', fontSize: '0.75rem' }}
@@ -1996,13 +1974,6 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
                   setHistorySearch('');
                   setHistoryStartDate('');
                   setHistoryEndDate('');
-                  setInboundFilterDate('');
-                  setInboundFilterItem('');
-                  setInboundFilterAgreement('');
-                  setInboundFilterLot('');
-                  setInboundFilterQC('All');
-                  setInboundFilterLocation('');
-                  setInboundFilterQty('');
                 }}
               >
                 ล้างตัวกรองทั้งหมด
@@ -2030,76 +2001,6 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
                   <th style={{ padding: '1rem' }}>ที่เก็บ</th>
                   <th style={{ padding: '1rem' }}>จำนวนรับเข้า</th>
                   <th style={{ padding: '1rem' }}>จัดการ</th>
-                </tr>
-                <tr style={{ borderBottom: '1px solid var(--glass-border)' }}>
-                  <th style={{ padding: '0.5rem 1rem' }}></th>
-                  <th style={{ padding: '0.5rem 1rem' }}>
-                    <input 
-                      type="text" 
-                      placeholder="กรอง..." 
-                      value={inboundFilterDate} 
-                      onChange={(e) => setInboundFilterDate(e.target.value)} 
-                      style={{ width: '100%', padding: '0.3rem', fontSize: '0.8rem', border: '1px solid var(--glass-border)', borderRadius: '4px', background: 'var(--input-bg)', color: 'var(--text-primary)' }}
-                    />
-                  </th>
-                  <th style={{ padding: '0.5rem 1rem' }}>
-                    <input 
-                      type="text" 
-                      placeholder="กรอง..." 
-                      value={inboundFilterItem} 
-                      onChange={(e) => setInboundFilterItem(e.target.value)} 
-                      style={{ width: '100%', padding: '0.3rem', fontSize: '0.8rem', border: '1px solid var(--glass-border)', borderRadius: '4px', background: 'var(--input-bg)', color: 'var(--text-primary)' }}
-                    />
-                  </th>
-                  <th style={{ padding: '0.5rem 1rem' }}>
-                    <input 
-                      type="text" 
-                      placeholder="กรอง..." 
-                      value={inboundFilterAgreement} 
-                      onChange={(e) => setInboundFilterAgreement(e.target.value)} 
-                      style={{ width: '100%', padding: '0.3rem', fontSize: '0.8rem', border: '1px solid var(--glass-border)', borderRadius: '4px', background: 'var(--input-bg)', color: 'var(--text-primary)' }}
-                    />
-                  </th>
-                  <th style={{ padding: '0.5rem 1rem' }}>
-                    <input 
-                      type="text" 
-                      placeholder="กรอง..." 
-                      value={inboundFilterLot} 
-                      onChange={(e) => setInboundFilterLot(e.target.value)} 
-                      style={{ width: '100%', padding: '0.3rem', fontSize: '0.8rem', border: '1px solid var(--glass-border)', borderRadius: '4px', background: 'var(--input-bg)', color: 'var(--text-primary)' }}
-                    />
-                  </th>
-                  <th style={{ padding: '0.5rem 1rem' }}>
-                    <select 
-                      value={inboundFilterQC} 
-                      onChange={(e) => setInboundFilterQC(e.target.value)} 
-                      style={{ width: '100%', padding: '0.3rem', fontSize: '0.8rem', border: '1px solid var(--glass-border)', borderRadius: '4px', background: 'var(--input-bg)', color: 'var(--text-primary)' }}
-                    >
-                      <option value="All">ทั้งหมด</option>
-                      <option value="Quarantine">Quarantine</option>
-                      <option value="Pass">Pass</option>
-                      <option value="Reject">Reject</option>
-                    </select>
-                  </th>
-                  <th style={{ padding: '0.5rem 1rem' }}>
-                    <input 
-                      type="text" 
-                      placeholder="กรอง..." 
-                      value={inboundFilterLocation} 
-                      onChange={(e) => setInboundFilterLocation(e.target.value)} 
-                      style={{ width: '100%', padding: '0.3rem', fontSize: '0.8rem', border: '1px solid var(--glass-border)', borderRadius: '4px', background: 'var(--input-bg)', color: 'var(--text-primary)' }}
-                    />
-                  </th>
-                  <th style={{ padding: '0.5rem 1rem' }}>
-                    <input 
-                      type="text" 
-                      placeholder="กรอง..." 
-                      value={inboundFilterQty} 
-                      onChange={(e) => setInboundFilterQty(e.target.value)} 
-                      style={{ width: '100%', padding: '0.3rem', fontSize: '0.8rem', border: '1px solid var(--glass-border)', borderRadius: '4px', background: 'var(--input-bg)', color: 'var(--text-primary)' }}
-                    />
-                  </th>
-                  <th style={{ padding: '0.5rem 1rem' }}></th>
                 </tr>
               </thead>
               <tbody>
