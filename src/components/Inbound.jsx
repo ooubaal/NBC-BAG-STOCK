@@ -143,11 +143,48 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
       item.inhouseLot.trim() !== ''
     );
     if (matches.length === 0) return '-';
+
+    const parseInhouseLot = (lotStr) => {
+      if (!lotStr) return null;
+      // Format example: "SDVP 52/0569" or "SDVP 31/0569"
+      const match = lotStr.trim().match(/^([A-Za-z0-9\s-]+)\s+(\d+)\/(\d{2})(\d{2})$/);
+      if (match) {
+        return {
+          prefix: match[1].trim(),
+          seq: parseInt(match[2], 10),
+          month: parseInt(match[3], 10),
+          year: parseInt(match[4], 10)
+        };
+      }
+      return null;
+    };
+
     matches.sort((a, b) => {
-      const dateA = a.createdAt ? new Date(a.createdAt).getTime() : (a.id || 0);
-      const dateB = b.createdAt ? new Date(b.createdAt).getTime() : (b.id || 0);
-      return dateB - dateA;
+      const parsedA = parseInhouseLot(a.inhouseLot);
+      const parsedB = parseInhouseLot(b.inhouseLot);
+
+      if (!parsedA && !parsedB) {
+        const dateA = a.createdAt ? new Date(a.createdAt).getTime() : (a.id || 0);
+        const dateB = b.createdAt ? new Date(b.createdAt).getTime() : (b.id || 0);
+        return dateB - dateA;
+      }
+      if (!parsedA) return 1;
+      if (!parsedB) return -1;
+
+      // 1. Compare year (last 2 digits) descending
+      if (parsedA.year !== parsedB.year) {
+        return parsedB.year - parsedA.year;
+      }
+
+      // 2. Compare month (first 2 digits of suffix) descending
+      if (parsedA.month !== parsedB.month) {
+        return parsedB.month - parsedA.month;
+      }
+
+      // 3. Compare seq (number before /) descending
+      return parsedB.seq - parsedA.seq;
     });
+
     return matches[0].inhouseLot;
   };
 
