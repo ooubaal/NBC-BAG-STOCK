@@ -25,6 +25,11 @@ const ProductRegistry = ({ items, setItems }) => {
       return;
     }
     const finalUnit = newItemUnit === 'custom' ? (customUnit.trim() || 'หน่วย') : newItemUnit;
+    
+    if (!window.confirm(`คุณต้องการเพิ่มรายการพัสดุ "${newItemName.trim()}" (หน่วย: ${finalUnit}) ใช่หรือไม่?`)) {
+      return;
+    }
+
     setItems([...items, { name: newItemName.trim(), unit: finalUnit }]);
     setNewItemName('');
     setNewItemUnit('ชิ้น');

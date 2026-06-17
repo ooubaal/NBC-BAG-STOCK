@@ -28,6 +28,14 @@ const Analytics = ({ inventory, items }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
+  // Column filter states for details by lot table
+  const [filterLot, setFilterLot] = useState('');
+  const [filterInhouseLot, setFilterInhouseLot] = useState('');
+  const [filterQty, setFilterQty] = useState('');
+  const [filterLocation, setFilterLocation] = useState('');
+  const [filterAcceptance, setFilterAcceptance] = useState('All');
+  const [filterQcStatus, setFilterQcStatus] = useState('All');
+
   const currentUnit = useMemo(() => {
     const found = items.find(i => i.name === selectedItem);
     return found ? found.unit : 'ชิ้น';
@@ -110,6 +118,29 @@ const Analytics = ({ inventory, items }) => {
       predictionStatus
     };
   }, [inventory, selectedItem]);
+
+  const filteredLots = useMemo(() => {
+    if (!stats.lots) return [];
+    return stats.lots.filter(l => {
+      const matchLot = !filterLot || (l.lot && l.lot.toLowerCase().includes(filterLot.toLowerCase()));
+      const matchInhouse = !filterInhouseLot || (l.inhouseLot && l.inhouseLot.toLowerCase().includes(filterInhouseLot.toLowerCase()));
+      const matchQty = !filterQty || String(l.qty).toLowerCase().includes(filterQty.toLowerCase());
+      const matchLocation = !filterLocation || (l.location && l.location.toLowerCase().includes(filterLocation.toLowerCase()));
+      
+      let matchAcceptance = true;
+      if (filterAcceptance !== 'All') {
+        if (filterAcceptance === 'unbilled') {
+          matchAcceptance = !l.acceptanceStatus || l.acceptanceStatus === '';
+        } else {
+          matchAcceptance = l.acceptanceStatus === filterAcceptance;
+        }
+      }
+      
+      const matchQc = filterQcStatus === 'All' || l.status === filterQcStatus;
+      
+      return matchLot && matchInhouse && matchQty && matchLocation && matchAcceptance && matchQc;
+    });
+  }, [stats.lots, filterLot, filterInhouseLot, filterQty, filterLocation, filterAcceptance, filterQcStatus]);
 
   const getPredictionColor = () => {
     if (stats.predictionStatus === 'outOfStock') return '#ef4444';
@@ -211,6 +242,13 @@ const Analytics = ({ inventory, items }) => {
                         setSelectedItem(item.name);
                         setIsDropdownOpen(false);
                         setSearchQuery('');
+                        // Reset filters when switching product
+                        setFilterLot('');
+                        setFilterInhouseLot('');
+                        setFilterQty('');
+                        setFilterLocation('');
+                        setFilterAcceptance('All');
+                        setFilterQcStatus('All');
                       }}
                     >
                       {item.name} {item.unit ? `(${item.unit})` : ''}
@@ -273,12 +311,75 @@ const Analytics = ({ inventory, items }) => {
                   <th style={{ padding: '0.5rem' }}>สถานะจัดซื้อ/วางบิล</th>
                   <th style={{ padding: '0.5rem' }}>สถานะ QC</th>
                 </tr>
+                <tr style={{ borderBottom: '1px solid var(--glass-border)' }}>
+                  <th style={{ padding: '0.25rem 0.5rem' }}>
+                    <input 
+                      type="text" 
+                      placeholder="กรอง..." 
+                      value={filterLot} 
+                      onChange={(e) => setFilterLot(e.target.value)} 
+                      style={{ width: '100%', padding: '0.3rem', fontSize: '0.8rem', border: '1px solid var(--glass-border)', borderRadius: '4px', background: 'var(--input-bg)', color: 'var(--text-primary)' }}
+                    />
+                  </th>
+                  <th style={{ padding: '0.25rem 0.5rem' }}>
+                    <input 
+                      type="text" 
+                      placeholder="กรอง..." 
+                      value={filterInhouseLot} 
+                      onChange={(e) => setFilterInhouseLot(e.target.value)} 
+                      style={{ width: '100%', padding: '0.3rem', fontSize: '0.8rem', border: '1px solid var(--glass-border)', borderRadius: '4px', background: 'var(--input-bg)', color: 'var(--text-primary)' }}
+                    />
+                  </th>
+                  <th style={{ padding: '0.25rem 0.5rem' }}>
+                    <input 
+                      type="text" 
+                      placeholder="กรอง..." 
+                      value={filterQty} 
+                      onChange={(e) => setFilterQty(e.target.value)} 
+                      style={{ width: '100%', padding: '0.3rem', fontSize: '0.8rem', border: '1px solid var(--glass-border)', borderRadius: '4px', background: 'var(--input-bg)', color: 'var(--text-primary)' }}
+                    />
+                  </th>
+                  <th style={{ padding: '0.25rem 0.5rem' }}>
+                    <input 
+                      type="text" 
+                      placeholder="กรอง..." 
+                      value={filterLocation} 
+                      onChange={(e) => setFilterLocation(e.target.value)} 
+                      style={{ width: '100%', padding: '0.3rem', fontSize: '0.8rem', border: '1px solid var(--glass-border)', borderRadius: '4px', background: 'var(--input-bg)', color: 'var(--text-primary)' }}
+                    />
+                  </th>
+                  <th style={{ padding: '0.25rem 0.5rem' }}>
+                    <select 
+                      value={filterAcceptance} 
+                      onChange={(e) => setFilterAcceptance(e.target.value)} 
+                      style={{ width: '100%', padding: '0.3rem', fontSize: '0.8rem', border: '1px solid var(--glass-border)', borderRadius: '4px', background: 'var(--input-bg)', color: 'var(--text-primary)' }}
+                    >
+                      <option value="All">ทั้งหมด</option>
+                      <option value="unbilled">ยังไม่ได้วางบิล</option>
+                      <option value="Pending">รอการตรวจรับ</option>
+                      <option value="Accepted">ตรวจรับผ่าน</option>
+                      <option value="Rejected">ปฏิเสธการรับ</option>
+                    </select>
+                  </th>
+                  <th style={{ padding: '0.25rem 0.5rem' }}>
+                    <select 
+                      value={filterQcStatus} 
+                      onChange={(e) => setFilterQcStatus(e.target.value)} 
+                      style={{ width: '100%', padding: '0.3rem', fontSize: '0.8rem', border: '1px solid var(--glass-border)', borderRadius: '4px', background: 'var(--input-bg)', color: 'var(--text-primary)' }}
+                    >
+                      <option value="All">ทั้งหมด</option>
+                      <option value="Quarantine">Quarantine</option>
+                      <option value="Pass">Pass</option>
+                      <option value="Reject">Reject</option>
+                    </select>
+                  </th>
+                </tr>
               </thead>
               <tbody>
-                {stats.lots.length === 0 ? (
-                  <tr><td colSpan="6" style={{ padding: '1rem', textAlign: 'center' }}>ไม่มีข้อมูล</td></tr>
+                {filteredLots.length === 0 ? (
+                  <tr><td colSpan="6" style={{ padding: '1rem', textAlign: 'center' }}>ไม่พบข้อมูลที่ตรงกับตัวกรอง</td></tr>
                 ) : (
-                  stats.lots.map((l, i) => (
+                  filteredLots.map((l, i) => (
                     <tr key={i} style={{ borderBottom: '1px solid var(--glass-border)' }}>
                       <td style={{ padding: '0.75rem' }}>{l.lot || '-'}</td>
                       <td style={{ padding: '0.75rem' }}>{l.inhouseLot || '-'}</td>
