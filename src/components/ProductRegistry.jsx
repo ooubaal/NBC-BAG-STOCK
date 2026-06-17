@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Trash2, Edit2, Check, X, Upload, Download, AlertTriangle } from 'lucide-react';
+import { Plus, Trash2, Edit2, Check, X, Upload, Download, AlertTriangle, Search } from 'lucide-react';
 
 const ProductRegistry = ({ items, setItems }) => {
   const [newItemName, setNewItemName] = useState('');
@@ -12,6 +12,11 @@ const ProductRegistry = ({ items, setItems }) => {
   const [deleteIndex, setDeleteIndex] = useState(null);
   const [deletePassword, setDeletePassword] = useState('');
   const [deleteError, setDeleteError] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
+
+  const filteredItems = items.filter(item => 
+    item && item.name && item.name.toLowerCase().includes(searchTerm.trim().toLowerCase())
+  );
 
   const addItem = () => {
     if (!newItemName.trim()) return;
@@ -286,62 +291,108 @@ const ProductRegistry = ({ items, setItems }) => {
       </div>
 
       <div className="glass card">
-        <h3 style={{ marginBottom: '1.5rem' }}>รายการทั้งหมด ({items.length})</h3>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.5rem' }}>
+          <h3 style={{ margin: 0 }}>
+            {searchTerm ? `ผลการค้นหา (${filteredItems.length} จาก ${items.length})` : `รายการทั้งหมด (${items.length})`}
+          </h3>
+          
+          <div className="glass" style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '0.5rem', 
+            padding: '0.4rem 0.8rem', 
+            borderRadius: '8px', 
+            border: '1px solid var(--glass-border)',
+            width: '300px',
+            maxWidth: '100%'
+          }}>
+            <Search size={18} color="var(--text-secondary)" />
+            <input 
+              type="text" 
+              placeholder="ค้นหาชื่อพัสดุ..." 
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              style={{ 
+                border: 'none', 
+                background: 'transparent', 
+                padding: '0.2rem', 
+                width: '100%', 
+                outline: 'none', 
+                color: 'var(--text-primary)',
+                fontSize: '0.9rem'
+              }}
+            />
+            {searchTerm && (
+              <button 
+                onClick={() => setSearchTerm('')}
+                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center' }}
+              >
+                <X size={16} />
+              </button>
+            )}
+          </div>
+        </div>
+
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-          {items.map((item, index) => (
-            <div key={index} className="glass" style={{ padding: '1rem', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              {editingIndex === index ? (
-                <div style={{ display: 'flex', gap: '0.5rem', flex: 1, flexWrap: 'wrap' }}>
-                  <input 
-                    type="text" 
-                    value={editingValue.name} 
-                    onChange={(e) => setEditingValue({ ...editingValue, name: e.target.value })}
-                    style={{ padding: '0.4rem', flex: 2 }}
-                    placeholder="ชื่อพัสดุ"
-                  />
-                  <input 
-                    type="text" 
-                    value={editingValue.unit} 
-                    onChange={(e) => setEditingValue({ ...editingValue, unit: e.target.value })}
-                    style={{ padding: '0.4rem', flex: 1 }}
-                    placeholder="หน่วย"
-                  />
-                  <button className="btn btn-primary" style={{ padding: '0.4rem' }} onClick={() => saveEdit(index)}>
-                    <Check size={16} />
-                  </button>
-                  <button className="btn btn-secondary" style={{ padding: '0.4rem' }} onClick={() => setEditingIndex(null)}>
-                    <X size={16} />
-                  </button>
-                </div>
-              ) : (
-                <>
-                  <span style={{ fontWeight: 600 }}>
-                    {item.name} <span style={{ fontWeight: 400, color: 'var(--text-muted)', fontSize: '0.85rem' }}>({item.unit})</span>
-                  </span>
-                  <div style={{ display: 'flex', gap: '0.5rem' }}>
-                    <button 
-                      style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
-                      onClick={() => startEdit(index)}
-                    >
-                      <Edit2 size={16} />
+          {filteredItems.map((item) => {
+            const originalIndex = items.findIndex(x => x && x.name === item.name);
+            return (
+              <div key={originalIndex} className="glass" style={{ padding: '1rem', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                {editingIndex === originalIndex ? (
+                  <div style={{ display: 'flex', gap: '0.5rem', flex: 1, flexWrap: 'wrap' }}>
+                    <input 
+                      type="text" 
+                      value={editingValue.name} 
+                      onChange={(e) => setEditingValue({ ...editingValue, name: e.target.value })}
+                      style={{ padding: '0.4rem', flex: 2 }}
+                      placeholder="ชื่อพัสดุ"
+                    />
+                    <input 
+                      type="text" 
+                      value={editingValue.unit} 
+                      onChange={(e) => setEditingValue({ ...editingValue, unit: e.target.value })}
+                      style={{ padding: '0.4rem', flex: 1 }}
+                      placeholder="หน่วย"
+                    />
+                    <button className="btn btn-primary" style={{ padding: '0.4rem' }} onClick={() => saveEdit(originalIndex)}>
+                      <Check size={16} />
                     </button>
-                    <button 
-                      style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer' }}
-                      onClick={() => {
-                        setDeleteIndex(index);
-                        setDeletePassword('');
-                        setDeleteError('');
-                      }}
-                    >
-                      <Trash2 size={16} />
+                    <button className="btn btn-secondary" style={{ padding: '0.4rem' }} onClick={() => setEditingIndex(null)}>
+                      <X size={16} />
                     </button>
                   </div>
-                </>
-              )}
+                ) : (
+                  <>
+                    <span style={{ fontWeight: 600 }}>
+                      {item.name} <span style={{ fontWeight: 400, color: 'var(--text-muted)', fontSize: '0.85rem' }}>({item.unit})</span>
+                    </span>
+                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                      <button 
+                        style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
+                        onClick={() => startEdit(originalIndex)}
+                      >
+                        <Edit2 size={16} />
+                      </button>
+                      <button 
+                        style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer' }}
+                        onClick={() => {
+                          setDeleteIndex(originalIndex);
+                          setDeletePassword('');
+                          setDeleteError('');
+                        }}
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            );
+          })}
+          {filteredItems.length === 0 && (
+            <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
+              {items.length === 0 ? "ไม่มีข้อมูลพัสดุในทะเบียน" : "ไม่พบพัสดุที่ค้นหา"}
             </div>
-          ))}
-          {items.length === 0 && (
-            <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>ไม่มีข้อมูลพัสดุในทะเบียน</div>
           )}
         </div>
       </div>
