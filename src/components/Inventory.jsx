@@ -50,6 +50,71 @@ const Inventory = ({ inventory, setInventory }) => {
   const [deletePassword, setDeletePassword] = useState('');
   const [deleteError, setDeleteError] = useState('');
 
+  // Bulk Update States
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [bulkUpdateQC, setBulkUpdateQC] = useState(false);
+  const [bulkQCValue, setBulkQCValue] = useState('Pass');
+  const [bulkQCDate, setBulkQCDate] = useState(new Date().toISOString().split('T')[0]);
+  const [bulkUpdateAcceptance, setBulkUpdateAcceptance] = useState(false);
+  const [bulkAcceptanceValue, setBulkAcceptanceValue] = useState('');
+  const [bulkAcceptanceDate, setBulkAcceptanceDate] = useState(new Date().toISOString().split('T')[0]);
+  const [bulkUpdateLocation, setBulkUpdateLocation] = useState(false);
+  const [bulkLocationValue, setBulkLocationValue] = useState('');
+  const [bulkLocationDate, setBulkLocationDate] = useState(new Date().toISOString().split('T')[0]);
+
+  const toggleSelectRow = (id) => {
+    setSelectedIds(prev => {
+      if (prev.includes(id)) {
+        return prev.filter(x => x !== id);
+      } else {
+        return [...prev, id];
+      }
+    });
+  };
+
+  const toggleSelectAll = (filteredSortedIds) => {
+    if (selectedIds.length === filteredSortedIds.length) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(filteredSortedIds);
+    }
+  };
+
+  const handleBulkUpdate = () => {
+    if (selectedIds.length === 0) return;
+    if (!bulkUpdateQC && !bulkUpdateAcceptance && !bulkUpdateLocation) {
+      alert("กรุณาเลือกฟิลด์ที่ต้องการอัปเดตข้อมูล");
+      return;
+    }
+    
+    setInventory(prev => prev.map(item => {
+      if (selectedIds.includes(item.id)) {
+        const updated = { ...item };
+        if (bulkUpdateQC) {
+          updated.qcStatus = bulkQCValue;
+          updated.qcUpdateDate = bulkQCDate;
+        }
+        if (bulkUpdateAcceptance) {
+          updated.acceptanceStatus = bulkAcceptanceValue;
+          updated.acceptanceUpdateDate = bulkAcceptanceDate;
+        }
+        if (bulkUpdateLocation) {
+          updated.location = bulkLocationValue;
+          updated.locationUpdateDate = bulkLocationDate;
+        }
+        return updated;
+      }
+      return item;
+    }));
+    
+    alert(`อัปเดตข้อมูลสำเร็จสำหรับ ${selectedIds.length} รายการ`);
+    setSelectedIds([]);
+    setBulkUpdateQC(false);
+    setBulkUpdateAcceptance(false);
+    setBulkUpdateLocation(false);
+    setBulkLocationValue('');
+  };
+
   // Edit States for expanded row
   const [editQC, setEditQC] = useState('');
   const [editAcceptance, setEditAcceptance] = useState('');
@@ -198,6 +263,14 @@ const Inventory = ({ inventory, setInventory }) => {
         <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '1100px' }}>
           <thead>
             <tr style={{ textAlign: 'left', borderBottom: '1px solid var(--glass-border)', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+              <th style={{ padding: '1rem', width: '50px', textAlign: 'center' }}>
+                <input 
+                  type="checkbox"
+                  style={{ cursor: 'pointer', width: '18px', height: '18px' }}
+                  checked={sortedInventory.length > 0 && selectedIds.length === sortedInventory.length}
+                  onChange={() => toggleSelectAll(sortedInventory.map(item => item.id))}
+                />
+              </th>
               <th style={{ padding: '1rem', minWidth: '225px' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -400,11 +473,19 @@ const Inventory = ({ inventory, setInventory }) => {
           </thead>
           <tbody>
             {sortedInventory.length === 0 ? (
-              <tr><td colSpan="9" style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>ไม่มีข้อมูลพัสดุ</td></tr>
+              <tr><td colSpan="10" style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>ไม่มีข้อมูลพัสดุ</td></tr>
             ) : (
               sortedInventory.map((item) => (
                 <React.Fragment key={item.id}>
                   <tr style={{ borderBottom: '1px solid var(--glass-border)', cursor: 'pointer', opacity: item.isCancelled ? 0.55 : 1 }}>
+                    <td style={{ padding: '1rem', textAlign: 'center' }} onClick={(e) => e.stopPropagation()}>
+                      <input 
+                        type="checkbox"
+                        style={{ cursor: 'pointer', width: '18px', height: '18px' }}
+                        checked={selectedIds.includes(item.id)}
+                        onChange={() => toggleSelectRow(item.id)}
+                      />
+                    </td>
                     <td style={{ padding: '1rem' }}>{formatDateToDDMMYYYY(item.date)}</td>
                     <td style={{ padding: '1rem', fontWeight: 600 }}>{item.itemName}</td>
                     <td style={{ padding: '1rem' }}>
@@ -463,7 +544,7 @@ const Inventory = ({ inventory, setInventory }) => {
                   
                   {expandedRow === item.id && (
                     <tr style={{ background: 'rgba(255,255,255,0.02)' }}>
-                      <td colSpan="9" style={{ padding: '1.5rem' }}>
+                      <td colSpan="10" style={{ padding: '1.5rem' }}>
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr', gap: '2rem' }}>
                           {/* Edit Status Section */}
                           <div className="glass card" style={{ padding: '1.2rem' }}>
@@ -747,6 +828,197 @@ const Inventory = ({ inventory, setInventory }) => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Sticky Bulk Update Panel */}
+      {selectedIds.length > 0 && (
+        <div style={{
+          position: 'fixed',
+          bottom: '1.5rem',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          width: '95%',
+          maxWidth: '1200px',
+          background: 'rgba(15, 23, 42, 0.95)',
+          backdropFilter: 'blur(10px)',
+          border: '1px solid var(--accent-color, #0ea5e9)',
+          borderRadius: '12px',
+          boxShadow: '0 20px 25px -5px rgba(0,0,0,0.5), 0 10px 10px -5px rgba(0,0,0,0.4)',
+          padding: '1.25rem 1.5rem',
+          zIndex: 999,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '1rem',
+          animation: 'slideUp 0.3s ease-out'
+        }}>
+          {/* Header */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--glass-border)', paddingBottom: '0.75rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <span style={{ 
+                background: 'var(--accent-color, #0ea5e9)', 
+                color: '#fff', 
+                padding: '0.2rem 0.6rem', 
+                borderRadius: '20px', 
+                fontSize: '0.8rem', 
+                fontWeight: 'bold' 
+              }}>
+                เลือกแล้ว {selectedIds.length} รายการ
+              </span>
+              <h3 style={{ fontSize: '1rem', margin: 0, fontWeight: 'bold', color: '#fff' }}>
+                จัดการสถานะแบบกลุ่ม (Bulk Update)
+              </h3>
+            </div>
+            <button 
+              className="btn btn-secondary" 
+              style={{ padding: '0.25rem 0.75rem', fontSize: '0.75rem' }}
+              onClick={() => setSelectedIds([])}
+            >
+              ยกเลิกการเลือกทั้งหมด
+            </button>
+          </div>
+
+          {/* Form Content */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1.5rem', alignItems: 'flex-start' }}>
+            {/* QC Option */}
+            <div style={{ 
+              flex: '1', 
+              minWidth: '280px', 
+              background: 'rgba(255,255,255,0.02)', 
+              padding: '0.75rem 1rem', 
+              borderRadius: '8px', 
+              border: bulkUpdateQC ? '1px solid rgba(14, 165, 233, 0.3)' : '1px solid var(--glass-border)' 
+            }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', fontWeight: 600, color: '#fff', cursor: 'pointer', marginBottom: '0.5rem' }}>
+                <input 
+                  type="checkbox" 
+                  checked={bulkUpdateQC} 
+                  onChange={(e) => setBulkUpdateQC(e.target.checked)} 
+                  style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                />
+                อัปเดตสถานะ QC
+              </label>
+              {bulkUpdateQC && (
+                <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+                  <select 
+                    value={bulkQCValue} 
+                    onChange={(e) => setBulkQCValue(e.target.value)}
+                    style={{ flex: 1, padding: '0.35rem', fontSize: '0.8rem', background: 'var(--input-bg)', color: 'var(--text-primary)', border: '1px solid var(--glass-border)', borderRadius: '4px' }}
+                  >
+                    <option value="Pass">Pass</option>
+                    <option value="Quarantine">Quarantine</option>
+                    <option value="Reject">Reject</option>
+                  </select>
+                  <input 
+                    type="date" 
+                    value={bulkQCDate} 
+                    onChange={(e) => setBulkQCDate(e.target.value)}
+                    style={{ flex: 1.2, padding: '0.35rem', fontSize: '0.8rem', background: 'var(--input-bg)', color: 'var(--text-primary)', border: '1px solid var(--glass-border)', borderRadius: '4px' }}
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* Acceptance Option */}
+            <div style={{ 
+              flex: '1', 
+              minWidth: '280px', 
+              background: 'rgba(255,255,255,0.02)', 
+              padding: '0.75rem 1rem', 
+              borderRadius: '8px', 
+              border: bulkUpdateAcceptance ? '1px solid rgba(14, 165, 233, 0.3)' : '1px solid var(--glass-border)' 
+            }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', fontWeight: 600, color: '#fff', cursor: 'pointer', marginBottom: '0.5rem' }}>
+                <input 
+                  type="checkbox" 
+                  checked={bulkUpdateAcceptance} 
+                  onChange={(e) => setBulkUpdateAcceptance(e.target.checked)} 
+                  style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                />
+                อัปเดตสถานะจัดซื้อ / วางบิล
+              </label>
+              {bulkUpdateAcceptance && (
+                <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+                  <select 
+                    value={bulkAcceptanceValue} 
+                    onChange={(e) => setBulkAcceptanceValue(e.target.value)}
+                    style={{ flex: 1, padding: '0.35rem', fontSize: '0.8rem', background: 'var(--input-bg)', color: 'var(--text-primary)', border: '1px solid var(--glass-border)', borderRadius: '4px' }}
+                  >
+                    <option value="">ยังไม่ได้วางบิล</option>
+                    <option value="Pending">รอการตรวจรับ</option>
+                    <option value="Accepted">ตรวจรับผ่าน</option>
+                    <option value="Rejected">ปฏิเสธการรับ</option>
+                  </select>
+                  <input 
+                    type="date" 
+                    value={bulkAcceptanceDate} 
+                    onChange={(e) => setBulkAcceptanceDate(e.target.value)}
+                    style={{ flex: 1.2, padding: '0.35rem', fontSize: '0.8rem', background: 'var(--input-bg)', color: 'var(--text-primary)', border: '1px solid var(--glass-border)', borderRadius: '4px' }}
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* Location Option */}
+            <div style={{ 
+              flex: '1', 
+              minWidth: '280px', 
+              background: 'rgba(255,255,255,0.02)', 
+              padding: '0.75rem 1rem', 
+              borderRadius: '8px', 
+              border: bulkUpdateLocation ? '1px solid rgba(14, 165, 233, 0.3)' : '1px solid var(--glass-border)' 
+            }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', fontWeight: 600, color: '#fff', cursor: 'pointer', marginBottom: '0.5rem' }}>
+                <input 
+                  type="checkbox" 
+                  checked={bulkUpdateLocation} 
+                  onChange={(e) => setBulkUpdateLocation(e.target.checked)} 
+                  style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                />
+                อัปเดตสถานที่เก็บ
+              </label>
+              {bulkUpdateLocation && (
+                <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+                  <input 
+                    type="text" 
+                    placeholder="สถานที่เก็บ..." 
+                    value={bulkLocationValue} 
+                    onChange={(e) => setBulkLocationValue(e.target.value)}
+                    style={{ flex: 1, padding: '0.35rem', fontSize: '0.8rem', background: 'var(--input-bg)', color: 'var(--text-primary)', border: '1px solid var(--glass-border)', borderRadius: '4px' }}
+                  />
+                  <input 
+                    type="date" 
+                    value={bulkLocationDate} 
+                    onChange={(e) => setBulkLocationDate(e.target.value)}
+                    style={{ flex: 1.2, padding: '0.35rem', fontSize: '0.8rem', background: 'var(--input-bg)', color: 'var(--text-primary)', border: '1px solid var(--glass-border)', borderRadius: '4px' }}
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Footer Actions */}
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', borderTop: '1px solid var(--glass-border)', paddingTop: '0.75rem', marginTop: '0.25rem' }}>
+            <button 
+              className="btn btn-secondary" 
+              onClick={() => {
+                setSelectedIds([]);
+                setBulkUpdateQC(false);
+                setBulkUpdateAcceptance(false);
+                setBulkUpdateLocation(false);
+                setBulkLocationValue('');
+              }}
+            >
+              ยกเลิก
+            </button>
+            <button 
+              className="btn btn-primary" 
+              onClick={handleBulkUpdate}
+              style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+            >
+              <Save size={16} /> บันทึกการอัปเดตกลุ่ม
+            </button>
           </div>
         </div>
       )}
