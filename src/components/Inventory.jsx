@@ -221,7 +221,8 @@ const Inventory = ({ inventory, setInventory }) => {
   });
 
   return (
-    <div className="fade-in">
+    <div>
+      <div className="fade-in">
       <div className="page-header">
         <h1 className="page-title">ฐานข้อมูลคลังพัสดุ (Mod 1)</h1>
         <p className="page-subtitle">จัดการและติดตามสถานะพัสดุในคลัง</p>
@@ -723,8 +724,9 @@ const Inventory = ({ inventory, setInventory }) => {
           </tbody>
         </table>
       </div>
+    </div>
 
-      {/* Deletion Warning Modal */}
+    {/* Deletion Warning Modal */}
       {deleteLotId !== null && (
         <div style={{
           position: 'fixed',
@@ -839,17 +841,17 @@ const Inventory = ({ inventory, setInventory }) => {
           transform: 'translateX(-50%)',
           width: '95%',
           maxWidth: '1200px',
-          background: 'rgba(15, 23, 42, 0.95)',
-          backdropFilter: 'blur(10px)',
-          border: '1px solid var(--accent-color, #0ea5e9)',
+          background: 'rgba(15, 23, 42, 0.75)',
+          backdropFilter: 'blur(12px)',
+          border: '1px solid rgba(14, 165, 233, 0.35)',
           borderRadius: '12px',
           boxShadow: '0 20px 25px -5px rgba(0,0,0,0.5), 0 10px 10px -5px rgba(0,0,0,0.4)',
           padding: '1.25rem 1.5rem',
-          zIndex: 999,
+          zIndex: 9999,
           display: 'flex',
           flexDirection: 'column',
           gap: '1rem',
-          animation: 'slideUp 0.3s ease-out'
+          animation: 'slideUp 0.35s cubic-bezier(0.16, 1, 0.3, 1)'
         }}>
           {/* Header */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--glass-border)', paddingBottom: '0.75rem' }}>
