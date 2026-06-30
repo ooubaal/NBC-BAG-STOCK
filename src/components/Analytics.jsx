@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { List, TrendingDown, ChevronDown } from 'lucide-react';
+import { List, TrendingDown, ChevronDown, Zap, TrendingUp } from 'lucide-react';
 
 const AcceptanceBadge = ({ status }) => {
   const normalizedStatus = status || '';
@@ -130,6 +130,48 @@ const Analytics = ({ inventory, items }) => {
     };
   }, [inventory, selectedItem]);
 
+  const recommendedItems = useMemo(() => {
+    const activity = {};
+    items.forEach(it => {
+      activity[it.name] = {
+        name: it.name,
+        lastActiveTime: 0,
+        activityCount: 0
+      };
+    });
+    
+    inventory.forEach(invItem => {
+      const name = invItem.itemName;
+      if (!activity[name]) {
+        activity[name] = { name, lastActiveTime: 0, activityCount: 0 };
+      }
+      
+      const inboundTime = invItem.date ? new Date(invItem.date).getTime() : 0;
+      if (!isNaN(inboundTime) && inboundTime > activity[name].lastActiveTime) {
+        activity[name].lastActiveTime = inboundTime;
+      }
+      
+      if (invItem.withdrawals && invItem.withdrawals.length > 0) {
+        activity[name].activityCount += invItem.withdrawals.length;
+        invItem.withdrawals.forEach(w => {
+          const wTime = w.date ? new Date(w.date).getTime() : 0;
+          if (!isNaN(wTime) && wTime > activity[name].lastActiveTime) {
+            activity[name].lastActiveTime = wTime;
+          }
+        });
+      }
+    });
+    
+    return Object.values(activity)
+      .sort((a, b) => {
+        if (b.lastActiveTime !== a.lastActiveTime) {
+          return b.lastActiveTime - a.lastActiveTime;
+        }
+        return b.activityCount - a.activityCount;
+      })
+      .slice(0, 10);
+  }, [inventory, items]);
+
   const filteredLots = useMemo(() => {
     if (!stats.lots) return [];
     return stats.lots.filter(l => {
@@ -169,108 +211,157 @@ const Analytics = ({ inventory, items }) => {
         <p className="page-subtitle">สรุปข้อมูลเชิงลึกและการวิเคราะห์อัตราการตัดจ่าย</p>
       </div>
 
-      <div className="glass card" style={{ marginBottom: '2rem', maxWidth: '400px' }}>
-        <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>เลือกพัสดุเพื่อดูข้อมูล</label>
-        <div style={{ position: 'relative' }}>
-          <div 
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              border: '1px solid var(--glass-border)',
-              borderRadius: '8px',
-              background: 'var(--glass-bg)',
-              padding: '0.45rem 0.75rem',
-              cursor: 'pointer',
-              justifyContent: 'space-between'
-            }}
-            onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-          >
-            <input
-              type="text"
-              placeholder="พิมพ์เพื่อค้นหาชื่อสินค้า..."
-              value={isDropdownOpen ? searchQuery : selectedItem}
-              onChange={(e) => {
-                setSearchQuery(e.target.value);
-                setIsDropdownOpen(true);
-              }}
-              onClick={(e) => {
-                e.stopPropagation();
-                setIsDropdownOpen(true);
-              }}
+      <div style={{ display: 'flex', gap: '1.5rem', marginBottom: '2rem', flexWrap: 'wrap', alignItems: 'stretch' }}>
+        {/* Selector Dropdown Card */}
+        <div className="glass card" style={{ flex: '1', minWidth: '320px', maxWidth: '450px', margin: 0 }}>
+          <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>เลือกพัสดุเพื่อดูข้อมูล</label>
+          <div style={{ position: 'relative' }}>
+            <div 
               style={{
-                border: 'none',
-                outline: 'none',
-                background: 'transparent',
-                width: '100%',
-                color: 'var(--text-primary)',
-                fontSize: '0.9rem'
+                display: 'flex',
+                alignItems: 'center',
+                border: '1px solid var(--glass-border)',
+                borderRadius: '8px',
+                background: 'var(--glass-bg)',
+                padding: '0.45rem 0.75rem',
+                cursor: 'pointer',
+                justifyContent: 'space-between'
               }}
-            />
-            <ChevronDown size={18} color="var(--text-secondary)" style={{ transform: isDropdownOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s', flexShrink: 0 }} />
-          </div>
-
-          {isDropdownOpen && (
-            <>
-              <div 
-                style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 998 }} 
-                onClick={() => { setIsDropdownOpen(false); setSearchQuery(''); }}
-              />
-              <div 
-                style={{
-                  position: 'absolute',
-                  top: '105%',
-                  left: 0,
-                  right: 0,
-                  maxHeight: '250px',
-                  overflowY: 'auto',
-                  background: '#ffffff',
-                  backdropFilter: 'blur(10px)',
-                  border: '1px solid var(--glass-border)',
-                  borderRadius: '8px',
-                  zIndex: 999,
-                  boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.15), 0 4px 6px -2px rgba(0, 0, 0, 0.05)'
+              onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+            >
+              <input
+                type="text"
+                placeholder="พิมพ์เพื่อค้นหาชื่อสินค้า..."
+                value={isDropdownOpen ? searchQuery : selectedItem}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setIsDropdownOpen(true);
                 }}
-              >
-                {((items ? items.filter(item => item.name.toLowerCase().includes(searchQuery.toLowerCase())) : []).length === 0) ? (
-                  <div style={{ padding: '0.75rem 1rem', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-                    ไม่พบสินค้าที่ตรงกับคำค้นหา
-                  </div>
-                ) : (
-                  (items ? items.filter(item => item.name.toLowerCase().includes(searchQuery.toLowerCase())) : []).map(item => (
-                    <div
-                      key={item.name}
-                      style={{
-                        padding: '0.6rem 1rem',
-                        cursor: 'pointer',
-                        background: selectedItem === item.name ? 'rgba(245, 158, 11, 0.15)' : 'transparent',
-                        color: 'var(--text-primary)',
-                        fontSize: '0.88rem',
-                        borderBottom: '1px solid rgba(0, 0, 0, 0.05)',
-                        transition: 'background 0.15s'
-                      }}
-                      onMouseEnter={(e) => e.target.style.background = 'rgba(15, 23, 42, 0.05)'}
-                      onMouseLeave={(e) => e.target.style.background = selectedItem === item.name ? 'rgba(245, 158, 11, 0.15)' : 'transparent'}
-                      onClick={() => {
-                        setSelectedItem(item.name);
-                        setIsDropdownOpen(false);
-                        setSearchQuery('');
-                        // Reset filters when switching product
-                        setFilterLot('');
-                        setFilterInhouseLot('');
-                        setFilterQty('');
-                        setFilterLocation('');
-                        setFilterAcceptance('All');
-                        setFilterQcStatus('All');
-                        setFilterDate('');
-                      }}
-                    >
-                      {item.name} {item.unit ? `(${item.unit})` : ''}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsDropdownOpen(true);
+                }}
+                style={{
+                  border: 'none',
+                  outline: 'none',
+                  background: 'transparent',
+                  width: '100%',
+                  color: 'var(--text-primary)',
+                  fontSize: '0.9rem'
+                }}
+              />
+              <ChevronDown size={18} color="var(--text-secondary)" style={{ transform: isDropdownOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s', flexShrink: 0 }} />
+            </div>
+
+            {isDropdownOpen && (
+              <>
+                <div 
+                  style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 998 }} 
+                  onClick={() => { setIsDropdownOpen(false); setSearchQuery(''); }}
+                />
+                <div 
+                  style={{
+                    position: 'absolute',
+                    top: '105%',
+                    left: 0,
+                    right: 0,
+                    maxHeight: '250px',
+                    overflowY: 'auto',
+                    background: '#ffffff',
+                    backdropFilter: 'blur(10px)',
+                    border: '1px solid var(--glass-border)',
+                    borderRadius: '8px',
+                    zIndex: 999,
+                    boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.15), 0 4px 6px -2px rgba(0, 0, 0, 0.05)'
+                  }}
+                >
+                  {((items ? items.filter(item => item.name.toLowerCase().includes(searchQuery.toLowerCase())) : []).length === 0) ? (
+                    <div style={{ padding: '0.75rem 1rem', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                      ไม่พบสินค้าที่ตรงกับคำค้นหา
                     </div>
-                  ))
-                )}
-              </div>
-            </>
-          )}
+                  ) : (
+                    (items ? items.filter(item => item.name.toLowerCase().includes(searchQuery.toLowerCase())) : []).map(item => (
+                      <div
+                        key={item.name}
+                        style={{
+                          padding: '0.6rem 1rem',
+                          cursor: 'pointer',
+                          background: selectedItem === item.name ? 'rgba(245, 158, 11, 0.15)' : 'transparent',
+                          color: 'var(--text-primary)',
+                          fontSize: '0.88rem',
+                          borderBottom: '1px solid rgba(0, 0, 0, 0.05)',
+                          transition: 'background 0.15s'
+                        }}
+                        onMouseEnter={(e) => e.target.style.background = 'rgba(15, 23, 42, 0.05)'}
+                        onMouseLeave={(e) => e.target.style.background = selectedItem === item.name ? 'rgba(245, 158, 11, 0.15)' : 'transparent'}
+                        onClick={() => {
+                          setSelectedItem(item.name);
+                          setIsDropdownOpen(false);
+                          setSearchQuery('');
+                          // Reset filters when switching product
+                          setFilterLot('');
+                          setFilterInhouseLot('');
+                          setFilterQty('');
+                          setFilterLocation('');
+                          setFilterAcceptance('All');
+                          setFilterQcStatus('All');
+                          setFilterDate('');
+                        }}
+                      >
+                        {item.name} {item.unit ? `(${item.unit})` : ''}
+                      </div>
+                    ))
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* Recommended Items Card */}
+        <div className="glass card" style={{ flex: '2', minWidth: '320px', margin: 0, display: 'flex', flexDirection: 'column', justifyContent: 'flex-start' }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.5rem', fontWeight: 600, color: 'var(--text-muted)' }}>
+            <TrendingUp size={16} color="var(--accent-color)" /> พัสดุแนะนำ (เคลื่อนไหวล่าสุด / ตัดจ่ายบ่อย 10 อันดับ)
+          </label>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginTop: '0.5rem' }}>
+            {recommendedItems.length === 0 ? (
+              <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>ไม่มีข้อมูลการเคลื่อนไหว</span>
+            ) : (
+              recommendedItems.map(item => (
+                <button
+                  key={item.name}
+                  className="btn"
+                  style={{
+                    padding: '0.35rem 0.75rem',
+                    fontSize: '0.8rem',
+                    borderRadius: '20px',
+                    background: selectedItem === item.name ? 'var(--accent-color)' : 'rgba(255, 255, 255, 0.05)',
+                    border: selectedItem === item.name ? '1px solid var(--accent-color)' : '1px solid var(--glass-border)',
+                    color: selectedItem === item.name ? '#fff' : 'var(--text-primary)',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.25rem'
+                  }}
+                  onClick={() => {
+                    setSelectedItem(item.name);
+                    // Reset filters when switching product
+                    setFilterLot('');
+                    setFilterInhouseLot('');
+                    setFilterQty('');
+                    setFilterLocation('');
+                    setFilterAcceptance('All');
+                    setFilterQcStatus('All');
+                    setFilterDate('');
+                  }}
+                >
+                  <Zap size={11} style={{ color: selectedItem === item.name ? '#fff' : 'var(--accent-color)' }} />
+                  {item.name}
+                </button>
+              ))
+            )}
+          </div>
         </div>
       </div>
 
