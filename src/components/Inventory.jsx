@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Search, ChevronUp, History, Settings, Save, Trash2, AlertTriangle } from 'lucide-react';
+import { Search, ChevronUp, History, Settings, Save, Trash2, AlertTriangle, FileSpreadsheet } from 'lucide-react';
+import ExcelJS from 'exceljs';
 
 const AcceptanceBadge = ({ status }) => {
   const normalizedStatus = status || '';
@@ -220,6 +221,201 @@ const Inventory = ({ inventory, setInventory }) => {
     return 0;
   });
 
+  const handleExportStockReport = async () => {
+    try {
+      const workbook = new ExcelJS.Workbook();
+      
+      // Sheet 1: สรุปสินค้าคงคลัง
+      const summarySheet = workbook.addWorksheet('สรุปสินค้าคงคลัง');
+      
+      const headerFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } };
+      const headerFont = { color: { argb: 'FFFFFFFF' }, bold: true, size: 11 };
+      
+      // Title
+      summarySheet.mergeCells('A1:F1');
+      summarySheet.getCell('A1').value = 'รายงานสรุปยอดพัสดุคงคลัง (Inventory Summary Report)';
+      summarySheet.getCell('A1').font = { size: 16, bold: true, color: { argb: 'FF1E293B' } };
+      
+      summarySheet.mergeCells('A2:F2');
+      const todayStr = new Date().toLocaleDateString('th-TH', { 
+        year: 'numeric', month: 'long', day: 'numeric', 
+        hour: '2-digit', minute: '2-digit' 
+      });
+      summarySheet.getCell('A2').value = `ข้อมูล ณ วันที่: ${todayStr}`;
+      summarySheet.getCell('A2').font = { size: 11, italic: true };
+      
+      summarySheet.addRow([]); // Blank row
+      
+      // Headers
+      const summaryHeaders = ['ลำดับ', 'ชื่อพัสดุ / Item Name', 'จำนวนคงเหลือในระบบ', 'หน่วย', 'จำนวนที่นับได้จริง (นับมือ)', 'หมายเหตุ / Note'];
+      const headerRow = summarySheet.addRow(summaryHeaders);
+      headerRow.eachCell(cell => {
+        cell.fill = headerFill;
+        cell.font = headerFont;
+        cell.alignment = { vertical: 'middle', horizontal: 'center' };
+        cell.border = {
+          top: { style: 'thin' },
+          left: { style: 'thin' },
+          bottom: { style: 'thin' },
+          right: { style: 'thin' }
+        };
+      });
+      headerRow.height = 26;
+      
+      // Calculate summary data
+      const summaryMap = {};
+      sortedInventory.forEach(item => {
+        const qty = Number(item.remainingQty) || 0;
+        if (qty > 0) {
+          if (!summaryMap[item.itemName]) {
+            summaryMap[item.itemName] = {
+              name: item.itemName,
+              qty: 0,
+              unit: item.unit || 'ชิ้น'
+            };
+          }
+          summaryMap[item.itemName].qty += qty;
+        }
+      });
+      
+      const summaryList = Object.values(summaryMap).sort((a, b) => a.name.localeCompare(b.name, 'th'));
+      
+      summaryList.forEach((item, index) => {
+        const row = summarySheet.addRow([
+          index + 1,
+          item.name,
+          item.qty,
+          item.unit,
+          '',
+          ''
+        ]);
+        
+        row.getCell(1).alignment = { horizontal: 'center' };
+        row.getCell(2).alignment = { horizontal: 'left' };
+        row.getCell(3).alignment = { horizontal: 'right' };
+        row.getCell(3).numFmt = '#,##0';
+        row.getCell(4).alignment = { horizontal: 'center' };
+        
+        row.eachCell(cell => {
+          cell.border = {
+            top: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+            left: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+            bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+            right: { style: 'thin', color: { argb: 'FFE2E8F0' } }
+          };
+        });
+      });
+      
+      summarySheet.getColumn(1).width = 8;
+      summarySheet.getColumn(2).width = 45;
+      summarySheet.getColumn(3).width = 25;
+      summarySheet.getColumn(4).width = 12;
+      summarySheet.getColumn(5).width = 28;
+      summarySheet.getColumn(6).width = 30;
+      
+      // Sheet 2: รายการแยกตาม Lot & ที่เก็บ
+      const lotSheet = workbook.addWorksheet('รายการแยกตาม Lot & ที่เก็บ');
+      
+      lotSheet.mergeCells('A1:K1');
+      lotSheet.getCell('A1').value = 'รายงานสินค้าคงคลังแยกตาม Lot & ที่เก็บ (Inventory Details by Lot & Location)';
+      lotSheet.getCell('A1').font = { size: 16, bold: true, color: { argb: 'FF1E293B' } };
+      
+      lotSheet.mergeCells('A2:K2');
+      lotSheet.getCell('A2').value = `ข้อมูล ณ วันที่: ${todayStr}`;
+      lotSheet.getCell('A2').font = { size: 11, italic: true };
+      
+      lotSheet.addRow([]); // Blank row
+      
+      const lotHeaders = [
+        'ลำดับ', 'ชื่อพัสดุ', 'Lot ผู้จัดจำหน่าย', 'Inhouse Lot', 
+        'วันที่รับเข้า', 'ที่เก็บ', 'คงเหลือในระบบ', 'หน่วย', 
+        'จำนวนที่นับได้จริง', 'สถานะ QC', 'หมายเหตุ'
+      ];
+      const lotHeaderRow = lotSheet.addRow(lotHeaders);
+      lotHeaderRow.eachCell(cell => {
+        cell.fill = headerFill;
+        cell.font = headerFont;
+        cell.alignment = { vertical: 'middle', horizontal: 'center' };
+        cell.border = {
+          top: { style: 'thin' },
+          left: { style: 'thin' },
+          bottom: { style: 'thin' },
+          right: { style: 'thin' }
+        };
+      });
+      lotHeaderRow.height = 26;
+      
+      let lotIndex = 1;
+      sortedInventory.forEach(item => {
+        const qty = Number(item.remainingQty) || 0;
+        if (qty > 0) {
+          const row = lotSheet.addRow([
+            lotIndex++,
+            item.itemName,
+            item.supplierLot || '-',
+            item.inhouseLot || '-',
+            formatDateToDDMMYYYY(item.date),
+            item.location || '-',
+            qty,
+            item.unit || 'ชิ้น',
+            '',
+            item.qcStatus || 'Pass',
+            ''
+          ]);
+          
+          row.getCell(1).alignment = { horizontal: 'center' };
+          row.getCell(2).alignment = { horizontal: 'left' };
+          row.getCell(3).alignment = { horizontal: 'left' };
+          row.getCell(4).alignment = { horizontal: 'left' };
+          row.getCell(5).alignment = { horizontal: 'center' };
+          row.getCell(6).alignment = { horizontal: 'center' };
+          row.getCell(7).alignment = { horizontal: 'right' };
+          row.getCell(7).numFmt = '#,##0';
+          row.getCell(8).alignment = { horizontal: 'center' };
+          row.getCell(10).alignment = { horizontal: 'center' };
+          
+          row.eachCell(cell => {
+            cell.border = {
+              top: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+              left: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+              bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+              right: { style: 'thin', color: { argb: 'FFE2E8F0' } }
+            };
+          });
+        }
+      });
+      
+      lotSheet.getColumn(1).width = 8;
+      lotSheet.getColumn(2).width = 35;
+      lotSheet.getColumn(3).width = 20;
+      lotSheet.getColumn(4).width = 20;
+      lotSheet.getColumn(5).width = 15;
+      lotSheet.getColumn(6).width = 15;
+      lotSheet.getColumn(7).width = 20;
+      lotSheet.getColumn(8).width = 10;
+      lotSheet.getColumn(9).width = 25;
+      lotSheet.getColumn(10).width = 15;
+      lotSheet.getColumn(11).width = 25;
+      
+      summarySheet.views = [{ showGridLines: true }];
+      lotSheet.views = [{ showGridLines: true }];
+      
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", `nbc_stock_count_${new Date().toISOString().split('T')[0]}.xlsx`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+    } catch (error) {
+      console.error("Failed to generate stock report:", error);
+      alert("ไม่สามารถสร้างไฟล์ Excel รายงานสต๊อกสินค้าคงคลังได้: " + error.message);
+    }
+  };
+
   return (
     <div>
       <div className="fade-in">
@@ -239,25 +435,43 @@ const Inventory = ({ inventory, setInventory }) => {
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
-        {(searchTerm || filterQC !== 'All' || filterAcceptance !== 'All' || filterItem !== 'All' || filterStartDate || filterEndDate || filterLocation !== 'All' || filterQtyStatus !== 'All' || sortType !== 'date-desc') && (
-          <button 
-            className="btn btn-secondary" 
-            style={{ padding: '0.4rem 0.8rem', fontSize: '0.75rem' }}
-            onClick={() => {
-              setSearchTerm('');
-              setFilterQC('All');
-              setFilterAcceptance('All');
-              setFilterItem('All');
-              setFilterStartDate('');
-              setFilterEndDate('');
-              setFilterLocation('All');
-              setFilterQtyStatus('All');
-              setSortType('date-desc');
+        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+          <button
+            className="btn btn-primary"
+            style={{ 
+              padding: '0.4rem 0.8rem', 
+              fontSize: '0.75rem', 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '0.4rem',
+              backgroundColor: '#10b981',
+              borderColor: '#10b981'
             }}
+            onClick={handleExportStockReport}
           >
-            ล้างตัวกรองทั้งหมด
+            <FileSpreadsheet size={16} />
+            ออกรายงานคลังสินค้า (Excel)
           </button>
-        )}
+          {(searchTerm || filterQC !== 'All' || filterAcceptance !== 'All' || filterItem !== 'All' || filterStartDate || filterEndDate || filterLocation !== 'All' || filterQtyStatus !== 'All' || sortType !== 'date-desc') && (
+            <button 
+              className="btn btn-secondary" 
+              style={{ padding: '0.4rem 0.8rem', fontSize: '0.75rem' }}
+              onClick={() => {
+                setSearchTerm('');
+                setFilterQC('All');
+                setFilterAcceptance('All');
+                setFilterItem('All');
+                setFilterStartDate('');
+                setFilterEndDate('');
+                setFilterLocation('All');
+                setFilterQtyStatus('All');
+                setSortType('date-desc');
+              }}
+            >
+              ล้างตัวกรองทั้งหมด
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="glass card" style={{ overflowX: 'auto' }}>
