@@ -23,6 +23,15 @@ const AcceptanceBadge = ({ status }) => {
   );
 };
 
+const formatDateToDDMMYYYY = (dateStr) => {
+  if (!dateStr) return '';
+  const cleanDate = dateStr.split('T')[0];
+  const parts = cleanDate.split('-');
+  if (parts.length !== 3) return dateStr;
+  const [yyyy, mm, dd] = parts;
+  return `${dd}/${mm}/${yyyy}`;
+};
+
 const Analytics = ({ inventory, items }) => {
   const [selectedItem, setSelectedItem] = useState((items && items.length > 0) ? items[0].name : '');
   const [searchQuery, setSearchQuery] = useState('');
@@ -35,6 +44,7 @@ const Analytics = ({ inventory, items }) => {
   const [filterLocation, setFilterLocation] = useState('');
   const [filterAcceptance, setFilterAcceptance] = useState('All');
   const [filterQcStatus, setFilterQcStatus] = useState('All');
+  const [filterDate, setFilterDate] = useState('');
 
   const currentUnit = useMemo(() => {
     const found = items.find(i => i.name === selectedItem);
@@ -50,7 +60,8 @@ const Analytics = ({ inventory, items }) => {
       qty: i.remainingQty, 
       status: i.qcStatus, 
       location: i.location,
-      acceptanceStatus: i.acceptanceStatus
+      acceptanceStatus: i.acceptanceStatus,
+      date: i.date
     }));
     const qcStats = itemRecords.reduce((acc, curr) => {
       acc[curr.qcStatus] = (acc[curr.qcStatus] || 0) + 1;
@@ -126,6 +137,7 @@ const Analytics = ({ inventory, items }) => {
       const matchInhouse = !filterInhouseLot || (l.inhouseLot && l.inhouseLot.toLowerCase().includes(filterInhouseLot.toLowerCase()));
       const matchQty = !filterQty || String(l.qty).toLowerCase().includes(filterQty.toLowerCase());
       const matchLocation = !filterLocation || (l.location && l.location.toLowerCase().includes(filterLocation.toLowerCase()));
+      const matchDate = !filterDate || (l.date && formatDateToDDMMYYYY(l.date).toLowerCase().includes(filterDate.toLowerCase()));
       
       let matchAcceptance = true;
       if (filterAcceptance !== 'All') {
@@ -138,9 +150,9 @@ const Analytics = ({ inventory, items }) => {
       
       const matchQc = filterQcStatus === 'All' || l.status === filterQcStatus;
       
-      return matchLot && matchInhouse && matchQty && matchLocation && matchAcceptance && matchQc;
+      return matchLot && matchInhouse && matchQty && matchLocation && matchAcceptance && matchQc && matchDate;
     });
-  }, [stats.lots, filterLot, filterInhouseLot, filterQty, filterLocation, filterAcceptance, filterQcStatus]);
+  }, [stats.lots, filterLot, filterInhouseLot, filterQty, filterLocation, filterAcceptance, filterQcStatus, filterDate]);
 
   const getPredictionColor = () => {
     if (stats.predictionStatus === 'outOfStock') return '#ef4444';
@@ -249,6 +261,7 @@ const Analytics = ({ inventory, items }) => {
                         setFilterLocation('');
                         setFilterAcceptance('All');
                         setFilterQcStatus('All');
+                        setFilterDate('');
                       }}
                     >
                       {item.name} {item.unit ? `(${item.unit})` : ''}
@@ -306,6 +319,7 @@ const Analytics = ({ inventory, items }) => {
                 <tr style={{ textAlign: 'left', borderBottom: '1px solid var(--glass-border)', color: 'var(--text-muted)' }}>
                   <th style={{ padding: '0.5rem' }}>Lot no.</th>
                   <th style={{ padding: '0.5rem' }}>Inhouse Lot</th>
+                  <th style={{ padding: '0.5rem' }}>วันที่รับ</th>
                   <th style={{ padding: '0.5rem' }}>คงเหลือ ({currentUnit})</th>
                   <th style={{ padding: '0.5rem' }}>ที่เก็บ</th>
                   <th style={{ padding: '0.5rem' }}>สถานะจัดซื้อ/วางบิล</th>
@@ -327,6 +341,15 @@ const Analytics = ({ inventory, items }) => {
                       placeholder="กรอง..." 
                       value={filterInhouseLot} 
                       onChange={(e) => setFilterInhouseLot(e.target.value)} 
+                      style={{ width: '100%', padding: '0.3rem', fontSize: '0.8rem', border: '1px solid var(--glass-border)', borderRadius: '4px', background: 'var(--input-bg)', color: 'var(--text-primary)' }}
+                    />
+                  </th>
+                  <th style={{ padding: '0.25rem 0.5rem' }}>
+                    <input 
+                      type="text" 
+                      placeholder="กรอง..." 
+                      value={filterDate} 
+                      onChange={(e) => setFilterDate(e.target.value)} 
                       style={{ width: '100%', padding: '0.3rem', fontSize: '0.8rem', border: '1px solid var(--glass-border)', borderRadius: '4px', background: 'var(--input-bg)', color: 'var(--text-primary)' }}
                     />
                   </th>
@@ -377,12 +400,13 @@ const Analytics = ({ inventory, items }) => {
               </thead>
               <tbody>
                 {filteredLots.length === 0 ? (
-                  <tr><td colSpan="6" style={{ padding: '1rem', textAlign: 'center' }}>ไม่พบข้อมูลที่ตรงกับตัวกรอง</td></tr>
+                  <tr><td colSpan="7" style={{ padding: '1rem', textAlign: 'center' }}>ไม่พบข้อมูลที่ตรงกับตัวกรอง</td></tr>
                 ) : (
                   filteredLots.map((l, i) => (
                     <tr key={i} style={{ borderBottom: '1px solid var(--glass-border)' }}>
                       <td style={{ padding: '0.75rem' }}>{l.lot || '-'}</td>
                       <td style={{ padding: '0.75rem' }}>{l.inhouseLot || '-'}</td>
+                      <td style={{ padding: '0.75rem' }}>{formatDateToDDMMYYYY(l.date)}</td>
                       <td style={{ padding: '0.75rem', fontWeight: 600 }}>{l.qty}</td>
                       <td style={{ padding: '0.75rem' }}>{l.location}</td>
                       <td style={{ padding: '0.75rem' }}>
