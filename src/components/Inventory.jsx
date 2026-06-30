@@ -221,6 +221,28 @@ const Inventory = ({ inventory, setInventory }) => {
     return 0;
   });
 
+  const selectedTotals = React.useMemo(() => {
+    let totalReceived = {};
+    let totalRemaining = {};
+    
+    selectedIds.forEach(id => {
+      const item = inventory.find(i => i.id === id);
+      if (item && !item.isCancelled) {
+        const unit = item.unit || 'ชิ้น';
+        const received = Number(item.quantity) || 0;
+        const remaining = Number(item.remainingQty) || 0;
+        
+        totalReceived[unit] = (totalReceived[unit] || 0) + received;
+        totalRemaining[unit] = (totalRemaining[unit] || 0) + remaining;
+      }
+    });
+    
+    return {
+      received: totalReceived,
+      remaining: totalRemaining
+    };
+  }, [selectedIds, inventory]);
+
   const handleExportStockReport = async () => {
     try {
       const workbook = new ExcelJS.Workbook();
@@ -1068,8 +1090,8 @@ const Inventory = ({ inventory, setInventory }) => {
           animation: 'slideUp 0.35s cubic-bezier(0.16, 1, 0.3, 1)'
         }}>
           {/* Header */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--glass-border)', paddingBottom: '0.75rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--glass-border)', paddingBottom: '0.75rem', flexWrap: 'wrap', gap: '0.75rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
               <span style={{ 
                 background: 'var(--accent-color, #0ea5e9)', 
                 color: '#fff', 
@@ -1080,6 +1102,18 @@ const Inventory = ({ inventory, setInventory }) => {
               }}>
                 เลือกแล้ว {selectedIds.length} รายการ
               </span>
+              {Object.keys(selectedTotals.received).length > 0 && (
+                <span style={{ 
+                  color: 'rgba(255,255,255,0.85)', 
+                  fontSize: '0.8rem', 
+                  background: 'rgba(255, 255, 255, 0.08)', 
+                  padding: '0.2rem 0.65rem', 
+                  borderRadius: '6px', 
+                  fontWeight: '500' 
+                }}>
+                  รวมจำนวนรับ: <strong style={{ color: '#38bdf8' }}>{Object.entries(selectedTotals.received).map(([unit, val]) => `${val.toLocaleString()} ${unit}`).join(', ')}</strong> | คงเหลือ: <strong style={{ color: '#34d399' }}>{Object.entries(selectedTotals.remaining).map(([unit, val]) => `${val.toLocaleString()} ${unit}`).join(', ')}</strong>
+                </span>
+              )}
               <h3 style={{ fontSize: '1rem', margin: 0, fontWeight: 'bold', color: '#fff' }}>
                 จัดการสถานะแบบกลุ่ม (Bulk Update)
               </h3>
