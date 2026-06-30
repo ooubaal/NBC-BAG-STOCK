@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { MinusCircle, Search, Calendar, Package, AlertCircle, MapPin, Printer, ChevronDown } from 'lucide-react';
+import { MinusCircle, Search, Calendar, Package, AlertCircle, MapPin, Printer, ChevronDown, Zap } from 'lucide-react';
 
 const formatDateToDDMMYYYY = (dateStr) => {
   if (!dateStr) return '';
@@ -31,6 +31,48 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [lotSearchQuery, setLotSearchQuery] = useState('');
+
+  const recommendedItems = useMemo(() => {
+    const activity = {};
+    items.forEach(it => {
+      activity[it.name] = {
+        name: it.name,
+        lastActiveTime: 0,
+        activityCount: 0
+      };
+    });
+    
+    inventory.forEach(invItem => {
+      const name = invItem.itemName;
+      if (!activity[name]) {
+        activity[name] = { name, lastActiveTime: 0, activityCount: 0 };
+      }
+      
+      const inboundTime = invItem.date ? new Date(invItem.date).getTime() : 0;
+      if (!isNaN(inboundTime) && inboundTime > activity[name].lastActiveTime) {
+        activity[name].lastActiveTime = inboundTime;
+      }
+      
+      if (invItem.withdrawals && invItem.withdrawals.length > 0) {
+        activity[name].activityCount += invItem.withdrawals.length;
+        invItem.withdrawals.forEach(w => {
+          const wTime = w.date ? new Date(w.date).getTime() : 0;
+          if (!isNaN(wTime) && wTime > activity[name].lastActiveTime) {
+            activity[name].lastActiveTime = wTime;
+          }
+        });
+      }
+    });
+    
+    return Object.values(activity)
+      .sort((a, b) => {
+        if (b.lastActiveTime !== a.lastActiveTime) {
+          return b.lastActiveTime - a.lastActiveTime;
+        }
+        return b.activityCount - a.activityCount;
+      })
+      .slice(0, 15);
+  }, [inventory, items]);
   
   // History search and selection states
   const [historySearch, setHistorySearch] = useState('');
@@ -1257,6 +1299,42 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
                       )}
                     </div>
                   </>
+                )}
+              </div>
+            </div>
+
+            <div style={{ marginTop: '1.25rem', marginBottom: '1.5rem' }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.5rem' }}>
+                <Zap size={13} color="var(--accent-color)" /> เลือกพัสดุแนะนำแบบด่วน (เคลื่อนไหวบ่อย 15 อันดับแรก):
+              </span>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', maxHeight: '130px', overflowY: 'auto', padding: '0.2rem 0.1rem' }}>
+                {recommendedItems.length === 0 ? (
+                  <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>ไม่มีข้อมูลการเคลื่อนไหว</span>
+                ) : (
+                  recommendedItems.map(item => (
+                    <button
+                      key={item.name}
+                      type="button"
+                      className="btn"
+                      style={{
+                        padding: '0.3rem 0.65rem',
+                        fontSize: '0.75rem',
+                        borderRadius: '20px',
+                        background: selectedItem === item.name ? 'var(--accent-color)' : 'rgba(255, 255, 255, 0.04)',
+                        border: selectedItem === item.name ? '1px solid var(--accent-color)' : '1px solid var(--glass-border)',
+                        color: selectedItem === item.name ? '#fff' : 'var(--text-primary)',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s',
+                        whiteSpace: 'nowrap'
+                      }}
+                      onClick={() => {
+                        setSelectedItem(item.name);
+                        setLotSearchQuery('');
+                      }}
+                    >
+                      {item.name}
+                    </button>
+                  ))
                 )}
               </div>
             </div>
