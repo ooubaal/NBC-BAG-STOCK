@@ -27,7 +27,7 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
   const [activeLotId, setActiveLotId] = useState(null);
   const [amount, setAmount] = useState('');
   const [reason, setReason] = useState('');
-  const [reasonType, setReasonType] = useState('ตัดจ่าย');
+  const [reasonType, setReasonType] = useState('ตัดเข้าห้องสะอาด');
   const [searchQuery, setSearchQuery] = useState('');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [lotSearchQuery, setLotSearchQuery] = useState('');
@@ -153,7 +153,7 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
     alert("บันทึกการตัดจ่ายเรียบร้อย");
     setAmount('');
     setReason('');
-    setReasonType('ตัดจ่าย');
+    setReasonType('ตัดเข้าห้องสะอาด');
     setActiveLotId(null);
   };
 
@@ -1408,8 +1408,8 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
                       onChange={e => setReasonType(e.target.value)}
                       style={{ width: '100%', padding: '0.6rem', border: '1px solid var(--glass-border)', borderRadius: '8px', background: 'var(--glass-bg)', color: 'var(--text-primary)' }}
                     >
-                      <option value="ตัดจ่าย">1. ตัดจ่าย</option>
-                      <option value="ตัดเข้าห้องสะอาด">2. ตัดเข้าห้องสะอาด</option>
+                      <option value="ตัดเข้าห้องสะอาด">1. ตัดเข้าห้องสะอาด</option>
+                      <option value="ตัดจ่าย">2. ตัดจ่าย</option>
                       <option value="ตัดจำหน่าย">3. ตัดจำหน่าย</option>
                       <option value="ตัดเคลม">4. ตัดเคลม</option>
                       <option value="อื่นๆ โปรดระบุ ....">5. อื่นๆ โปรดระบุ ....</option>
