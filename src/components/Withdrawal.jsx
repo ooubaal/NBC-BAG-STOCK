@@ -1156,7 +1156,7 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
       </div>
 
       {withdrawalTab === 'new' ? (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr', gap: '2rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
           {/* Step 1: Selection */}
           <div className="glass card">
             <h3 style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -1295,7 +1295,7 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
               </div>
             )}
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', maxHeight: '400px', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', maxHeight: '450px', overflowY: 'auto' }}>
               {availableLots.length === 0 ? (
                 <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)', border: '1px dashed var(--glass-border)', borderRadius: '8px' }}>
                   <Package size={32} style={{ marginBottom: '0.5rem', opacity: 0.5 }} />
@@ -1307,7 +1307,7 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
                     key={lot.id} 
                     className={`glass ${activeLotId === lot.id ? 'active-lot' : ''}`}
                     style={{ 
-                      padding: '1rem', 
+                      padding: '0.4rem 0.65rem', 
                       borderRadius: '8px', 
                       cursor: 'pointer',
                       border: activeLotId === lot.id ? '1px solid var(--accent-color)' : '1px solid transparent',
@@ -1317,22 +1317,24 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
                     onClick={() => setActiveLotId(lot.id)}
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <div>
-                        <div style={{ fontWeight: 700, color: 'var(--text-primary)' }}>
-                          <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block' }}>Supplier Lot:</span>
-                          {lot.supplierLot}
+                      <div style={{ flex: 1, minWidth: 0, paddingRight: '0.5rem' }}>
+                        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'baseline', flexWrap: 'wrap' }}>
+                          <div style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                            <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginRight: '0.2rem' }}>S/N Lot:</span>
+                            {lot.supplierLot}
+                          </div>
+                          <div style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                            <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginRight: '0.2rem' }}>Inhouse:</span>
+                            {lot.inhouseLot || '-'}
+                          </div>
                         </div>
-                        <div style={{ fontWeight: 600, fontSize: '0.85rem', marginTop: '0.25rem' }}>
-                          <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block' }}>Inhouse Lot:</span>
-                          {lot.inhouseLot || '-'}
-                        </div>
-                        <div style={{ fontSize: '0.75rem', color: 'var(--accent-secondary)', marginTop: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                          <MapPin size={12} /> {lot.location}
+                        <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '0.15rem', display: 'flex', alignItems: 'center', gap: '0.2rem' }}>
+                          <MapPin size={11} /> {lot.location}
                         </div>
                       </div>
-                      <div style={{ textAlign: 'right' }}>
-                        <div style={{ fontWeight: 700, color: 'var(--accent-secondary)' }}>{lot.remainingQty}</div>
-                        <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>{lot.unit || 'ชิ้น'}</div>
+                      <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', justifyContent: 'center', flexShrink: 0 }}>
+                        <div style={{ fontWeight: 700, color: 'var(--accent-secondary)', fontSize: '1rem', lineHeight: 1 }}>{lot.remainingQty}</div>
+                        <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginTop: '0.15rem' }}>{lot.unit || 'ชิ้น'}</div>
                       </div>
                     </div>
                   </div>
