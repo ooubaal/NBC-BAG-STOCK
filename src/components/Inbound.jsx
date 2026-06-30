@@ -19,6 +19,7 @@ const SearchableSelect = ({ value, onChange, options, placeholder, disabled }) =
         type="text"
         placeholder={placeholder}
         value={isOpen ? search : displayLabel}
+        title={displayLabel}
         onChange={(e) => {
           if (!isOpen) setIsOpen(true);
           setSearch(e.target.value);
@@ -38,7 +39,10 @@ const SearchableSelect = ({ value, onChange, options, placeholder, disabled }) =
           borderRadius: '4px',
           cursor: disabled ? 'not-allowed' : 'pointer',
           outline: 'none',
-          boxSizing: 'border-box'
+          boxSizing: 'border-box',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+          overflow: 'hidden'
         }}
       />
       {isOpen && !disabled && (
