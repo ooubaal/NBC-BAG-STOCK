@@ -13,7 +13,9 @@ import {
   MinusCircle,
   ClipboardList,
   Calendar,
-  Tag
+  Tag,
+  Menu,
+  X
 } from 'lucide-react';
 import './App.css';
 
@@ -57,6 +59,7 @@ const safeSetLocalStorage = (key, value) => {
 
 function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   
   const [items, setItems] = useState(() => {
     const saved = localStorage.getItem('wms_items');
@@ -679,8 +682,35 @@ function App() {
 
   return (
     <div className="app-container">
-      <aside className="sidebar glass">
-        <div className="logo" onClick={() => setActiveTab('dashboard')} style={{ cursor: 'pointer' }}>
+      {/* Mobile Header */}
+      <header className="mobile-header glass">
+        <button className="menu-toggle-btn" onClick={() => setIsMobileMenuOpen(true)}>
+          <Menu size={24} />
+        </button>
+        <div className="mobile-logo" onClick={() => { setActiveTab('dashboard'); setIsMobileMenuOpen(false); }}>
+          <Package size={24} color="var(--accent-color)" />
+          <span>NBC STOCK</span>
+        </div>
+        <div style={{ width: 24 }} /> {/* placeholder for spacing balance */}
+      </header>
+
+      {/* Backdrop overlay */}
+      {isMobileMenuOpen && (
+        <div className="sidebar-backdrop" onClick={() => setIsMobileMenuOpen(false)} />
+      )}
+
+      <aside className={`sidebar glass ${isMobileMenuOpen ? 'open' : ''}`}>
+        <div className="sidebar-header-mobile">
+          <div className="logo" onClick={() => { setActiveTab('dashboard'); setIsMobileMenuOpen(false); }} style={{ cursor: 'pointer', marginBottom: 0 }}>
+            <Package size={32} />
+            <span>NBC STOCK</span>
+          </div>
+          <button className="sidebar-close-btn" onClick={() => setIsMobileMenuOpen(false)}>
+            <X size={24} />
+          </button>
+        </div>
+
+        <div className="logo logo-desktop" onClick={() => setActiveTab('dashboard')} style={{ cursor: 'pointer' }}>
           <Package size={32} />
           <span>NBC STOCK</span>
         </div>
@@ -688,55 +718,55 @@ function App() {
         <nav className="nav-links">
           <NavItem 
             active={activeTab === 'dashboard'} 
-            onClick={() => setActiveTab('dashboard')}
+            onClick={() => { setActiveTab('dashboard'); setIsMobileMenuOpen(false); }}
             icon={<LayoutDashboard size={20} />}
             label="Dashboard"
           />
           <NavItem 
             active={activeTab === 'items'} 
-            onClick={() => setActiveTab('items')}
+            onClick={() => { setActiveTab('items'); setIsMobileMenuOpen(false); }}
             icon={<Package size={20} />}
             label="ทะเบียนพัสดุ"
           />
           <NavItem 
             active={activeTab === 'inventory'} 
-            onClick={() => setActiveTab('inventory')}
+            onClick={() => { setActiveTab('inventory'); setIsMobileMenuOpen(false); }}
             icon={<History size={20} />}
             label="คลังพัสดุ"
           />
           <NavItem 
             active={activeTab === 'inbound'} 
-            onClick={() => setActiveTab('inbound')}
+            onClick={() => { setActiveTab('inbound'); setIsMobileMenuOpen(false); }}
             icon={<Plus size={20} />}
             label="รับเข้า"
           />
           <NavItem 
             active={activeTab === 'withdrawal'} 
-            onClick={() => setActiveTab('withdrawal')}
+            onClick={() => { setActiveTab('withdrawal'); setIsMobileMenuOpen(false); }}
             icon={<MinusCircle size={20} />}
             label="การตัดจ่าย"
           />
           <NavItem 
             active={activeTab === 'analytics'} 
-            onClick={() => setActiveTab('analytics')}
+            onClick={() => { setActiveTab('analytics'); setIsMobileMenuOpen(false); }}
             icon={<BarChart3 size={20} />}
             label="วิเคราะห์ Stock"
           />
           <NavItem 
             active={activeTab === 'ncp'} 
-            onClick={() => setActiveTab('ncp')}
+            onClick={() => { setActiveTab('ncp'); setIsMobileMenuOpen(false); }}
             icon={<AlertOctagon size={20} />}
             label="เคลมสินค้า NCP"
           />
           <NavItem 
             active={activeTab === 'agreements'} 
-            onClick={() => setActiveTab('agreements')}
+            onClick={() => { setActiveTab('agreements'); setIsMobileMenuOpen(false); }}
             icon={<ClipboardList size={20} />}
             label="สัญญาจัดซื้อ"
           />
           <NavItem 
             active={activeTab === 'labels'} 
-            onClick={() => setActiveTab('labels')}
+            onClick={() => { setActiveTab('labels'); setIsMobileMenuOpen(false); }}
             icon={<Tag size={20} />}
             label="พิมพ์ป้ายสถานะ"
           />
@@ -745,7 +775,7 @@ function App() {
         <div style={{ marginTop: 'auto', paddingTop: '2rem' }}>
           <NavItem 
             active={activeTab === 'settings'} 
-            onClick={() => setActiveTab('settings')}
+            onClick={() => { setActiveTab('settings'); setIsMobileMenuOpen(false); }}
             icon={<Settings size={20} />} 
             label="ตั้งค่าแชร์คลาวด์" 
           />
