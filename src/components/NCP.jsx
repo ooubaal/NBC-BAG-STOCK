@@ -423,25 +423,23 @@ const NCP = ({ inventory, items, claims, setClaims }) => {
           </button>
         </div>
 
-        {claims.length > 0 && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'var(--glass-bg)', border: '1px solid var(--glass-border)', borderRadius: 'var(--radius-sm)', padding: '0.45rem 0.75rem', minWidth: '280px' }}>
-            <Search size={16} color="var(--text-secondary)" />
-            <input
-              type="text"
-              placeholder="ค้นหาตามชื่อสินค้า, Lot หรือรายละเอียด..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              style={{
-                border: 'none',
-                outline: 'none',
-                background: 'transparent',
-                color: 'var(--text-primary)',
-                width: '100%',
-                fontSize: '0.85rem'
-              }}
-            />
-          </div>
-        )}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'var(--glass-bg)', border: '1px solid var(--glass-border)', borderRadius: 'var(--radius-sm)', padding: '0.45rem 0.75rem', minWidth: '280px' }}>
+          <Search size={16} color="var(--text-secondary)" />
+          <input
+            type="text"
+            placeholder="ค้นหาตามชื่อสินค้า, Lot หรือรายละเอียด..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            style={{
+              border: 'none',
+              outline: 'none',
+              background: 'transparent',
+              color: 'var(--text-primary)',
+              width: '100%',
+              fontSize: '0.85rem'
+            }}
+          />
+        </div>
       </div>
 
       <div className="claims-list" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(400px, 1fr))', gap: '1.5rem' }}>
@@ -449,7 +447,7 @@ const NCP = ({ inventory, items, claims, setClaims }) => {
           <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: '4rem', color: 'var(--text-muted)' }}>ยังไม่มีประวัติการเคลมสินค้า</div>
         ) : filteredClaims.length === 0 ? (
           <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: '4rem', color: 'var(--text-muted)' }}>
-            ไม่มีรายการเคลมสินค้าในหมวดหมู่นี้
+            {searchQuery.trim() !== '' ? 'ไม่พบรายการเคลมที่ตรงกับคำค้นหา' : 'ไม่มีรายการเคลมสินค้าในหมวดหมู่นี้'}
           </div>
         ) : (
           filteredClaims.map(claim => (
