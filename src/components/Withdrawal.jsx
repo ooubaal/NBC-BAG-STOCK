@@ -998,7 +998,7 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
         const item = activeList[i];
         rows.push({
           no: i + 1,
-          itemName: `${item.itemName} (Lot inhouse: ${item.inhouseLot || '-'})`,
+          itemName: `${item.itemName} (Inhouse Lot: ${item.inhouseLot || '-'}, Supplier Lot: ${item.supplierLot || '-'})`,
           unitPack: item.packSize || '-',
           amountReq: item.amount,
           amountIssued: item.amount,
