@@ -960,6 +960,11 @@ const Inventory = ({ inventory, setInventory }) => {
           </tbody>
         </table>
       </div>
+
+      {/* Spacing block to prevent bulk panel from covering table rows when scrolling */}
+      {selectedIds.length > 0 && (
+        <div style={{ height: '220px' }} />
+      )}
     </div>
 
     {/* Deletion Warning Modal */}
