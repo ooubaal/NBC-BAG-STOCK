@@ -511,7 +511,7 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
                 <th style="width: 12%;">วันที่ตัดจ่าย</th>
                 <th style="width: 25%;">รายการสินค้า</th>
                 <th style="width: 12%;">Supplier Lot</th>
-                <th style="width: 12%;">Inhouse Lot</th>
+                <th style="width: 12%;">QC Lot</th>
                 <th style="width: 12%; text-align: right;">จำนวนที่ตัด</th>
                 <th style="width: 8%;">หน่วย</th>
                 <th style="width: 10%;">ที่เก็บเดิม</th>
@@ -762,7 +762,7 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
                   <label><input type="checkbox" id="col-date" checked onchange="updateTable()"> วันที่ตัดจ่าย</label>
                   <label><input type="checkbox" id="col-item" checked onchange="updateTable()"> รายการสินค้า</label>
                   <label><input type="checkbox" id="col-supplier" checked onchange="updateTable()"> Supplier Lot</label>
-                  <label><input type="checkbox" id="col-inhouse" checked onchange="updateTable()"> Inhouse Lot</label>
+                  <label><input type="checkbox" id="col-inhouse" checked onchange="updateTable()"> QC Lot</label>
                   <label><input type="checkbox" id="col-qty" checked onchange="updateTable()"> จำนวนตัดจ่าย</label>
                   <label><input type="checkbox" id="col-unit" checked onchange="updateTable()"> หน่วย</label>
                   <label><input type="checkbox" id="col-location" checked onchange="updateTable()"> ที่เก็บเดิม</label>
@@ -814,7 +814,7 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
                 <th id="th-date" class="col-date" style="width: 10%;">วันที่ตัดจ่าย</th>
                 <th id="th-item" class="col-item" style="width: 25%;">รายการสินค้า</th>
                 <th id="th-supplier" class="col-supplier" style="width: 12%;">Supplier Lot</th>
-                <th id="th-inhouse" class="col-inhouse" style="width: 12%;">Inhouse Lot</th>
+                <th id="th-inhouse" class="col-inhouse" style="width: 12%;">QC Lot</th>
                 <th id="th-qty" class="col-qty" style="width: 10%; text-align: right;">จำนวนตัดจ่าย</th>
                 <th id="th-unit" class="col-unit" style="width: 7%;">หน่วย</th>
                 <th id="th-location" class="col-location" style="width: 8%;">ที่เก็บเดิม</th>
@@ -862,7 +862,7 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
               date: 'วันที่ตัดจ่าย',
               item: 'รายการสินค้า',
               supplier: 'Supplier Lot',
-              inhouse: 'Inhouse Lot',
+              inhouse: 'QC Lot',
               qty: 'จำนวนตัดจ่าย',
               unit: 'หน่วย',
               location: 'ที่เก็บเดิม',
@@ -998,7 +998,7 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
         const item = activeList[i];
         rows.push({
           no: i + 1,
-          itemName: `${item.itemName} (Inhouse Lot: ${item.inhouseLot || '-'}, Supplier Lot: ${item.supplierLot || '-'})`,
+          itemName: `${item.itemName} (QC Lot: ${item.inhouseLot || '-'}, Supplier Lot: ${item.supplierLot || '-'})`,
           unitPack: item.packSize || '-',
           amountReq: item.amount,
           amountIssued: item.amount,
@@ -1471,7 +1471,7 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
                   <Search size={16} color="var(--text-muted)" style={{ marginRight: '0.5rem', flexShrink: 0 }} />
                   <input
                     type="text"
-                    placeholder="ค้นหาตาม Supplier Lot, Inhouse Lot หรือสถานที่เก็บ..."
+                    placeholder="ค้นหาตาม Supplier Lot, QC Lot หรือสถานที่เก็บ..."
                     value={lotSearchQuery}
                     onChange={(e) => setLotSearchQuery(e.target.value)}
                     style={{
@@ -1535,7 +1535,7 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
                                 {lot.supplierLot}
                               </div>
                               <div style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
-                                <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginRight: '0.2rem' }}>Inhouse:</span>
+                                <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginRight: '0.2rem' }}>QC:</span>
                                 {lot.inhouseLot || '-'}
                               </div>
                             </div>
@@ -1578,7 +1578,7 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
                                 <div style={{ fontWeight: 700 }}>{lot.supplierLot}</div>
                               </div>
                               <div>
-                                <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Inhouse Lot:</div>
+                                <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>QC Lot:</div>
                                 <div style={{ fontWeight: 700 }}>{lot.inhouseLot || '-'}</div>
                               </div>
                             </div>
@@ -1753,7 +1753,7 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
                       <th style={{ padding: '0.5rem' }}>ลำดับ</th>
                       <th style={{ padding: '0.5rem' }}>ชื่อสินค้า</th>
                       <th style={{ padding: '0.5rem' }}>Supplier Lot</th>
-                      <th style={{ padding: '0.5rem' }}>Inhouse Lot</th>
+                      <th style={{ padding: '0.5rem' }}>QC Lot</th>
                       <th style={{ padding: '0.5rem', textAlign: 'right' }}>จำนวนที่ตัดจ่าย</th>
                       <th style={{ padding: '0.5rem' }}>หน่วย</th>
                       <th style={{ padding: '0.5rem' }}>วันที่ตัดจ่าย</th>
@@ -1924,7 +1924,7 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
                   </th>
                   <th style={{ padding: '1rem' }}>วันที่ตัดจ่าย</th>
                   <th style={{ padding: '1rem' }}>รายการสินค้า</th>
-                  <th style={{ padding: '1rem' }}>Supplier / Inhouse Lot</th>
+                  <th style={{ padding: '1rem' }}>Supplier / QC Lot</th>
                   <th style={{ padding: '1rem' }}>จำนวนตัดจ่าย</th>
                   <th style={{ padding: '1rem' }}>ที่เก็บเดิม</th>
                   <th style={{ padding: '1rem' }}>เหตุผล / หมายเหตุ</th>

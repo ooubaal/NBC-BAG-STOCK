@@ -192,7 +192,7 @@ const StatusLabels = ({ inventory = [] }) => {
     if (!lot) return '';
     const parts = [];
     if (lot.supplierLot) parts.push(`Supplier: ${lot.supplierLot}`);
-    if (lot.inhouseLot) parts.push(`Inhouse: ${lot.inhouseLot}`);
+    if (lot.inhouseLot) parts.push(`QC: ${lot.inhouseLot}`);
     return parts.join(' / ') || lot.id;
   };
 

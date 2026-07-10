@@ -349,7 +349,7 @@ const Inventory = ({ inventory, setInventory }) => {
       lotSheet.addRow([]); // Blank row
       
       const lotHeaders = [
-        'ลำดับ', 'ชื่อพัสดุ', 'Lot ผู้จัดจำหน่าย', 'Inhouse Lot', 
+        'ลำดับ', 'ชื่อพัสดุ', 'Lot ผู้จัดจำหน่าย', 'QC Lot', 
         'วันที่รับเข้า', 'ที่เก็บ', 'คงเหลือในระบบ', 'หน่วย', 
         'จำนวนที่นับได้จริง', 'สถานะ QC', 'หมายเหตุ'
       ];
@@ -618,7 +618,7 @@ const Inventory = ({ inventory, setInventory }) => {
               </th>
               <th style={{ padding: '0.6rem 0.8rem' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', alignItems: 'flex-start' }}>
-                  <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>Inhouse Lot</span>
+                  <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>QC Lot</span>
                   <select 
                     value={sortType.startsWith('inhouseLot-') ? sortType : 'none'} 
                     onChange={(e) => {

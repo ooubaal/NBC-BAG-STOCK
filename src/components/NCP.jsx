@@ -316,7 +316,7 @@ const NCP = ({ inventory, items, claims, setClaims }) => {
                 <option value="">-- เลือก Lot จากคลังพัสดุ --</option>
                 {availableLots.map((lot, idx) => (
                   <option key={lot.id || idx} value={lot.supplierLot}>
-                    Supplier Lot: {lot.supplierLot} {lot.inhouseLot ? `(Inhouse: ${lot.inhouseLot})` : ''} - คงเหลือ {lot.remainingQty} {lot.unit || 'ชิ้น'} ({lot.location})
+                    Supplier Lot: {lot.supplierLot} {lot.inhouseLot ? `(QC: ${lot.inhouseLot})` : ''} - คงเหลือ {lot.remainingQty} {lot.unit || 'ชิ้น'} ({lot.location})
                   </option>
                 ))}
               </select>
@@ -628,7 +628,7 @@ const NCP = ({ inventory, items, claims, setClaims }) => {
                   <option value="">-- เลือก Lot --</option>
                   {inventory.filter(i => i.itemName === editingClaim.itemName).map((lot, idx) => (
                     <option key={lot.id || idx} value={lot.supplierLot}>
-                      Supplier: {lot.supplierLot} {lot.inhouseLot ? `(Inhouse: ${lot.inhouseLot})` : ''} - คงเหลือ {lot.remainingQty} {lot.unit || 'ชิ้น'} ({lot.location})
+                      Supplier: {lot.supplierLot} {lot.inhouseLot ? `(QC: ${lot.inhouseLot})` : ''} - คงเหลือ {lot.remainingQty} {lot.unit || 'ชิ้น'} ({lot.location})
                     </option>
                   ))}
                 </select>

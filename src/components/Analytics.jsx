@@ -478,7 +478,7 @@ const Analytics = ({ inventory, items }) => {
               <thead>
                 <tr style={{ textAlign: 'left', borderBottom: '1px solid var(--glass-border)', color: 'var(--text-muted)' }}>
                   {renderHeader('Lot no.', 'lot')}
-                  {renderHeader('Inhouse Lot', 'inhouseLot')}
+                  {renderHeader('QC Lot', 'inhouseLot')}
                   {renderHeader('วันที่รับ', 'date')}
                   {renderHeader(`คงเหลือ (${currentUnit})`, 'qty')}
                   {renderHeader('ที่เก็บ', 'location')}

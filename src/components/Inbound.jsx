@@ -390,7 +390,7 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
         { header: 'หน่วย (แสดงอัตโนมัติ)', key: 'unit', width: 20 },
         { header: 'เลขที่สัญญาจัดซื้อ (ถ้ามี)', key: 'agreementId', width: 25 },
         { header: 'Supplier Lot (จำเป็น)', key: 'supplierLot', width: 20 },
-        { header: 'Inhouse Lot (ถ้ามี)', key: 'inhouseLot', width: 20 },
+        { header: 'QC Lot (ถ้ามี)', key: 'inhouseLot', width: 20 },
         { header: 'สถานะ QC (Pass / Quarantine / Reject)', key: 'qcStatus', width: 35 },
         { header: 'ขนาดบรรจุ (เช่น 25kg, 10ชิ้น - ถ้ามี)', key: 'packSize', width: 30 },
         { header: 'จำนวนรับเข้า (จำเป็น - ตัวเลขเท่านั้น)', key: 'quantity', width: 30 },
@@ -801,7 +801,7 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
                 <th>วันที่รับ</th>
                 <th>รายการสินค้า</th>
                 <th>Supplier Lot</th>
-                <th>Inhouse Lot</th>
+                <th>QC Lot</th>
                 <th>สถานะ QC</th>
                 <th>Pack Size</th>
                 <th>จำนวนรับ</th>
@@ -1092,7 +1092,7 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
                 <th>วันที่รับ</th>
                 <th>รายการสินค้า</th>
                 <th>Supplier Lot</th>
-                <th>Inhouse Lot</th>
+                <th>QC Lot</th>
                 <th>สถานะ QC</th>
                 <th>Pack Size</th>
                 <th>จำนวนรับ</th>
@@ -1395,7 +1395,7 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
                   <label><input type="checkbox" id="col-date" checked onchange="updateTable()"> วันที่รับเข้า</label>
                   <label><input type="checkbox" id="col-item" checked onchange="updateTable()"> รายการสินค้า</label>
                   <label><input type="checkbox" id="col-supplier" checked onchange="updateTable()"> Supplier Lot</label>
-                  <label><input type="checkbox" id="col-inhouse" checked onchange="updateTable()"> Inhouse Lot</label>
+                  <label><input type="checkbox" id="col-inhouse" checked onchange="updateTable()"> QC Lot</label>
                   <label><input type="checkbox" id="col-qc" checked onchange="updateTable()"> สถานะ QC</label>
                   <label><input type="checkbox" id="col-location" checked onchange="updateTable()"> ที่เก็บ</label>
                   <label><input type="checkbox" id="col-qty" checked onchange="updateTable()"> จำนวนรับ</label>
@@ -1447,7 +1447,7 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
                 <th id="th-date" class="col-date" style="width: 12%;">วันที่รับเข้า</th>
                 <th id="th-item" class="col-item" style="width: 30%;">รายการสินค้า</th>
                 <th id="th-supplier" class="col-supplier" style="width: 12%;">Supplier Lot</th>
-                <th id="th-inhouse" class="col-inhouse" style="width: 12%;">Inhouse Lot</th>
+                <th id="th-inhouse" class="col-inhouse" style="width: 12%;">QC Lot</th>
                 <th id="th-qc" class="col-qc" style="width: 10%;">สถานะ QC</th>
                 <th id="th-location" class="col-location" style="width: 10%;">ที่เก็บ</th>
                 <th id="th-qty" class="col-qty" style="width: 10%; text-align: right;">จำนวนรับ</th>
@@ -1501,7 +1501,7 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
               date: 'วันที่รับเข้า',
               item: 'รายการสินค้า',
               supplier: 'Supplier Lot',
-              inhouse: 'Inhouse Lot',
+              inhouse: 'QC Lot',
               qc: 'สถานะ QC',
               location: 'ที่เก็บ',
               qty: 'จำนวนรับ',
@@ -1742,7 +1742,7 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
                   <th style={{ padding: '0.5rem 0.25rem', fontSize: '0.72rem', width: '20%' }}>รายการสินค้า</th>
                   <th style={{ padding: '0.5rem 0.25rem', fontSize: '0.72rem', width: '12%' }}>สัญญาจัดซื้อ</th>
                   <th style={{ padding: '0.5rem 0.25rem', fontSize: '0.72rem', width: '10%' }}>Supplier Lot</th>
-                  <th style={{ padding: '0.5rem 0.25rem', fontSize: '0.72rem', width: '11%' }}>Inhouse Lot</th>
+                  <th style={{ padding: '0.5rem 0.25rem', fontSize: '0.72rem', width: '11%' }}>QC Lot</th>
                   <th style={{ padding: '0.5rem 0.25rem', fontSize: '0.72rem', width: '9%' }}>สถานะ QC</th>
                   <th style={{ padding: '0.5rem 0.25rem', fontSize: '0.72rem', width: '8%' }}>Pack Size</th>
                   <th style={{ padding: '0.5rem 0.25rem', fontSize: '0.72rem', width: '7%' }}>จำนวน</th>
@@ -1795,7 +1795,7 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
                     <td style={{ padding: '0.5rem 0.25rem', verticalAlign: 'top' }}>
                       <input 
                         type="text" 
-                        placeholder="Inhouse no." 
+                        placeholder="QC no." 
                         style={{ fontSize: '0.78rem', padding: '0.4rem 0.3rem', width: '100%' }} 
                         value={entry.inhouseLot} 
                         onChange={(e) => updateEntry(entry.id, 'inhouseLot', e.target.value)} 
@@ -2016,7 +2016,7 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
                   <th style={{ padding: '1rem' }}>วันที่รับ</th>
                   <th style={{ padding: '1rem' }}>รายการสินค้า</th>
                   <th style={{ padding: '1rem', width: '150px' }}>สัญญาจัดซื้อ</th>
-                  <th style={{ padding: '1rem' }}>Supplier / Inhouse Lot</th>
+                  <th style={{ padding: '1rem' }}>Supplier / QC Lot</th>
                   <th style={{ padding: '1rem' }}>สถานะ QC</th>
                   <th style={{ padding: '1rem' }}>ที่เก็บ</th>
                   <th style={{ padding: '1rem' }}>จำนวนรับเข้า</th>
