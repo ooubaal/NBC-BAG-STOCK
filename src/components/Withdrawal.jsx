@@ -987,6 +987,30 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
     // Only print active (non-cancelled) items to reflect "จริงที่จ่าย"
     const activeList = reportList.filter(w => !w.isCancelled);
 
+    const isLocationString = (str, location) => {
+      if (!str) return false;
+      const s = String(str).toLowerCase().trim();
+      const loc = location ? String(location).toLowerCase().trim() : '';
+      return s.includes('ชั้น') || s.includes('ตึก') || s.includes('ตู้') || s.includes('ห้อง') || s.includes('คลัง') || s.includes('shelf') || s.includes('floor') || s.includes('building') || (loc && s === loc);
+    };
+
+    const formatPackSizeWithUnit = (packSize, unit, location) => {
+      if (!packSize || packSize === '-') return '-';
+      const ps = String(packSize).trim();
+      if (isLocationString(ps, location)) return '-';
+      
+      const hasAlphabet = /[a-zA-Z\u0e00-\u0e7f]/.test(ps);
+      if (hasAlphabet) {
+        return ps;
+      }
+      return `${ps} ${unit || 'ชิ้น'}`;
+    };
+
+    const formatQtyWithUnit = (qty, unit) => {
+      if (qty === undefined || qty === null || qty === '') return '';
+      return `${Number(qty).toLocaleString()} ${unit || 'ชิ้น'}`;
+    };
+
     // Create a dynamic list of rows: if the active items fit in 20 rows, pad up to 20.
     // If there are more than 20 items, display all of them (it will naturally split into multiple pages).
     const rows = [];
@@ -999,9 +1023,9 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
         rows.push({
           no: i + 1,
           itemName: `${item.itemName} (QC Lot: ${item.inhouseLot || '-'}, Supplier Lot: ${item.supplierLot || '-'})`,
-          unitPack: item.packSize || '-',
-          amountReq: item.amount,
-          amountIssued: item.amount,
+          unitPack: formatPackSizeWithUnit(item.packSize, item.unit, item.location),
+          amountReq: formatQtyWithUnit(item.amount, item.unit),
+          amountIssued: formatQtyWithUnit(item.amount, item.unit),
         });
       } else {
         rows.push({
@@ -1070,10 +1094,12 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
             }
             .center {
               text-align: center;
+              white-space: nowrap;
             }
             .right {
               text-align: right;
               padding-right: 8px;
+              white-space: nowrap;
             }
             .footer {
               position: fixed;
@@ -1230,9 +1256,9 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
                   <td class="center">${r.no}</td>
                   <td style="padding-left: 8px; font-weight: ${r.itemName ? '600' : 'normal'};">${escapeHTML(r.itemName)}</td>
                   <td class="center">${escapeHTML(r.unitPack)}</td>
-                  <td class="right">${r.amountReq ? r.amountReq.toLocaleString() : ''}</td>
+                  <td class="right">${r.amountReq ? escapeHTML(r.amountReq) : ''}</td>
                   <td class="center"></td>
-                  <td class="right" style="font-weight: bold;">${r.amountIssued ? r.amountIssued.toLocaleString() : ''}</td>
+                  <td class="right" style="font-weight: bold;">${r.amountIssued ? escapeHTML(r.amountIssued) : ''}</td>
                   <td class="center"></td>
                   <td class="center"></td>
                 </tr>
