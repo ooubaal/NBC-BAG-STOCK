@@ -37,6 +37,18 @@ const Analytics = ({ inventory, items }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
+  const [sortKey, setSortKey] = useState('date');
+  const [sortDirection, setSortDirection] = useState('desc');
+
+  const handleSort = (key) => {
+    if (sortKey === key) {
+      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortKey(key);
+      setSortDirection('asc');
+    }
+  };
+
   // Column filter states for details by lot table
   const [filterLot, setFilterLot] = useState('');
   const [filterInhouseLot, setFilterInhouseLot] = useState('');
@@ -196,12 +208,69 @@ const Analytics = ({ inventory, items }) => {
     });
   }, [stats.lots, filterLot, filterInhouseLot, filterQty, filterLocation, filterAcceptance, filterQcStatus, filterDate]);
 
+  const sortedLots = useMemo(() => {
+    const list = [...filteredLots];
+    if (!sortKey) return list;
+
+    list.sort((a, b) => {
+      let aVal = a[sortKey];
+      let bVal = b[sortKey];
+
+      if (aVal === undefined || aVal === null) aVal = '';
+      if (bVal === undefined || bVal === null) bVal = '';
+
+      if (sortKey === 'qty') {
+        const aNum = Number(aVal) || 0;
+        const bNum = Number(bVal) || 0;
+        return sortDirection === 'asc' ? aNum - bNum : bNum - aNum;
+      }
+
+      if (sortKey === 'date') {
+        const aTime = aVal ? new Date(aVal).getTime() : 0;
+        const bTime = bVal ? new Date(bVal).getTime() : 0;
+        return sortDirection === 'asc' ? aTime - bTime : bTime - aTime;
+      }
+
+      const aStr = String(aVal).toLowerCase();
+      const bStr = String(bVal).toLowerCase();
+      
+      if (aStr < bStr) return sortDirection === 'asc' ? -1 : 1;
+      if (aStr > bStr) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+
+    return list;
+  }, [filteredLots, sortKey, sortDirection]);
+
   const getPredictionColor = () => {
     if (stats.predictionStatus === 'outOfStock') return '#ef4444';
     if (stats.predictionStatus === 'noUsage') return 'rgba(255, 255, 255, 0.1)';
     if (stats.daysRemaining <= 14) return '#ef4444';
     if (stats.daysRemaining <= 30) return '#f59e0b';
     return '#10b981';
+  };
+
+  const renderHeader = (label, key) => {
+    const isSorted = sortKey === key;
+    return (
+      <th 
+        style={{ 
+          padding: '0.5rem', 
+          cursor: 'pointer', 
+          userSelect: 'none',
+          color: isSorted ? 'var(--accent-color)' : 'var(--text-muted)',
+          transition: 'color 0.15s'
+        }}
+        onClick={() => handleSort(key)}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+          {label}
+          <span style={{ fontSize: '0.75rem', opacity: isSorted ? 1 : 0.35 }}>
+            {isSorted ? (sortDirection === 'asc' ? '▲' : '▼') : '↕'}
+          </span>
+        </div>
+      </th>
+    );
   };
 
   return (
@@ -408,13 +477,13 @@ const Analytics = ({ inventory, items }) => {
             <table style={{ width: '100%', fontSize: '0.9rem' }}>
               <thead>
                 <tr style={{ textAlign: 'left', borderBottom: '1px solid var(--glass-border)', color: 'var(--text-muted)' }}>
-                  <th style={{ padding: '0.5rem' }}>Lot no.</th>
-                  <th style={{ padding: '0.5rem' }}>Inhouse Lot</th>
-                  <th style={{ padding: '0.5rem' }}>วันที่รับ</th>
-                  <th style={{ padding: '0.5rem' }}>คงเหลือ ({currentUnit})</th>
-                  <th style={{ padding: '0.5rem' }}>ที่เก็บ</th>
-                  <th style={{ padding: '0.5rem' }}>สถานะจัดซื้อ/วางบิล</th>
-                  <th style={{ padding: '0.5rem' }}>สถานะ QC</th>
+                  {renderHeader('Lot no.', 'lot')}
+                  {renderHeader('Inhouse Lot', 'inhouseLot')}
+                  {renderHeader('วันที่รับ', 'date')}
+                  {renderHeader(`คงเหลือ (${currentUnit})`, 'qty')}
+                  {renderHeader('ที่เก็บ', 'location')}
+                  {renderHeader('สถานะจัดซื้อ/วางบิล', 'acceptanceStatus')}
+                  {renderHeader('สถานะ QC', 'status')}
                 </tr>
                 <tr style={{ borderBottom: '1px solid var(--glass-border)' }}>
                   <th style={{ padding: '0.25rem 0.5rem' }}>
@@ -490,10 +559,10 @@ const Analytics = ({ inventory, items }) => {
                 </tr>
               </thead>
               <tbody>
-                {filteredLots.length === 0 ? (
+                {sortedLots.length === 0 ? (
                   <tr><td colSpan="7" style={{ padding: '1rem', textAlign: 'center' }}>ไม่พบข้อมูลที่ตรงกับตัวกรอง</td></tr>
                 ) : (
-                  filteredLots.map((l, i) => (
+                  sortedLots.map((l, i) => (
                     <tr key={i} style={{ borderBottom: '1px solid var(--glass-border)' }}>
                       <td style={{ padding: '0.75rem' }}>{l.lot || '-'}</td>
                       <td style={{ padding: '0.75rem' }}>{l.inhouseLot || '-'}</td>
