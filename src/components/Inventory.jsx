@@ -675,7 +675,7 @@ const Inventory = ({ inventory, setInventory }) => {
               </th>
               <th style={{ padding: '0.6rem 0.8rem' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', alignItems: 'flex-start' }}>
-                  <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>จำนวนรับ / คงเหลือ</span>
+                  <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>คงเหลือ / จำนวนรับ</span>
                   <select 
                     value={filterQtyStatus} 
                     onChange={(e) => setFilterQtyStatus(e.target.value)}
