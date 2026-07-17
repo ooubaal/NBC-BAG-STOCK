@@ -20,6 +20,27 @@ const escapeHTML = (str) => {
     .replace(/'/g, '&#039;');
 };
 
+const AcceptanceBadge = ({ status }) => {
+  const normalizedStatus = status || '';
+  const styles = {
+    '': { bg: 'rgba(255, 255, 255, 0.05)', text: 'var(--text-muted, #888)', label: 'ยังไม่ได้วางบิล' },
+    'Pending': { bg: 'rgba(245, 158, 11, 0.15)', text: '#f59e0b', label: 'รอการตรวจรับ' },
+    'Accepted': { bg: 'rgba(16, 185, 129, 0.15)', text: '#10b981', label: 'ตรวจรับผ่าน' },
+    'Rejected': { bg: 'rgba(239, 68, 68, 0.15)', text: '#ef4444', label: 'ปฏิเสธการรับ' }
+  };
+  const current = styles[normalizedStatus] || styles[''];
+  return (
+    <span style={{ 
+      padding: '0.15rem 0.5rem', 
+      borderRadius: '4px', 
+      fontSize: '0.7rem', 
+      fontWeight: 600, 
+      backgroundColor: current.bg, 
+      color: current.text 
+    }}>{current.label}</span>
+  );
+};
+
 const Withdrawal = ({ inventory, setInventory, items }) => {
   const [withdrawalTab, setWithdrawalTab] = useState('new'); // 'new' or 'history'
   const [selectedItem, setSelectedItem] = useState((items && items.length > 0) ? items[0].name : '');
@@ -1555,15 +1576,19 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
                         />
                         <div style={{ flex: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                           <div style={{ flex: 1, minWidth: 0, paddingRight: '0.5rem' }}>
-                            <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'baseline', flexWrap: 'wrap' }}>
+                            <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
                               <div style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-primary)' }}>
                                 <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginRight: '0.2rem' }}>S/N Lot:</span>
                                 {lot.supplierLot}
                               </div>
                               <div style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
-                                <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginRight: '0.2rem' }}>QC:</span>
+                                <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginRight: '0.2rem' }}>QC Lot:</span>
                                 {lot.inhouseLot || '-'}
                               </div>
+                              <span className={`status-badge status-${(lot.qcStatus || 'Quarantine').toLowerCase()}`} style={{ padding: '0.15rem 0.5rem', fontSize: '0.65rem', borderRadius: '4px', textTransform: 'none', border: '1px solid transparent' }}>
+                                {lot.qcStatus || 'Quarantine'}
+                              </span>
+                              <AcceptanceBadge status={lot.acceptanceStatus} />
                             </div>
                             <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '0.15rem', display: 'flex', alignItems: 'center', gap: '0.2rem' }}>
                               <MapPin size={11} /> {lot.location}
