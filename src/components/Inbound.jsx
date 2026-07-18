@@ -175,7 +175,8 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
 
   const getLatestInhouseLot = (itemName) => {
     if (!itemName) return '-';
-    const matches = inventory.filter(item => 
+    const matches = (inventory || []).filter(item => 
+      item &&
       item.itemName === itemName && 
       item.inhouseLot && 
       item.inhouseLot.trim() !== ''
@@ -2729,8 +2730,8 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
                             ยกเลิกแล้ว
                           </span>
                         ) : (
-                          <span className={`status-badge status-${item.qcStatus.toLowerCase()}`}>
-                            {item.qcStatus}
+                          <span className={`status-badge status-${(item.qcStatus || 'Quarantine').toLowerCase()}`}>
+                            {item.qcStatus || 'Quarantine'}
                           </span>
                         )}
                       </td>
