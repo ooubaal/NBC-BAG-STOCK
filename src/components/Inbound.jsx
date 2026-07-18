@@ -139,6 +139,37 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
   const [selectedHistoryIds, setSelectedHistoryIds] = useState([]);
   const [historyStartDate, setHistoryStartDate] = useState('');
   const [historyEndDate, setHistoryEndDate] = useState('');
+  const [historySortType, setHistorySortType] = useState('date-desc');
+  const [historyFilterItem, setHistoryFilterItem] = useState('All');
+  const [historyFilterQC, setHistoryFilterQC] = useState('All');
+  const [historyFilterLocation, setHistoryFilterLocation] = useState('All');
+  const [historyFilterContract, setHistoryFilterContract] = useState('All');
+
+  const uniqueHistoryItems = useMemo(() => {
+    const names = new Set();
+    inventory.forEach(item => {
+      if (item.itemName) names.add(item.itemName);
+    });
+    return Array.from(names).sort((a, b) => a.localeCompare(b, 'th'));
+  }, [inventory]);
+
+  const uniqueHistoryLocations = useMemo(() => {
+    const locs = new Set();
+    inventory.forEach(item => {
+      if (item.location) locs.add(item.location);
+    });
+    return Array.from(locs).sort((a, b) => a.localeCompare(b, 'th'));
+  }, [inventory]);
+
+  const uniqueHistoryContracts = useMemo(() => {
+    const contracts = new Set();
+    inventory.forEach(item => {
+      if (item.agreementId) {
+        contracts.add(item.agreementId);
+      }
+    });
+    return Array.from(contracts).sort();
+  }, [inventory]);
 
 
 
@@ -1079,23 +1110,85 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
     printWindow.document.close();
   };
 
-  const filteredHistory = inventory.filter(item => {
-    const term = historySearch.toLowerCase();
-    const matchesSearch = (item.itemName && item.itemName.toLowerCase().includes(term)) ||
-                        (item.supplierLot && item.supplierLot.toLowerCase().includes(term)) ||
-                        (item.inhouseLot && item.inhouseLot.toLowerCase().includes(term)) ||
-                        (item.location && item.location.toLowerCase().includes(term));
+  const filteredHistory = useMemo(() => {
+    let result = inventory.filter(item => {
+      const term = historySearch.toLowerCase();
+      const matchesSearch = !historySearch || 
+                          (item.itemName && item.itemName.toLowerCase().includes(term)) ||
+                          (item.supplierLot && item.supplierLot.toLowerCase().includes(term)) ||
+                          (item.inhouseLot && item.inhouseLot.toLowerCase().includes(term)) ||
+                          (item.location && item.location.toLowerCase().includes(term));
 
-    let matchesDate = true;
-    if (historyStartDate) {
-      matchesDate = matchesDate && item.date >= historyStartDate;
-    }
-    if (historyEndDate) {
-      matchesDate = matchesDate && item.date <= historyEndDate;
-    }
+      let matchesDate = true;
+      if (historyStartDate) {
+        matchesDate = matchesDate && item.date >= historyStartDate;
+      }
+      if (historyEndDate) {
+        matchesDate = matchesDate && item.date <= historyEndDate;
+      }
 
-    return matchesSearch && matchesDate;
-  });
+      const matchesItem = historyFilterItem === 'All' || item.itemName === historyFilterItem;
+      const matchesQC = historyFilterQC === 'All' || item.qcStatus === historyFilterQC;
+      const matchesLocation = historyFilterLocation === 'All' || item.location === historyFilterLocation;
+      const matchesContract = historyFilterContract === 'All' || String(item.agreementId) === historyFilterContract;
+
+      return matchesSearch && matchesDate && matchesItem && matchesQC && matchesLocation && matchesContract;
+    });
+
+    result.sort((a, b) => {
+      if (historySortType === 'date-asc') {
+        return (a.date || '').localeCompare(b.date || '') || a.id - b.id;
+      }
+      if (historySortType === 'date-desc') {
+        return (b.date || '').localeCompare(a.date || '') || b.id - a.id;
+      }
+      if (historySortType === 'name-asc') {
+        return (a.itemName || '').localeCompare(b.itemName || '', 'th');
+      }
+      if (historySortType === 'name-desc') {
+        return (b.itemName || '').localeCompare(b.itemName || '', 'th');
+      }
+      if (historySortType === 'supplierLot-asc') {
+        return (a.supplierLot || '').localeCompare(b.supplierLot || '');
+      }
+      if (historySortType === 'supplierLot-desc') {
+        return (b.supplierLot || '').localeCompare(a.supplierLot || '');
+      }
+      if (historySortType === 'inhouseLot-asc') {
+        return (a.inhouseLot || '').localeCompare(b.inhouseLot || '');
+      }
+      if (historySortType === 'inhouseLot-desc') {
+        return (b.inhouseLot || '').localeCompare(a.inhouseLot || '');
+      }
+      if (historySortType === 'qty-asc') {
+        return Number(a.quantity || 0) - Number(b.quantity || 0);
+      }
+      if (historySortType === 'qty-desc') {
+        return Number(b.quantity || 0) - Number(a.quantity || 0);
+      }
+      if (historySortType === 'qc-asc') {
+        return (a.qcStatus || '').localeCompare(b.qcStatus || '');
+      }
+      if (historySortType === 'qc-desc') {
+        return (b.qcStatus || '').localeCompare(a.qcStatus || '');
+      }
+      if (historySortType === 'location-asc') {
+        return (a.location || '').localeCompare(b.location || '', 'th');
+      }
+      if (historySortType === 'location-desc') {
+        return (b.location || '').localeCompare(a.location || '', 'th');
+      }
+      if (historySortType === 'contract-asc') {
+        return String(a.agreementId || '').localeCompare(String(b.agreementId || ''));
+      }
+      if (historySortType === 'contract-desc') {
+        return String(b.agreementId || '').localeCompare(String(a.agreementId || ''));
+      }
+      return 0;
+    });
+
+    return result;
+  }, [inventory, historySearch, historyStartDate, historyEndDate, historySortType, historyFilterItem, historyFilterQC, historyFilterLocation, historyFilterContract]);
 
   const toggleSelectHistory = (id) => {
     if (selectedHistoryIds.includes(id)) {
@@ -2404,7 +2497,7 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
               />
             </div>
 
-            {(historySearch || historyStartDate || historyEndDate) && (
+            {(historySearch || historyStartDate || historyEndDate || historyFilterItem !== 'All' || historyFilterQC !== 'All' || historyFilterLocation !== 'All' || historyFilterContract !== 'All' || historySortType !== 'date-desc') && (
               <button 
                 className="btn btn-secondary" 
                 style={{ padding: '0.4rem 0.8rem', fontSize: '0.75rem' }}
@@ -2412,6 +2505,11 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
                   setHistorySearch('');
                   setHistoryStartDate('');
                   setHistoryEndDate('');
+                  setHistoryFilterItem('All');
+                  setHistoryFilterQC('All');
+                  setHistoryFilterLocation('All');
+                  setHistoryFilterContract('All');
+                  setHistorySortType('date-desc');
                 }}
               >
                 ล้างตัวกรองทั้งหมด
@@ -2423,7 +2521,7 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
             <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '1100px' }}>
               <thead>
                 <tr style={{ textAlign: 'left', borderBottom: '1px solid var(--glass-border)', color: 'var(--text-muted)' }}>
-                  <th style={{ padding: '1rem', width: '50px' }}>
+                  <th style={{ padding: '1rem', width: '50px', verticalAlign: 'middle' }}>
                     <input 
                       type="checkbox" 
                       checked={filteredHistory.length > 0 && selectedHistoryIds.length === filteredHistory.length}
@@ -2431,14 +2529,134 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
                       style={{ cursor: 'pointer', width: '18px', height: '18px' }}
                     />
                   </th>
-                  <th style={{ padding: '1rem' }}>วันที่รับ</th>
-                  <th style={{ padding: '1rem' }}>รายการสินค้า</th>
-                  <th style={{ padding: '1rem', width: '150px' }}>สัญญาจัดซื้อ</th>
-                  <th style={{ padding: '1rem' }}>Supplier / QC Lot</th>
-                  <th style={{ padding: '1rem' }}>สถานะ QC</th>
-                  <th style={{ padding: '1rem' }}>ที่เก็บ</th>
-                  <th style={{ padding: '1rem' }}>จำนวนรับเข้า</th>
-                  <th style={{ padding: '1rem' }}>จัดการ</th>
+                  <th style={{ padding: '0.75rem 1rem' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                      <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>วันที่รับ</span>
+                      <select 
+                        value={historySortType.startsWith('date-') ? historySortType : 'none'} 
+                        onChange={(e) => setHistorySortType(e.target.value === 'none' ? 'date-desc' : e.target.value)}
+                        style={{ fontSize: '0.68rem', padding: '0.15rem', background: 'var(--input-bg)', color: 'var(--accent-color)', border: '1px solid var(--glass-border)', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
+                      >
+                        <option value="date-desc">ล่าสุด 🔽</option>
+                        <option value="date-asc">เก่าสุด 🔼</option>
+                      </select>
+                    </div>
+                  </th>
+                  <th style={{ padding: '0.75rem 1rem' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                      <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>รายการสินค้า</span>
+                      <select 
+                        value={historySortType.startsWith('name-') ? historySortType : 'none'} 
+                        onChange={(e) => setHistorySortType(e.target.value === 'none' ? 'date-desc' : e.target.value)}
+                        style={{ fontSize: '0.68rem', padding: '0.15rem', background: 'var(--input-bg)', color: 'var(--accent-color)', border: '1px solid var(--glass-border)', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', marginBottom: '0.1rem' }}
+                      >
+                        <option value="none">ปกติ ↕️</option>
+                        <option value="name-asc">ก-ฮ 🔼</option>
+                        <option value="name-desc">ฮ-ก 🔽</option>
+                      </select>
+                      <select 
+                        value={historyFilterItem} 
+                        onChange={(e) => setHistoryFilterItem(e.target.value)}
+                        style={{ fontSize: '0.68rem', padding: '0.15rem', background: 'var(--input-bg)', color: 'var(--text-primary)', border: '1px solid var(--glass-border)', borderRadius: '4px', cursor: 'pointer', width: '100%', minWidth: '130px' }}
+                      >
+                        <option value="All">ทั้งหมด</option>
+                        {uniqueHistoryItems.map(name => <option key={name} value={name}>{name}</option>)}
+                      </select>
+                    </div>
+                  </th>
+                  <th style={{ padding: '0.75rem 1rem', width: '150px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                      <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>สัญญาจัดซื้อ</span>
+                      <select 
+                        value={historySortType.startsWith('contract-') ? historySortType : 'none'} 
+                        onChange={(e) => setHistorySortType(e.target.value === 'none' ? 'date-desc' : e.target.value)}
+                        style={{ fontSize: '0.68rem', padding: '0.15rem', background: 'var(--input-bg)', color: 'var(--accent-color)', border: '1px solid var(--glass-border)', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', marginBottom: '0.1rem' }}
+                      >
+                        <option value="none">ปกติ ↕️</option>
+                        <option value="contract-asc">A-Z 🔼</option>
+                        <option value="contract-desc">Z-A 🔽</option>
+                      </select>
+                      <select 
+                        value={historyFilterContract} 
+                        onChange={(e) => setHistoryFilterContract(e.target.value)}
+                        style={{ fontSize: '0.68rem', padding: '0.15rem', background: 'var(--input-bg)', color: 'var(--text-primary)', border: '1px solid var(--glass-border)', borderRadius: '4px', cursor: 'pointer', width: '100%' }}
+                      >
+                        <option value="All">ทั้งหมด</option>
+                        {uniqueHistoryContracts.map(id => {
+                          const ag = agreements.find(a => String(a.id) === String(id));
+                          return <option key={id} value={id}>สัญญา #{id} {ag ? `(${ag.vendorName})` : ''}</option>;
+                        })}
+                      </select>
+                    </div>
+                  </th>
+                  <th style={{ padding: '0.75rem 1rem' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                      <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>Supplier / QC Lot</span>
+                      <select 
+                        value={historySortType.startsWith('supplierLot-') || historySortType.startsWith('inhouseLot-') ? historySortType : 'none'} 
+                        onChange={(e) => setHistorySortType(e.target.value === 'none' ? 'date-desc' : e.target.value)}
+                        style={{ fontSize: '0.68rem', padding: '0.15rem', background: 'var(--input-bg)', color: 'var(--accent-color)', border: '1px solid var(--glass-border)', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
+                      >
+                        <option value="none">ปกติ ↕️</option>
+                        <option value="supplierLot-asc">Supplier A-Z 🔼</option>
+                        <option value="supplierLot-desc">Supplier Z-A 🔽</option>
+                        <option value="inhouseLot-asc">QC A-Z 🔼</option>
+                        <option value="inhouseLot-desc">QC Z-A 🔽</option>
+                      </select>
+                    </div>
+                  </th>
+                  <th style={{ padding: '0.75rem 1rem' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                      <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>สถานะ QC</span>
+                      <select 
+                        value={historyFilterQC} 
+                        onChange={(e) => setHistoryFilterQC(e.target.value)}
+                        style={{ fontSize: '0.68rem', padding: '0.15rem', background: 'var(--input-bg)', color: 'var(--text-primary)', border: '1px solid var(--glass-border)', borderRadius: '4px', cursor: 'pointer', width: '100%' }}
+                      >
+                        <option value="All">ทั้งหมด</option>
+                        <option value="Pass">Pass</option>
+                        <option value="Quarantine">Quarantine</option>
+                        <option value="Reject">Reject</option>
+                      </select>
+                    </div>
+                  </th>
+                  <th style={{ padding: '0.75rem 1rem' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                      <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>ที่เก็บ</span>
+                      <select 
+                        value={historySortType.startsWith('location-') ? historySortType : 'none'} 
+                        onChange={(e) => setHistorySortType(e.target.value === 'none' ? 'date-desc' : e.target.value)}
+                        style={{ fontSize: '0.68rem', padding: '0.15rem', background: 'var(--input-bg)', color: 'var(--accent-color)', border: '1px solid var(--glass-border)', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', marginBottom: '0.1rem' }}
+                      >
+                        <option value="none">ปกติ ↕️</option>
+                        <option value="location-asc">A-Z 🔼</option>
+                        <option value="location-desc">Z-A 🔽</option>
+                      </select>
+                      <select 
+                        value={historyFilterLocation} 
+                        onChange={(e) => setHistoryFilterLocation(e.target.value)}
+                        style={{ fontSize: '0.68rem', padding: '0.15rem', background: 'var(--input-bg)', color: 'var(--text-primary)', border: '1px solid var(--glass-border)', borderRadius: '4px', cursor: 'pointer', width: '100%' }}
+                      >
+                        <option value="All">ทั้งหมด</option>
+                        {uniqueHistoryLocations.map(loc => <option key={loc} value={loc}>{loc}</option>)}
+                      </select>
+                    </div>
+                  </th>
+                  <th style={{ padding: '0.75rem 1rem' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                      <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>จำนวนรับเข้า</span>
+                      <select 
+                        value={historySortType.startsWith('qty-') ? historySortType : 'none'} 
+                        onChange={(e) => setHistorySortType(e.target.value === 'none' ? 'date-desc' : e.target.value)}
+                        style={{ fontSize: '0.68rem', padding: '0.15rem', background: 'var(--input-bg)', color: 'var(--accent-color)', border: '1px solid var(--glass-border)', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
+                      >
+                        <option value="none">ปกติ ↕️</option>
+                        <option value="qty-desc">มาก 🔽</option>
+                        <option value="qty-asc">น้อย 🔼</option>
+                      </select>
+                    </div>
+                  </th>
+                  <th style={{ padding: '1rem', verticalAlign: 'middle' }}>จัดการ</th>
                 </tr>
               </thead>
               <tbody>

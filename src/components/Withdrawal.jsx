@@ -104,6 +104,10 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
   const [selectedHistoryIds, setSelectedHistoryIds] = useState([]);
   const [historyStartDate, setHistoryStartDate] = useState('');
   const [historyEndDate, setHistoryEndDate] = useState('');
+  const [historySortType, setHistorySortType] = useState('date-desc');
+  const [historyFilterItem, setHistoryFilterItem] = useState('All');
+  const [historyFilterLocation, setHistoryFilterLocation] = useState('All');
+  const [historyFilterReason, setHistoryFilterReason] = useState('All');
 
 
 
@@ -177,11 +181,36 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
     return inventory.find(i => i.id === activeLotId);
   }, [inventory, activeLotId]);
 
-  // Filter historical list based on search term and date range
+  const uniqueHistoryItems = useMemo(() => {
+    const names = new Set();
+    historicalWithdrawals.forEach(w => {
+      if (w.itemName) names.add(w.itemName);
+    });
+    return Array.from(names).sort((a, b) => a.localeCompare(b, 'th'));
+  }, [historicalWithdrawals]);
+
+  const uniqueHistoryLocations = useMemo(() => {
+    const locs = new Set();
+    historicalWithdrawals.forEach(w => {
+      if (w.location) locs.add(w.location);
+    });
+    return Array.from(locs).sort((a, b) => a.localeCompare(b, 'th'));
+  }, [historicalWithdrawals]);
+
+  const uniqueHistoryReasons = useMemo(() => {
+    const reasons = new Set();
+    historicalWithdrawals.forEach(w => {
+      if (w.reason) reasons.add(w.reason);
+    });
+    return Array.from(reasons).sort((a, b) => a.localeCompare(b, 'th'));
+  }, [historicalWithdrawals]);
+
+  // Filter historical list based on search term, date range, items, locations, reasons, and sorting
   const filteredWithdrawals = useMemo(() => {
-    return historicalWithdrawals.filter(w => {
+    let result = historicalWithdrawals.filter(w => {
       const search = historySearch.toLowerCase();
-      const matchesSearch = w.itemName.toLowerCase().includes(search) ||
+      const matchesSearch = !historySearch ||
+                          w.itemName.toLowerCase().includes(search) ||
                           w.supplierLot.toLowerCase().includes(search) ||
                           (w.inhouseLot && w.inhouseLot.toLowerCase().includes(search)) ||
                           (w.reason && w.reason.toLowerCase().includes(search));
@@ -193,10 +222,62 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
       if (historyEndDate) {
         matchesDate = matchesDate && w.date <= historyEndDate;
       }
+
+      const matchesItem = historyFilterItem === 'All' || w.itemName === historyFilterItem;
+      const matchesLocation = historyFilterLocation === 'All' || w.location === historyFilterLocation;
+      const matchesReason = historyFilterReason === 'All' || w.reason === historyFilterReason;
       
-      return matchesSearch && matchesDate;
+      return matchesSearch && matchesDate && matchesItem && matchesLocation && matchesReason;
     });
-  }, [historicalWithdrawals, historySearch, historyStartDate, historyEndDate]);
+
+    result.sort((a, b) => {
+      if (historySortType === 'date-asc') {
+        return (a.date || '').localeCompare(b.date || '') || a.id - b.id;
+      }
+      if (historySortType === 'date-desc') {
+        return (b.date || '').localeCompare(a.date || '') || b.id - a.id;
+      }
+      if (historySortType === 'name-asc') {
+        return (a.itemName || '').localeCompare(b.itemName || '', 'th');
+      }
+      if (historySortType === 'name-desc') {
+        return (b.itemName || '').localeCompare(a.itemName || '', 'th');
+      }
+      if (historySortType === 'supplierLot-asc') {
+        return (a.supplierLot || '').localeCompare(b.supplierLot || '');
+      }
+      if (historySortType === 'supplierLot-desc') {
+        return (b.supplierLot || '').localeCompare(a.supplierLot || '');
+      }
+      if (historySortType === 'inhouseLot-asc') {
+        return (a.inhouseLot || '').localeCompare(b.inhouseLot || '');
+      }
+      if (historySortType === 'inhouseLot-desc') {
+        return (b.inhouseLot || '').localeCompare(a.inhouseLot || '');
+      }
+      if (historySortType === 'amount-asc') {
+        return Number(a.amount || 0) - Number(b.amount || 0);
+      }
+      if (historySortType === 'amount-desc') {
+        return Number(b.amount || 0) - Number(a.amount || 0);
+      }
+      if (historySortType === 'location-asc') {
+        return (a.location || '').localeCompare(b.location || '', 'th');
+      }
+      if (historySortType === 'location-desc') {
+        return (b.location || '').localeCompare(a.location || '', 'th');
+      }
+      if (historySortType === 'reason-asc') {
+        return (a.reason || '').localeCompare(b.reason || '', 'th');
+      }
+      if (historySortType === 'reason-desc') {
+        return (b.reason || '').localeCompare(a.reason || '', 'th');
+      }
+      return 0;
+    });
+
+    return result;
+  }, [historicalWithdrawals, historySearch, historyStartDate, historyEndDate, historySortType, historyFilterItem, historyFilterLocation, historyFilterReason]);
 
   const handleTotalAmountChange = (val) => {
     const num = Number(val) || 0;
@@ -2175,7 +2256,7 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
               />
             </div>
 
-            {(historySearch || historyStartDate || historyEndDate) && (
+            {(historySearch || historyStartDate || historyEndDate || historyFilterItem !== 'All' || historyFilterLocation !== 'All' || historyFilterReason !== 'All' || historySortType !== 'date-desc') && (
               <button 
                 className="btn btn-secondary" 
                 style={{ padding: '0.4rem 0.8rem', fontSize: '0.75rem' }}
@@ -2183,6 +2264,10 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
                   setHistorySearch('');
                   setHistoryStartDate('');
                   setHistoryEndDate('');
+                  setHistoryFilterItem('All');
+                  setHistoryFilterLocation('All');
+                  setHistoryFilterReason('All');
+                  setHistorySortType('date-desc');
                 }}
               >
                 ล้างตัวกรองทั้งหมด
@@ -2194,20 +2279,123 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
             <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '1000px' }}>
               <thead>
                 <tr style={{ textAlign: 'left', borderBottom: '1px solid var(--glass-border)', color: 'var(--text-muted)' }}>
-                  <th style={{ padding: '1rem', width: '40px' }}>
+                  <th style={{ padding: '1rem', width: '40px', verticalAlign: 'middle' }}>
                     <input 
                       type="checkbox" 
                       onChange={handleSelectAllHistory}
                       checked={filteredWithdrawals.length > 0 && selectedHistoryIds.length === filteredWithdrawals.length}
                     />
                   </th>
-                  <th style={{ padding: '1rem' }}>วันที่ตัดจ่าย</th>
-                  <th style={{ padding: '1rem' }}>รายการสินค้า</th>
-                  <th style={{ padding: '1rem' }}>Supplier / QC Lot</th>
-                  <th style={{ padding: '1rem' }}>จำนวนตัดจ่าย</th>
-                  <th style={{ padding: '1rem' }}>ที่เก็บเดิม</th>
-                  <th style={{ padding: '1rem' }}>เหตุผล / หมายเหตุ</th>
-                  <th style={{ padding: '1rem' }}>จัดการ</th>
+                  <th style={{ padding: '0.75rem 1rem' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                      <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>วันที่ตัดจ่าย</span>
+                      <select 
+                        value={historySortType.startsWith('date-') ? historySortType : 'none'} 
+                        onChange={(e) => setHistorySortType(e.target.value === 'none' ? 'date-desc' : e.target.value)}
+                        style={{ fontSize: '0.68rem', padding: '0.15rem', background: 'var(--input-bg)', color: 'var(--accent-color)', border: '1px solid var(--glass-border)', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
+                      >
+                        <option value="date-desc">ล่าสุด 🔽</option>
+                        <option value="date-asc">เก่าสุด 🔼</option>
+                      </select>
+                    </div>
+                  </th>
+                  <th style={{ padding: '0.75rem 1rem' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                      <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>รายการสินค้า</span>
+                      <select 
+                        value={historySortType.startsWith('name-') ? historySortType : 'none'} 
+                        onChange={(e) => setHistorySortType(e.target.value === 'none' ? 'date-desc' : e.target.value)}
+                        style={{ fontSize: '0.68rem', padding: '0.15rem', background: 'var(--input-bg)', color: 'var(--accent-color)', border: '1px solid var(--glass-border)', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', marginBottom: '0.1rem' }}
+                      >
+                        <option value="none">ปกติ ↕️</option>
+                        <option value="name-asc">ก-ฮ 🔼</option>
+                        <option value="name-desc">ฮ-ก 🔽</option>
+                      </select>
+                      <select 
+                        value={historyFilterItem} 
+                        onChange={(e) => setHistoryFilterItem(e.target.value)}
+                        style={{ fontSize: '0.68rem', padding: '0.15rem', background: 'var(--input-bg)', color: 'var(--text-primary)', border: '1px solid var(--glass-border)', borderRadius: '4px', cursor: 'pointer', width: '100%', minWidth: '130px' }}
+                      >
+                        <option value="All">ทั้งหมด</option>
+                        {uniqueHistoryItems.map(name => <option key={name} value={name}>{name}</option>)}
+                      </select>
+                    </div>
+                  </th>
+                  <th style={{ padding: '0.75rem 1rem' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                      <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>Supplier / QC Lot</span>
+                      <select 
+                        value={historySortType.startsWith('supplierLot-') || historySortType.startsWith('inhouseLot-') ? historySortType : 'none'} 
+                        onChange={(e) => setHistorySortType(e.target.value === 'none' ? 'date-desc' : e.target.value)}
+                        style={{ fontSize: '0.68rem', padding: '0.15rem', background: 'var(--input-bg)', color: 'var(--accent-color)', border: '1px solid var(--glass-border)', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
+                      >
+                        <option value="none">ปกติ ↕️</option>
+                        <option value="supplierLot-asc">Supplier A-Z 🔼</option>
+                        <option value="supplierLot-desc">Supplier Z-A 🔽</option>
+                        <option value="inhouseLot-asc">QC A-Z 🔼</option>
+                        <option value="inhouseLot-desc">QC Z-A 🔽</option>
+                      </select>
+                    </div>
+                  </th>
+                  <th style={{ padding: '0.75rem 1rem' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                      <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>จำนวนตัดจ่าย</span>
+                      <select 
+                        value={historySortType.startsWith('amount-') ? historySortType : 'none'} 
+                        onChange={(e) => setHistorySortType(e.target.value === 'none' ? 'date-desc' : e.target.value)}
+                        style={{ fontSize: '0.68rem', padding: '0.15rem', background: 'var(--input-bg)', color: 'var(--accent-color)', border: '1px solid var(--glass-border)', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
+                      >
+                        <option value="none">ปกติ ↕️</option>
+                        <option value="amount-desc">มาก 🔽</option>
+                        <option value="amount-asc">น้อย 🔼</option>
+                      </select>
+                    </div>
+                  </th>
+                  <th style={{ padding: '0.75rem 1rem' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                      <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>ที่เก็บเดิม</span>
+                      <select 
+                        value={historySortType.startsWith('location-') ? historySortType : 'none'} 
+                        onChange={(e) => setHistorySortType(e.target.value === 'none' ? 'date-desc' : e.target.value)}
+                        style={{ fontSize: '0.68rem', padding: '0.15rem', background: 'var(--input-bg)', color: 'var(--accent-color)', border: '1px solid var(--glass-border)', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', marginBottom: '0.1rem' }}
+                      >
+                        <option value="none">ปกติ ↕️</option>
+                        <option value="location-asc">A-Z 🔼</option>
+                        <option value="location-desc">Z-A 🔽</option>
+                      </select>
+                      <select 
+                        value={historyFilterLocation} 
+                        onChange={(e) => setHistoryFilterLocation(e.target.value)}
+                        style={{ fontSize: '0.68rem', padding: '0.15rem', background: 'var(--input-bg)', color: 'var(--text-primary)', border: '1px solid var(--glass-border)', borderRadius: '4px', cursor: 'pointer', width: '100%' }}
+                      >
+                        <option value="All">ทั้งหมด</option>
+                        {uniqueHistoryLocations.map(loc => <option key={loc} value={loc}>{loc}</option>)}
+                      </select>
+                    </div>
+                  </th>
+                  <th style={{ padding: '0.75rem 1rem' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                      <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>เหตุผล / หมายเหตุ</span>
+                      <select 
+                        value={historySortType.startsWith('reason-') ? historySortType : 'none'} 
+                        onChange={(e) => setHistorySortType(e.target.value === 'none' ? 'date-desc' : e.target.value)}
+                        style={{ fontSize: '0.68rem', padding: '0.15rem', background: 'var(--input-bg)', color: 'var(--accent-color)', border: '1px solid var(--glass-border)', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', marginBottom: '0.1rem' }}
+                      >
+                        <option value="none">ปกติ ↕️</option>
+                        <option value="reason-asc">A-Z 🔼</option>
+                        <option value="reason-desc">Z-A 🔽</option>
+                      </select>
+                      <select 
+                        value={historyFilterReason} 
+                        onChange={(e) => setHistoryFilterReason(e.target.value)}
+                        style={{ fontSize: '0.68rem', padding: '0.15rem', background: 'var(--input-bg)', color: 'var(--text-primary)', border: '1px solid var(--glass-border)', borderRadius: '4px', cursor: 'pointer', width: '100%', minWidth: '120px' }}
+                      >
+                        <option value="All">ทั้งหมด</option>
+                        {uniqueHistoryReasons.map(r => <option key={r} value={r}>{r}</option>)}
+                      </select>
+                    </div>
+                  </th>
+                  <th style={{ padding: '1rem', verticalAlign: 'middle' }}>จัดการ</th>
                 </tr>
               </thead>
               <tbody>
