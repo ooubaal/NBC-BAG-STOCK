@@ -65,15 +65,16 @@ const modalOverlayStyle = {
 };
 
 const modalContentStyle = {
-  background: 'rgba(30, 30, 45, 0.95)',
-  border: '1px solid rgba(255, 255, 255, 0.1)',
+  background: 'rgba(255, 255, 255, 0.98)',
+  border: '1px solid var(--glass-border)',
   borderRadius: '16px',
   padding: '2rem',
   width: '100%',
   maxHeight: '90vh',
   overflowY: 'auto',
-  boxShadow: '0 20px 40px rgba(0,0,0,0.5)',
-  position: 'relative'
+  boxShadow: '0 20px 40px rgba(0, 0, 0, 0.12)',
+  position: 'relative',
+  color: 'var(--text-primary)'
 };
 
 const formatThaiDate = (dateStr) => {
@@ -599,7 +600,7 @@ const NCP = ({ inventory, items, claims, setClaims }) => {
             </div>
             <div>
               <label style={{ display: 'block', marginBottom: '0.5rem' }}>หน่วยพัสดุ</label>
-              <input type="text" value={newClaim.unit} disabled style={{ background: 'rgba(255,255,255,0.02)', color: 'var(--text-secondary)', cursor: 'not-allowed' }} />
+              <input type="text" value={newClaim.unit} disabled style={{ background: 'rgba(0, 0, 0, 0.05)', color: 'var(--text-secondary)', cursor: 'not-allowed' }} />
             </div>
           </div>
 
@@ -844,7 +845,7 @@ const NCP = ({ inventory, items, claims, setClaims }) => {
             <img 
               src={activeLightbox.image} 
               alt="full view" 
-              style={{ width: '100%', maxHeight: '60vh', objectFit: 'contain', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.08)', marginBottom: '1.5rem' }} 
+              style={{ width: '100%', maxHeight: '60vh', objectFit: 'contain', borderRadius: '8px', border: '1px solid var(--glass-border)', marginBottom: '1.5rem' }} 
             />
             <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem' }}>
               <button 
@@ -868,7 +869,7 @@ const NCP = ({ inventory, items, claims, setClaims }) => {
       {editingClaim && (
         <div style={modalOverlayStyle}>
           <div style={{ ...modalContentStyle, maxWidth: '600px' }}>
-            <h3 style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '0.75rem' }}>
+            <h3 style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem', borderBottom: '1px solid var(--glass-border)', paddingBottom: '0.75rem' }}>
               <Edit2 size={20} color="var(--accent-color)" /> แก้ไขข้อมูลเคส NCP
             </h3>
             
@@ -917,7 +918,7 @@ const NCP = ({ inventory, items, claims, setClaims }) => {
               </div>
               <div>
                 <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '0.4rem', color: 'var(--text-secondary)' }}>หน่วยพัสดุ</label>
-                <input type="text" value={editingClaim.unit} disabled style={{ background: 'rgba(255,255,255,0.02)', color: 'var(--text-secondary)', cursor: 'not-allowed' }} />
+                <input type="text" value={editingClaim.unit} disabled style={{ background: 'rgba(0, 0, 0, 0.05)', color: 'var(--text-secondary)', cursor: 'not-allowed' }} />
               </div>
             </div>
 
@@ -939,7 +940,7 @@ const NCP = ({ inventory, items, claims, setClaims }) => {
               />
             </div>
 
-            <h4 style={{ marginBottom: '0.8rem', color: 'var(--text-secondary)', fontSize: '0.9rem', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '1rem' }}>
+            <h4 style={{ marginBottom: '0.8rem', color: 'var(--text-secondary)', fontSize: '0.9rem', borderTop: '1px solid var(--glass-border)', paddingTop: '1rem' }}>
               ลงบันทึกวันที่ในแต่ละขั้น
             </h4>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem', marginBottom: '1.5rem' }}>
