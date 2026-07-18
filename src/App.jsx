@@ -978,17 +978,17 @@ const Dashboard = ({ inventory, items, claims, setActiveTab }) => {
                       style={{ 
                         display: 'flex', 
                         flexDirection: 'column', 
-                        gap: '0.25rem', 
+                        gap: '0.35rem', 
                         background: isOverdue ? 'rgba(239, 68, 68, 0.05)' : 'rgba(2, 132, 199, 0.05)', 
-                        padding: '0.5rem 0.75rem', 
+                        padding: '0.65rem 0.75rem', 
                         borderRadius: '6px', 
                         fontSize: '0.8rem', 
                         border: isOverdue ? '1px solid rgba(239, 68, 68, 0.15)' : '1px solid rgba(2, 132, 199, 0.15)' 
                       }}
                     >
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span style={{ fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '160px' }} title={claim.productName}>
-                          {claim.productName}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem' }}>
+                        <span style={{ fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '170px' }} title={claim.itemName}>
+                          {claim.itemName}
                         </span>
                         <span 
                           style={{ 
@@ -997,14 +997,37 @@ const Dashboard = ({ inventory, items, claims, setActiveTab }) => {
                             borderRadius: '4px',
                             fontWeight: 700,
                             backgroundColor: claim.status === 'Found' ? 'rgba(239, 68, 68, 0.15)' : 'rgba(245, 158, 11, 0.15)',
-                            color: claim.status === 'Found' ? '#ef4444' : '#f59e0b'
+                            color: claim.status === 'Found' ? '#ef4444' : '#f59e0b',
+                            whiteSpace: 'nowrap'
                           }}
                         >
-                          {claim.status === 'Found' ? 'พบปัญหา' : 'กำลังเคลม'}
+                          {claim.status === 'Found' ? 'พบปัญหา' : claim.status === 'Claiming' ? 'กำลังเคลม' : 'กำลังติดตาม'}
                         </span>
                       </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.725rem', marginTop: '0.1rem' }}>
-                        <span style={{ color: 'var(--text-secondary)' }}>Lot: {claim.supplierLot}</span>
+                      
+                      <div style={{ fontSize: '0.725rem', color: 'var(--text-secondary)' }}>
+                        จำนวน: <span style={{ fontWeight: 600 }}>{claim.quantity || 0}</span> {claim.unit || 'ชิ้น'} | Lot: <span style={{ fontWeight: 600 }}>{claim.lotNo || '-'}</span>
+                      </div>
+
+                      {claim.reason && (
+                        <div 
+                          style={{ 
+                            fontSize: '0.7rem', 
+                            color: 'var(--text-muted)', 
+                            whiteSpace: 'nowrap', 
+                            overflow: 'hidden', 
+                            textOverflow: 'ellipsis',
+                            borderTop: '1px dashed var(--glass-border)',
+                            paddingTop: '0.2rem',
+                            marginTop: '0.1rem'
+                          }} 
+                          title={claim.reason}
+                        >
+                          สาเหตุ: {claim.reason}
+                        </div>
+                      )}
+
+                      <div style={{ display: 'flex', justifyContent: 'flex-end', fontSize: '0.725rem', marginTop: '0.15rem' }}>
                         <span style={{ 
                           color: isOverdue ? '#ef4444' : 'var(--accent-secondary)', 
                           fontWeight: 600 
