@@ -132,32 +132,35 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
   // Gather all historical withdrawals from inventory lots
   const historicalWithdrawals = useMemo(() => {
     const list = [];
-    inventory.forEach(item => {
-      if (item.withdrawals && item.withdrawals.length > 0) {
+    (inventory || []).forEach(item => {
+      if (item && item.withdrawals && item.withdrawals.length > 0) {
         item.withdrawals.forEach(w => {
-          list.push({
-            id: w.id,
-            date: w.date,
-            amount: w.amount,
-            reason: w.reason,
-            itemName: item.itemName,
-            supplierLot: item.supplierLot,
-            inhouseLot: item.inhouseLot,
-            packSize: item.packSize || '-',
-            unit: item.unit || 'ชิ้น',
-            location: item.location,
-            isCancelled: w.isCancelled || false
-          });
+          if (w) {
+            list.push({
+              id: w.id,
+              date: w.date,
+              amount: w.amount,
+              reason: w.reason,
+              itemName: item.itemName,
+              supplierLot: item.supplierLot,
+              inhouseLot: item.inhouseLot,
+              packSize: item.packSize || '-',
+              unit: item.unit || 'ชิ้น',
+              location: item.location,
+              isCancelled: w.isCancelled || false
+            });
+          }
         });
       }
     });
     // Sort by date descending, then ID descending
-    return list.sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id);
+    return list.sort((a, b) => (b.date || '').localeCompare(a.date || '') || b.id - a.id);
   }, [inventory]);
 
   // Filter available lots that have remaining stock and match selected item
   const availableLots = useMemo(() => {
-    return inventory.filter(i => {
+    return (inventory || []).filter(i => {
+      if (!i) return false;
       const pendingAmt = lotPendingAmounts[i.id] || 0;
       const displayRemaining = i.remainingQty - pendingAmt;
       const matchItem = i.itemName === selectedItem && displayRemaining > 0;
@@ -171,47 +174,49 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
   }, [inventory, selectedItem, lotSearchQuery, lotPendingAmounts]);
 
   const totalLotsCount = useMemo(() => {
-    return inventory.filter(i => {
+    return (inventory || []).filter(i => {
+      if (!i) return false;
       const pendingAmt = lotPendingAmounts[i.id] || 0;
       return i.itemName === selectedItem && (i.remainingQty - pendingAmt) > 0;
     }).length;
   }, [inventory, selectedItem, lotPendingAmounts]);
 
   const activeLot = useMemo(() => {
-    return inventory.find(i => i.id === activeLotId);
+    return (inventory || []).find(i => i && i.id === activeLotId);
   }, [inventory, activeLotId]);
 
   const uniqueHistoryItems = useMemo(() => {
     const names = new Set();
-    historicalWithdrawals.forEach(w => {
-      if (w.itemName) names.add(w.itemName);
+    (historicalWithdrawals || []).forEach(w => {
+      if (w && w.itemName) names.add(w.itemName);
     });
-    return Array.from(names).sort((a, b) => a.localeCompare(b, 'th'));
+    return Array.from(names).sort((a, b) => String(a).localeCompare(String(b), 'th'));
   }, [historicalWithdrawals]);
 
   const uniqueHistoryLocations = useMemo(() => {
     const locs = new Set();
-    historicalWithdrawals.forEach(w => {
-      if (w.location) locs.add(w.location);
+    (historicalWithdrawals || []).forEach(w => {
+      if (w && w.location) locs.add(w.location);
     });
-    return Array.from(locs).sort((a, b) => a.localeCompare(b, 'th'));
+    return Array.from(locs).sort((a, b) => String(a).localeCompare(String(b), 'th'));
   }, [historicalWithdrawals]);
 
   const uniqueHistoryReasons = useMemo(() => {
     const reasons = new Set();
-    historicalWithdrawals.forEach(w => {
-      if (w.reason) reasons.add(w.reason);
+    (historicalWithdrawals || []).forEach(w => {
+      if (w && w.reason) reasons.add(w.reason);
     });
-    return Array.from(reasons).sort((a, b) => a.localeCompare(b, 'th'));
+    return Array.from(reasons).sort((a, b) => String(a).localeCompare(String(b), 'th'));
   }, [historicalWithdrawals]);
 
   // Filter historical list based on search term, date range, items, locations, reasons, and sorting
   const filteredWithdrawals = useMemo(() => {
-    let result = historicalWithdrawals.filter(w => {
+    let result = (historicalWithdrawals || []).filter(w => {
+      if (!w) return false;
       const search = historySearch.toLowerCase();
       const matchesSearch = !historySearch ||
-                          w.itemName.toLowerCase().includes(search) ||
-                          w.supplierLot.toLowerCase().includes(search) ||
+                          (w.itemName && w.itemName.toLowerCase().includes(search)) ||
+                          (w.supplierLot && w.supplierLot.toLowerCase().includes(search)) ||
                           (w.inhouseLot && w.inhouseLot.toLowerCase().includes(search)) ||
                           (w.reason && w.reason.toLowerCase().includes(search));
       

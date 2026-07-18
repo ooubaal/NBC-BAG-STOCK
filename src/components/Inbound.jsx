@@ -147,28 +147,28 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
 
   const uniqueHistoryItems = useMemo(() => {
     const names = new Set();
-    inventory.forEach(item => {
-      if (item.itemName) names.add(item.itemName);
+    (inventory || []).forEach(item => {
+      if (item && item.itemName) names.add(item.itemName);
     });
-    return Array.from(names).sort((a, b) => a.localeCompare(b, 'th'));
+    return Array.from(names).sort((a, b) => String(a).localeCompare(String(b), 'th'));
   }, [inventory]);
 
   const uniqueHistoryLocations = useMemo(() => {
     const locs = new Set();
-    inventory.forEach(item => {
-      if (item.location) locs.add(item.location);
+    (inventory || []).forEach(item => {
+      if (item && item.location) locs.add(item.location);
     });
-    return Array.from(locs).sort((a, b) => a.localeCompare(b, 'th'));
+    return Array.from(locs).sort((a, b) => String(a).localeCompare(String(b), 'th'));
   }, [inventory]);
 
   const uniqueHistoryContracts = useMemo(() => {
     const contracts = new Set();
-    inventory.forEach(item => {
-      if (item.agreementId) {
+    (inventory || []).forEach(item => {
+      if (item && item.agreementId) {
         contracts.add(item.agreementId);
       }
     });
-    return Array.from(contracts).sort();
+    return Array.from(contracts).sort((a, b) => String(a).localeCompare(String(b)));
   }, [inventory]);
 
 
@@ -1111,7 +1111,8 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
   };
 
   const filteredHistory = useMemo(() => {
-    let result = inventory.filter(item => {
+    let result = (inventory || []).filter(item => {
+      if (!item) return false;
       const term = historySearch.toLowerCase();
       const matchesSearch = !historySearch || 
                           (item.itemName && item.itemName.toLowerCase().includes(term)) ||
@@ -1136,6 +1137,7 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
     });
 
     result.sort((a, b) => {
+      if (!a || !b) return 0;
       if (historySortType === 'date-asc') {
         return (a.date || '').localeCompare(b.date || '') || a.id - b.id;
       }
@@ -1146,7 +1148,13 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
         return (a.itemName || '').localeCompare(b.itemName || '', 'th');
       }
       if (historySortType === 'name-desc') {
-        return (b.itemName || '').localeCompare(b.itemName || '', 'th');
+        return (b.itemName || '').localeCompare(a.itemName || '', 'th');
+      }
+      if (historySortType === 'contract-asc') {
+        return String(a.agreementId || '').localeCompare(String(b.agreementId || ''));
+      }
+      if (historySortType === 'contract-desc') {
+        return String(b.agreementId || '').localeCompare(String(a.agreementId || ''));
       }
       if (historySortType === 'supplierLot-asc') {
         return (a.supplierLot || '').localeCompare(b.supplierLot || '');
@@ -2583,7 +2591,7 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
                       >
                         <option value="All">ทั้งหมด</option>
                         {uniqueHistoryContracts.map(id => {
-                          const ag = agreements.find(a => String(a.id) === String(id));
+                          const ag = (agreements || []).find(a => a && String(a.id) === String(id));
                           return <option key={id} value={id}>สัญญา #{id} {ag ? `(${ag.vendorName})` : ''}</option>;
                         })}
                       </select>
