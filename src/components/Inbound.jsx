@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Plus, Trash2, Save, Printer, Copy, Search, Upload, Download } from 'lucide-react';
 import ExcelJS from 'exceljs';
 
