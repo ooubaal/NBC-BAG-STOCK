@@ -1891,13 +1891,36 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
                 </>
               )}
               {selectedHistoryIds.length > 0 && (
-                <button 
-                  className="btn" 
-                  onClick={() => printWithdrawalPDF(historicalWithdrawals.filter(w => selectedHistoryIds.includes(w.id)))}
-                  style={{ background: 'rgba(234, 88, 12, 0.1)', color: '#ea580c', border: '1px solid rgba(234, 88, 12, 0.2)' }}
-                >
-                  <Printer size={18} /> พิมพ์ใบตัดจ่ายที่เลือก ({selectedHistoryIds.length})
-                </button>
+                <>
+                  <button 
+                    className="btn" 
+                    onClick={() => printRawMaterialRequisitionPDF(historicalWithdrawals.filter(w => selectedHistoryIds.includes(w.id)))}
+                    style={{ 
+                      background: 'rgba(16, 185, 129, 0.1)', 
+                      color: '#10b981', 
+                      border: '1px solid rgba(16, 185, 129, 0.2)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.4rem'
+                    }}
+                  >
+                    <Printer size={18} /> พิมพ์ใบเบิก-จ่ายที่เลือก ({selectedHistoryIds.length})
+                  </button>
+                  <button 
+                    className="btn" 
+                    onClick={() => printWithdrawalPDF(historicalWithdrawals.filter(w => selectedHistoryIds.includes(w.id)))}
+                    style={{ 
+                      background: 'rgba(234, 88, 12, 0.1)', 
+                      color: '#ea580c', 
+                      border: '1px solid rgba(234, 88, 12, 0.2)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.4rem'
+                    }}
+                  >
+                    <Printer size={18} /> พิมพ์ใบตัดจ่ายที่เลือก ({selectedHistoryIds.length})
+                  </button>
+                </>
               )}
             </div>
           </div>
