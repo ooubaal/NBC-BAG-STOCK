@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Camera, Plus, Download, Edit2, Trash2, X, Search } from 'lucide-react';
+import { Camera, Plus, Download, Edit2, Trash2, X, Search, Printer } from 'lucide-react';
 
 const compressImageFile = (file, maxWidth = 1200, maxHeight = 1200) => {
   return new Promise((resolve, reject) => {
@@ -269,8 +269,272 @@ const NCP = ({ inventory, items, claims, setClaims }) => {
           images: { ...c.images, [step]: currentImages.filter((_, i) => i !== index) }
         };
       }
-      return c;
     }));
+  };
+
+  const printClaimCasePDF = (claim) => {
+    const today = new Date().toLocaleDateString('th-TH', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+    const printWindow = window.open("", "_blank", "width=950,height=850");
+    if (!printWindow) {
+      alert("กรุณาอนุญาตให้เบราว์เซอร์เปิด Pop-up เพื่อเปิดหน้าพิมพ์เอกสาร");
+      return;
+    }
+
+    const escapeHTML = (str) => {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    };
+
+    const statusLabels = {
+      'Claiming': 'กำลังเคลม (Claiming)',
+      'Returned': 'คืนสินค้าแล้ว (Returned)',
+      'Closed': 'ปิดเคสแล้ว (Closed)'
+    };
+
+    const renderPrintImages = (label, imageList) => {
+      const images = Array.isArray(imageList) ? imageList : (imageList ? [imageList] : []);
+      if (images.length === 0) return '';
+      return `
+        <div class="photo-section-block">
+          <h3>${label}</h3>
+          <div class="photo-grid">
+            ${images.map((img, idx) => `<div class="photo-card"><img src="${img}" alt="${label} #${idx + 1}" /></div>`).join('')}
+          </div>
+        </div>
+      `;
+    };
+
+    const htmlContent = `
+      <html>
+        <head>
+          <title>รายงานเคสเคลมสินค้า NCP - ${escapeHTML(claim.itemName)}</title>
+          <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&display=swap" rel="stylesheet">
+          <style>
+            @page {
+              size: A4;
+              margin: 15mm;
+            }
+            body {
+              font-family: 'Sarabun', sans-serif;
+              padding: 20px;
+              color: #1f2937;
+              background-color: #fff;
+              font-size: 13px;
+              line-height: 1.6;
+            }
+            .header {
+              display: flex;
+              justify-content: space-between;
+              align-items: flex-end;
+              border-bottom: 2px solid #b91c1c;
+              padding-bottom: 12px;
+              margin-bottom: 25px;
+            }
+            .title {
+              font-size: 20px;
+              font-weight: 700;
+              color: #b91c1c;
+            }
+            .meta-info {
+              text-align: right;
+              font-size: 11px;
+            }
+            .no-print-btn {
+              position: fixed;
+              top: 1rem;
+              right: 1rem;
+              background: #b91c1c;
+              color: white;
+              border: none;
+              padding: 0.6rem 1.2rem;
+              font-size: 0.9rem;
+              font-weight: bold;
+              border-radius: 4px;
+              cursor: pointer;
+              box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+              z-index: 1000;
+            }
+            @media print {
+              .no-print-btn {
+                display: none !important;
+              }
+              body {
+                padding: 0;
+                margin: 0;
+              }
+            }
+            .info-grid {
+              display: grid;
+              grid-template-columns: repeat(2, 1fr);
+              gap: 15px;
+              margin-bottom: 25px;
+              background-color: #fef2f2;
+              padding: 15px;
+              border-radius: 6px;
+              border: 1px solid #fee2e2;
+            }
+            .info-item {
+              display: flex;
+              flex-direction: column;
+            }
+            .info-label {
+              font-size: 11px;
+              color: #7f1d1d;
+              font-weight: 600;
+              text-transform: uppercase;
+            }
+            .info-value {
+              font-size: 13px;
+              font-weight: 700;
+              color: #1f2937;
+            }
+            .description-block {
+              margin-bottom: 30px;
+              background-color: #f9fafb;
+              padding: 15px;
+              border-radius: 6px;
+              border: 1px solid #e5e7eb;
+            }
+            .description-block h3 {
+              margin-top: 0;
+              color: #111827;
+              font-size: 13px;
+              border-bottom: 1px solid #e5e7eb;
+              padding-bottom: 5px;
+              margin-bottom: 10px;
+            }
+            .photo-section-block {
+              margin-bottom: 25px;
+            }
+            .photo-section-block h3 {
+              font-size: 13px;
+              border-left: 3px solid #b91c1c;
+              padding-left: 8px;
+              margin-bottom: 12px;
+              color: #111827;
+            }
+            .photo-grid {
+              display: flex;
+              flex-wrap: wrap;
+              gap: 12px;
+            }
+            .photo-card {
+              width: 220px;
+              height: 220px;
+              border: 1px solid #e5e7eb;
+              border-radius: 6px;
+              overflow: hidden;
+              background-color: #f3f4f6;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+            }
+            .photo-card img {
+              max-width: 100%;
+              max-height: 100%;
+              object-fit: contain;
+            }
+            .signatures {
+              margin-top: 50px;
+              display: flex;
+              justify-content: space-between;
+              gap: 50px;
+              page-break-inside: avoid;
+            }
+            .sig-block {
+              flex: 1;
+              text-align: center;
+              border-top: 1px solid #9ca3af;
+              padding-top: 12px;
+              font-size: 12px;
+            }
+          </style>
+        </head>
+        <body>
+          <button class="no-print-btn" onclick="window.print()">พิมพ์เอกสาร / บันทึก PDF</button>
+
+          <div class="header">
+            <div>
+              <div class="title">รายงานสรุปเคสเคลมสินค้า NCP (NCP Claim Report)</div>
+              <div style="font-size: 11px; color: #555; margin-top: 5px;">ระบบบริหารจัดการคลังสินค้า NBC STOCK</div>
+            </div>
+            <div class="meta-info">
+              <div><strong>วันที่ออกรายงาน:</strong> ${today}</div>
+              <div><strong>เคสเลขที่ (ID):</strong> ${claim.id}</div>
+            </div>
+          </div>
+
+          <div class="info-grid">
+            <div class="info-item">
+              <span class="info-label">ชื่อสินค้า (Item Name)</span>
+              <span class="info-value">${escapeHTML(claim.itemName)}</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">สถานะเคส (Status)</span>
+              <span class="info-value" style="color: #b91c1c;">${statusLabels[claim.status] || claim.status}</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">Lot ในคลังพัสดุ (Lot No.)</span>
+              <span class="info-value">${escapeHTML(claim.lotNo) || '-'}</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">จำนวนที่พบปัญหา (Claim Quantity)</span>
+              <span class="info-value">${claim.quantity ? `${Number(claim.quantity).toLocaleString()} ${claim.unit || 'ชิ้น'}` : '-'}</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">วันที่พบปัญหาสินค้า (Found Date)</span>
+              <span class="info-value">${claim.foundDate ? formatThaiDate(claim.foundDate) : '-'}</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">วันติดตามงานเคลม (Follow-up Date)</span>
+              <span class="info-value" style="color: #ea580c;">${claim.followUpDate ? formatThaiDate(claim.followUpDate) : '-'}</span>
+            </div>
+          </div>
+
+          <div class="description-block">
+            <h3>รายละเอียดความผิดปกติ / เหตุผลการเคลม</h3>
+            <div style="white-space: pre-wrap; font-size: 13px;">${escapeHTML(claim.description || '-')}</div>
+          </div>
+
+          ${renderPrintImages('1. ภาพพัสดุที่พบปัญหา (Found)', claim.images?.found)}
+          ${renderPrintImages('2. ภาพขั้นตอนการเคลม (Claiming)', claim.images?.claiming)}
+          ${renderPrintImages('3. ภาพการส่งคืนและรับของใหม่ (Returned)', claim.images?.returning)}
+
+          <div class="signatures">
+            <div class="sig-block">
+              <br><br>
+              <strong>ผู้รายงานปัญหา / เจ้าหน้าที่คลังสินค้า</strong>
+              <div style="margin-top: 5px; font-size: 11px; color: #6b7280;">วันที่: ...... / ...... / ......</div>
+            </div>
+            <div class="sig-block">
+              <br><br>
+              <strong>ผู้ตรวจสอบการรับคืน / หัวหน้าคลังสินค้า</strong>
+              <div style="margin-top: 5px; font-size: 11px; color: #6b7280;">วันที่: ...... / ...... / ......</div>
+            </div>
+          </div>
+
+          <script>
+            window.onload = function() {
+              setTimeout(function() {
+                window.print();
+              }, 400);
+            }
+          </script>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
   };
 
   return (
@@ -488,6 +752,13 @@ const NCP = ({ inventory, items, claims, setClaims }) => {
                 ) : (
                   <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                     <StatusBadge status={claim.status} />
+                    <button 
+                      style={{ background: 'none', border: 'none', color: 'var(--accent-color)', cursor: 'pointer', padding: '0.2rem', transition: 'var(--transition)' }}
+                      onClick={() => printClaimCasePDF(claim)}
+                      title="พิมพ์เคส NCP (PDF)"
+                    >
+                      <Printer size={15} />
+                    </button>
                     <button 
                       style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '0.2rem', transition: 'var(--transition)' }}
                       onClick={() => setEditingClaim(claim)}
