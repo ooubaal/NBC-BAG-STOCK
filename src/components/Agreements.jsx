@@ -528,24 +528,48 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
       // Find all inventory lots linked to this agreement
       const deliveries = inventory.filter(lot => lot.agreementId === ag.id && !lot.isCancelled);
 
-      const acceptedQty = deliveries
-        .filter(lot => lot.acceptanceStatus === 'Accepted')
-        .reduce((sum, lot) => sum + Number(lot.quantity), 0);
+      // Compute stats for each item in the itemsList
+      const itemsListWithStats = (ag.itemsList || [
+        { itemName: ag.itemName, totalQty: ag.totalQty, unit: ag.unit }
+      ]).map(item => {
+        const itemDeliveries = deliveries.filter(lot => lot.itemName === item.itemName);
 
-      const pendingQty = deliveries
-        .filter(lot => lot.acceptanceStatus === 'Pending')
-        .reduce((sum, lot) => sum + Number(lot.quantity), 0);
+        const acceptedQty = itemDeliveries
+          .filter(lot => lot.acceptanceStatus === 'Accepted')
+          .reduce((sum, lot) => sum + Number(lot.quantity), 0);
 
-      const rejectedQty = deliveries
-        .filter(lot => lot.acceptanceStatus === 'Rejected')
-        .reduce((sum, lot) => sum + Number(lot.quantity), 0);
+        const pendingQty = itemDeliveries
+          .filter(lot => lot.acceptanceStatus === 'Pending')
+          .reduce((sum, lot) => sum + Number(lot.quantity), 0);
 
+        const rejectedQty = itemDeliveries
+          .filter(lot => lot.acceptanceStatus === 'Rejected')
+          .reduce((sum, lot) => sum + Number(lot.quantity), 0);
+
+        const totalDelivered = acceptedQty + pendingQty + rejectedQty;
+        const outstandingQty = Math.max(0, Number(item.totalQty || 0) - acceptedQty);
+
+        return {
+          ...item,
+          acceptedQty,
+          pendingQty,
+          rejectedQty,
+          totalDelivered,
+          outstandingQty
+        };
+      });
+
+      // Sum metrics for backwards compatibility and high-level card status
+      const totalQty = itemsListWithStats.reduce((sum, item) => sum + Number(item.totalQty || 0), 0);
+      const acceptedQty = itemsListWithStats.reduce((sum, item) => sum + item.acceptedQty, 0);
+      const pendingQty = itemsListWithStats.reduce((sum, item) => sum + item.pendingQty, 0);
+      const rejectedQty = itemsListWithStats.reduce((sum, item) => sum + item.rejectedQty, 0);
       const totalDelivered = acceptedQty + pendingQty + rejectedQty;
-      const outstandingQty = Math.max(0, ag.totalQty - acceptedQty);
+      const outstandingQty = itemsListWithStats.reduce((sum, item) => sum + item.outstandingQty, 0);
 
       // Determine dynamic status
       let displayStatus = 'Active';
-      if (acceptedQty >= ag.totalQty) {
+      if (acceptedQty >= totalQty) {
         displayStatus = 'Completed';
       } else if (new Date(ag.endDate) < new Date()) {
         displayStatus = 'Expired';
@@ -553,6 +577,8 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
 
       return {
         ...ag,
+        itemsListWithStats,
+        totalQty,
         acceptedQty,
         pendingQty,
         rejectedQty,
