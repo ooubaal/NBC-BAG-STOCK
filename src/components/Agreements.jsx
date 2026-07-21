@@ -1105,122 +1105,79 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
               </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: '1.5rem' }}>
-              <div>
-                <label style={{ display: 'block', marginBottom: '0.4rem', fontSize: '0.85rem' }}>เลือกสินค้าจัดซื้อ <span style={{ color: 'var(--danger)' }}>*</span></label>
-                <div style={{ position: 'relative' }}>
-                  <div 
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      border: '1px solid var(--glass-border)',
-                      borderRadius: '8px',
-                      background: 'var(--glass-bg)',
-                      padding: '0.45rem 0.75rem',
-                      cursor: 'pointer',
-                      justifyContent: 'space-between'
-                    }}
-                    onClick={() => setIsFormDropdownOpen(!isFormDropdownOpen)}
-                  >
-                    <input
-                      type="text"
-                      placeholder="พิมพ์เพื่อค้นหาชื่อสินค้า..."
-                      value={isFormDropdownOpen ? formSearchQuery : newAgreement.itemName}
-                      onChange={(e) => {
-                        setFormSearchQuery(e.target.value);
-                        setIsFormDropdownOpen(true);
-                      }}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setIsFormDropdownOpen(true);
-                      }}
-                      style={{
-                        border: 'none',
-                        outline: 'none',
-                        background: 'transparent',
-                        width: '100%',
-                        color: 'var(--text-primary)',
-                        fontSize: '0.9rem'
-                      }}
-                    />
-                    <ChevronDown size={18} color="var(--text-secondary)" style={{ transform: isFormDropdownOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s', flexShrink: 0 }} />
-                  </div>
-
-                  {isFormDropdownOpen && (
-                    <>
-                      <div 
-                        style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 998 }} 
-                        onClick={() => { setIsFormDropdownOpen(false); setFormSearchQuery(''); }}
-                      />
-                      <div 
-                        style={{
-                          position: 'absolute',
-                          top: '105%',
-                          left: 0,
-                          right: 0,
-                          maxHeight: '250px',
-                          overflowY: 'auto',
-                          background: '#ffffff',
-                          backdropFilter: 'blur(10px)',
-                          border: '1px solid var(--glass-border)',
-                          borderRadius: '8px',
-                          zIndex: 999,
-                          boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.15), 0 4px 6px -2px rgba(0, 0, 0, 0.05)'
-                        }}
-                      >
-                        {((items ? items.filter(item => item.name.toLowerCase().includes(formSearchQuery.toLowerCase())) : []).length === 0) ? (
-                          <div style={{ padding: '0.75rem 1rem', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-                            ไม่พบสินค้าที่ตรงกับคำค้นหา
-                          </div>
-                        ) : (
-                          (items ? items.filter(item => item.name.toLowerCase().includes(formSearchQuery.toLowerCase())) : []).map(item => (
-                            <div
-                              key={item.name}
-                              style={{
-                                padding: '0.6rem 1rem',
-                                cursor: 'pointer',
-                                background: newAgreement.itemName === item.name ? 'rgba(245, 158, 11, 0.15)' : 'transparent',
-                                color: 'var(--text-primary)',
-                                fontSize: '0.88rem',
-                                borderBottom: '1px solid rgba(0, 0, 0, 0.05)',
-                                transition: 'background 0.15s'
-                              }}
-                              onMouseEnter={(e) => e.target.style.background = 'rgba(15, 23, 42, 0.05)'}
-                              onMouseLeave={(e) => e.target.style.background = newAgreement.itemName === item.name ? 'rgba(245, 158, 11, 0.15)' : 'transparent'}
-                              onClick={() => {
-                                setNewAgreement({
-                                  ...newAgreement,
-                                  itemName: item.name,
-                                  unit: item.unit || 'ชิ้น'
-                                });
-                                setIsFormDropdownOpen(false);
-                                setFormSearchQuery('');
-                              }}
-                            >
-                              {item.name} {item.unit ? `(${item.unit})` : ''}
-                            </div>
-                          ))
-                        )}
-                      </div>
-                    </>
-                  )}
-                </div>
+            {/* รายการพัสดุในสัญญา */}
+            <div style={{ marginTop: '0.5rem', marginBottom: '0.5rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)' }}>รายการพัสดุจัดซื้อตามสัญญา <span style={{ color: 'var(--danger)' }}>*</span></label>
+                <button 
+                  type="button" 
+                  className="btn btn-secondary" 
+                  onClick={handleAddNewAgreementItemRow}
+                  style={{ padding: '0.3rem 0.6rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
+                >
+                  <Plus size={14} /> เพิ่มรายการพัสดุ
+                </button>
               </div>
-              <div>
-                <label style={{ display: 'block', marginBottom: '0.4rem', fontSize: '0.85rem' }}>จำนวนจัดซื้อตามสัญญา <span style={{ color: 'var(--danger)' }}>*</span></label>
-                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                  <input 
-                    type="number" 
-                    placeholder="เช่น 1000" 
-                    value={newAgreement.totalQty} 
-                    onChange={e => setNewAgreement({...newAgreement, totalQty: e.target.value})} 
-                    required 
-                    style={{ flex: 1 }}
-                  />
-                  <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', fontWeight: 600, minWidth: '40px' }}>
-                    {newAgreement.unit}
-                  </span>
-                </div>
+              
+              <div style={{ border: '1px solid var(--glass-border)', borderRadius: '8px', overflow: 'hidden', background: 'var(--glass-bg)' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+                  <thead>
+                    <tr style={{ background: 'rgba(255, 255, 255, 0.02)', borderBottom: '1px solid var(--glass-border)', textAlign: 'left', color: 'var(--text-muted)' }}>
+                      <th style={{ padding: '0.6rem 0.75rem', width: '55%' }}>รายการสินค้า</th>
+                      <th style={{ padding: '0.6rem 0.75rem', width: '30%' }}>จำนวนจัดซื้อตามสัญญา</th>
+                      <th style={{ padding: '0.6rem 0.75rem', width: '15%', textAlign: 'center' }}>ลบ</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(newAgreement.itemsList || []).map((itemRow, idx) => (
+                      <tr key={idx} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.02)' }}>
+                        <td style={{ padding: '0.5rem 0.75rem' }}>
+                          <SearchableSelect
+                            value={itemRow.itemName}
+                            onChange={(val) => handleUpdateNewAgreementItemRow(idx, 'itemName', val)}
+                            placeholder="ค้นหาและเลือกสินค้า..."
+                            options={items.map(item => ({ value: item.name, label: item.name }))}
+                          />
+                        </td>
+                        <td style={{ padding: '0.5rem 0.75rem' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <input
+                              type="number"
+                              value={itemRow.totalQty}
+                              onChange={(e) => handleUpdateNewAgreementItemRow(idx, 'totalQty', e.target.value)}
+                              placeholder="เช่น 1000"
+                              style={{ width: '100%', padding: '0.4rem 0.5rem', fontSize: '0.8rem', outline: 'none' }}
+                              required
+                            />
+                            <span style={{ color: 'var(--text-secondary)', fontWeight: 600, fontSize: '0.8rem', minWidth: '35px' }}>
+                              {itemRow.unit}
+                            </span>
+                          </div>
+                        </td>
+                        <td style={{ padding: '0.5rem 0.75rem', textAlign: 'center' }}>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveNewAgreementItemRow(idx)}
+                            disabled={(newAgreement.itemsList || []).length <= 1}
+                            style={{
+                              background: 'transparent',
+                              border: 'none',
+                              color: (newAgreement.itemsList || []).length <= 1 ? 'var(--text-muted)' : 'var(--danger)',
+                              cursor: (newAgreement.itemsList || []).length <= 1 ? 'not-allowed' : 'pointer',
+                              opacity: (newAgreement.itemsList || []).length <= 1 ? 0.4 : 1,
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              padding: '0.3rem'
+                            }}
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </div>
 
