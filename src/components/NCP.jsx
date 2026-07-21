@@ -1,6 +1,136 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Camera, Plus, Download, Edit2, Trash2, X, Search, Printer } from 'lucide-react';
 
+const SearchableSelect = ({ value, onChange, options, placeholder, disabled, style }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [search, setSearch] = useState('');
+
+  const filtered = options.filter(opt => 
+    String(opt.label || '').toLowerCase().includes(search.toLowerCase())
+  );
+
+  const selectedOption = options.find(opt => opt.value === value);
+  const displayLabel = selectedOption ? selectedOption.label : (value || '');
+
+  return (
+    <div style={{ position: 'relative', width: '100%' }}>
+      <div style={{ position: 'relative' }}>
+        <input 
+          type="text"
+          placeholder={placeholder}
+          value={isOpen ? search : displayLabel}
+          title={displayLabel}
+          onChange={(e) => {
+            if (!isOpen) setIsOpen(true);
+            setSearch(e.target.value);
+          }}
+          onClick={() => {
+            setIsOpen(true);
+            setSearch('');
+          }}
+          disabled={disabled}
+          style={{
+            width: '100%',
+            fontSize: '0.85rem',
+            padding: '0.6rem 2rem 0.6rem 0.75rem',
+            background: 'var(--input-bg)',
+            color: 'var(--text-primary)',
+            border: '1px solid var(--glass-border)',
+            borderRadius: '6px',
+            cursor: disabled ? 'not-allowed' : 'pointer',
+            outline: 'none',
+            boxSizing: 'border-box',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            transition: 'border-color 0.2s, box-shadow 0.2s',
+            ...style
+          }}
+        />
+        <div style={{
+          position: 'absolute',
+          right: '10px',
+          top: '50%',
+          transform: 'translateY(-50%)',
+          pointerEvents: 'none',
+          color: 'var(--text-muted)',
+          fontSize: '0.8rem',
+          display: 'flex',
+          alignItems: 'center'
+        }}>
+          {isOpen ? '▲' : '▼'}
+        </div>
+      </div>
+      {isOpen && !disabled && (
+        <>
+          <div 
+            onClick={() => {
+              setIsOpen(false);
+              setSearch('');
+            }}
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              zIndex: 9999
+            }}
+          />
+          <div style={{
+            position: 'absolute',
+            top: '105%',
+            left: 0,
+            right: 0,
+            maxHeight: '220px',
+            overflowY: 'auto',
+            background: '#ffffff',
+            border: '1px solid var(--glass-border)',
+            borderRadius: '6px',
+            boxShadow: '0 10px 25px -5px rgba(0,0,0,0.15), 0 8px 10px -6px rgba(0,0,0,0.1)',
+            zIndex: 10000
+          }}>
+            {filtered.length === 0 ? (
+              <div style={{ padding: '0.75rem', color: 'var(--text-muted)', fontSize: '0.8rem', textAlign: 'center' }}>
+                ไม่พบข้อมูล
+              </div>
+            ) : (
+              filtered.map((opt) => (
+                <div 
+                  key={opt.value}
+                  onClick={() => {
+                    onChange(opt.value);
+                    setIsOpen(false);
+                    setSearch('');
+                  }}
+                  style={{
+                    padding: '0.6rem 0.75rem',
+                    fontSize: '0.8rem',
+                    color: 'var(--text-primary)',
+                    background: opt.value === value ? 'rgba(14, 165, 233, 0.15)' : 'transparent',
+                    cursor: 'pointer',
+                    transition: 'background 0.15s ease',
+                    textAlign: 'left',
+                    fontWeight: opt.value === value ? '600' : 'normal'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = 'rgba(15, 23, 42, 0.05)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = opt.value === value ? 'rgba(14, 165, 233, 0.15)' : 'transparent';
+                  }}
+                >
+                  {opt.label}
+                </div>
+              ))
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
+
 const compressImageFile = (file, maxWidth = 1200, maxHeight = 1200) => {
   return new Promise((resolve, reject) => {
     const isImage = file.type.startsWith('image/');
@@ -556,35 +686,34 @@ const NCP = ({ inventory, items, claims, setClaims }) => {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '1.5rem' }}>
             <div>
               <label style={{ display: 'block', marginBottom: '0.5rem' }}>ชื่อสินค้า</label>
-              <select 
-                value={newClaim.itemName} 
-                onChange={(e) => {
-                  const selected = items.find(i => i.name === e.target.value);
+              <SearchableSelect
+                value={newClaim.itemName}
+                placeholder="-- ค้นหาและเลือกสินค้า --"
+                onChange={(val) => {
+                  const selected = items.find(i => i.name === val);
                   setNewClaim({
                     ...newClaim,
-                    itemName: e.target.value,
+                    itemName: val,
                     unit: selected ? selected.unit : 'ชิ้น',
                     lotNo: '',
                     quantity: ''
                   });
                 }}
-              >
-                {items.map(item => <option key={item.name} value={item.name}>{item.name}</option>)}
-              </select>
+                options={items.map(item => ({ value: item.name, label: item.name }))}
+              />
             </div>
             <div>
               <label style={{ display: 'block', marginBottom: '0.5rem' }}>Lot no. ในคลังพัสดุ</label>
-              <select 
-                value={newClaim.lotNo} 
-                onChange={e => setNewClaim({...newClaim, lotNo: e.target.value})}
-              >
-                <option value="">-- เลือก Lot จากคลังพัสดุ --</option>
-                {availableLots.map((lot, idx) => (
-                  <option key={lot.id || idx} value={lot.supplierLot}>
-                    Supplier Lot: {lot.supplierLot} {lot.inhouseLot ? `(QC: ${lot.inhouseLot})` : ''} - คงเหลือ {lot.remainingQty} {lot.unit || 'ชิ้น'} ({lot.location})
-                  </option>
-                ))}
-              </select>
+              <SearchableSelect
+                value={newClaim.lotNo}
+                placeholder={availableLots.length === 0 ? "-- ไม่มี Lot ในคลังพัสดุ --" : "-- เลือก Lot จากคลังพัสดุ --"}
+                disabled={availableLots.length === 0}
+                onChange={(val) => setNewClaim({...newClaim, lotNo: val})}
+                options={availableLots.map(lot => ({
+                  value: lot.supplierLot,
+                  label: `Supplier Lot: ${lot.supplierLot} ${lot.inhouseLot ? `(QC: ${lot.inhouseLot})` : ''} - คงเหลือ ${lot.remainingQty} ${lot.unit || 'ชิ้น'} ({lot.location})`
+                }))}
+              />
               {availableLots.length === 0 && (
                 <span style={{ fontSize: '0.75rem', color: 'var(--danger)', marginTop: '0.4rem', display: 'block' }}>
                   * พัสดุชนิดนี้ยังไม่มี Lot หรือสินค้าคงเหลือในคลังพัสดุ
@@ -876,34 +1005,38 @@ const NCP = ({ inventory, items, claims, setClaims }) => {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.2rem', marginBottom: '1.2rem' }}>
               <div>
                 <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '0.4rem', color: 'var(--text-secondary)' }}>ชื่อสินค้า</label>
-                <select 
-                  value={editingClaim.itemName} 
-                  onChange={(e) => {
-                    const selected = items.find(i => i.name === e.target.value);
+                <SearchableSelect
+                  value={editingClaim.itemName}
+                  placeholder="-- ค้นหาและเลือกสินค้า --"
+                  onChange={(val) => {
+                    const selected = items.find(i => i.name === val);
                     setEditingClaim({
                       ...editingClaim,
-                      itemName: e.target.value,
+                      itemName: val,
                       unit: selected ? selected.unit : 'ชิ้น',
                       lotNo: '' 
                     });
                   }}
-                >
-                  {items.map(item => <option key={item.name} value={item.name}>{item.name}</option>)}
-                </select>
+                  options={items.map(item => ({ value: item.name, label: item.name }))}
+                />
               </div>
               <div>
                 <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '0.4rem', color: 'var(--text-secondary)' }}>Lot no. ในคลังพัสดุ</label>
-                <select 
-                  value={editingClaim.lotNo} 
-                  onChange={e => setEditingClaim({...editingClaim, lotNo: e.target.value})}
-                >
-                  <option value="">-- เลือก Lot --</option>
-                  {inventory.filter(i => i.itemName === editingClaim.itemName).map((lot, idx) => (
-                    <option key={lot.id || idx} value={lot.supplierLot}>
-                      Supplier: {lot.supplierLot} {lot.inhouseLot ? `(QC: ${lot.inhouseLot})` : ''} - คงเหลือ {lot.remainingQty} {lot.unit || 'ชิ้น'} ({lot.location})
-                    </option>
-                  ))}
-                </select>
+                {(() => {
+                  const availableEditLots = inventory.filter(i => i.itemName === editingClaim.itemName);
+                  return (
+                    <SearchableSelect
+                      value={editingClaim.lotNo}
+                      placeholder={availableEditLots.length === 0 ? "-- ไม่มี Lot ในคลังพัสดุ --" : "-- เลือก Lot --"}
+                      disabled={availableEditLots.length === 0}
+                      onChange={(val) => setEditingClaim({...editingClaim, lotNo: val})}
+                      options={availableEditLots.map(lot => ({
+                        value: lot.supplierLot,
+                        label: `Supplier: ${lot.supplierLot} ${lot.inhouseLot ? `(QC: ${lot.inhouseLot})` : ''} - คงเหลือ ${lot.remainingQty} ${lot.unit || 'ชิ้น'} (${lot.location})`
+                      }))}
+                    />
+                  );
+                })()}
               </div>
             </div>
 
