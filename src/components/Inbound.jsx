@@ -398,7 +398,13 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
       const activeAgreements = agreements ? agreements.filter(ag => ag.status !== 'Completed') : [];
       if (activeAgreements.length > 0) {
         activeAgreements.forEach(ag => {
-          contractSheet.addRow({ id: ag.id, itemName: ag.itemName });
+          if (ag.itemsList && ag.itemsList.length > 0) {
+            ag.itemsList.forEach(item => {
+              contractSheet.addRow({ id: ag.id, itemName: item.itemName });
+            });
+          } else {
+            contractSheet.addRow({ id: ag.id, itemName: ag.itemName });
+          }
         });
       } else {
         contractSheet.addRow({ id: 'AG-2026-001', itemName: 'Raw Material A' });
@@ -2299,7 +2305,12 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
                         options={[
                           { value: '', label: '-- ไม่ระบุ --' },
                           ...agreements
-                            .filter(ag => ag.itemName === entry.itemName && ag.status !== 'Completed')
+                            .filter(ag => {
+                              const hasItem = (ag.itemsList && ag.itemsList.length > 0)
+                                ? ag.itemsList.some(subItem => subItem.itemName === entry.itemName)
+                                : ag.itemName === entry.itemName;
+                              return hasItem && ag.status !== 'Completed';
+                            })
                             .map(ag => ({ value: ag.id, label: ag.id }))
                         ]}
                         placeholder="เลือกสัญญา..."
@@ -2692,10 +2703,12 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
                       <td style={{ padding: '1rem', fontWeight: 600 }}>{item.itemName}</td>
                       <td style={{ padding: '1rem' }}>
                         {(() => {
-                          const contractOptions = agreements ? agreements.filter(ag => 
-                            ag.itemName === item.itemName && 
-                            (ag.status !== 'Completed' || ag.id === item.agreementId)
-                          ) : [];
+                          const contractOptions = agreements ? agreements.filter(ag => {
+                            const hasItem = (ag.itemsList && ag.itemsList.length > 0)
+                              ? ag.itemsList.some(subItem => subItem.itemName === item.itemName)
+                              : ag.itemName === item.itemName;
+                            return hasItem && (ag.status !== 'Completed' || ag.id === item.agreementId);
+                          }) : [];
                           return (
                             <select
                               value={item.agreementId || ''}

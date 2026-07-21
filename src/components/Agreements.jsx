@@ -11,6 +11,136 @@ const escapeHTML = (str) => {
     .replace(/'/g, '&#039;');
 };
 
+const SearchableSelect = ({ value, onChange, options, placeholder, disabled, style }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [search, setSearch] = useState('');
+
+  const filtered = options.filter(opt => 
+    String(opt.label || '').toLowerCase().includes(search.toLowerCase())
+  );
+
+  const selectedOption = options.find(opt => opt.value === value);
+  const displayLabel = selectedOption ? selectedOption.label : (value || '');
+
+  return (
+    <div style={{ position: 'relative', width: '100%' }}>
+      <div style={{ position: 'relative' }}>
+        <input 
+          type="text"
+          placeholder={placeholder}
+          value={isOpen ? search : displayLabel}
+          title={displayLabel}
+          onChange={(e) => {
+            if (!isOpen) setIsOpen(true);
+            setSearch(e.target.value);
+          }}
+          onClick={() => {
+            setIsOpen(true);
+            setSearch('');
+          }}
+          disabled={disabled}
+          style={{
+            width: '100%',
+            fontSize: '0.85rem',
+            padding: '0.6rem 2rem 0.6rem 0.75rem',
+            background: 'var(--input-bg)',
+            color: 'var(--text-primary)',
+            border: '1px solid var(--glass-border)',
+            borderRadius: '6px',
+            cursor: disabled ? 'not-allowed' : 'pointer',
+            outline: 'none',
+            boxSizing: 'border-box',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            transition: 'border-color 0.2s, box-shadow 0.2s',
+            ...style
+          }}
+        />
+        <div style={{
+          position: 'absolute',
+          right: '10px',
+          top: '50%',
+          transform: 'translateY(-50%)',
+          pointerEvents: 'none',
+          color: 'var(--text-muted)',
+          fontSize: '0.8rem',
+          display: 'flex',
+          alignItems: 'center'
+        }}>
+          {isOpen ? '▲' : '▼'}
+        </div>
+      </div>
+      {isOpen && !disabled && (
+        <>
+          <div 
+            onClick={() => {
+              setIsOpen(false);
+              setSearch('');
+            }}
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              zIndex: 9999
+            }}
+          />
+          <div style={{
+            position: 'absolute',
+            top: '105%',
+            left: 0,
+            right: 0,
+            maxHeight: '220px',
+            overflowY: 'auto',
+            background: '#ffffff',
+            border: '1px solid var(--glass-border)',
+            borderRadius: '6px',
+            boxShadow: '0 10px 25px -5px rgba(0,0,0,0.15), 0 8px 10px -6px rgba(0,0,0,0.1)',
+            zIndex: 10000
+          }}>
+            {filtered.length === 0 ? (
+              <div style={{ padding: '0.75rem', color: 'var(--text-muted)', fontSize: '0.8rem', textAlign: 'center' }}>
+                ไม่พบข้อมูล
+              </div>
+            ) : (
+              filtered.map((opt) => (
+                <div 
+                  key={opt.value}
+                  onClick={() => {
+                    onChange(opt.value);
+                    setIsOpen(false);
+                    setSearch('');
+                  }}
+                  style={{
+                    padding: '0.6rem 0.75rem',
+                    fontSize: '0.8rem',
+                    color: 'var(--text-primary)',
+                    background: opt.value === value ? 'rgba(14, 165, 233, 0.15)' : 'transparent',
+                    cursor: 'pointer',
+                    transition: 'background 0.15s ease',
+                    textAlign: 'left',
+                    fontWeight: opt.value === value ? '600' : 'normal'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = 'rgba(15, 23, 42, 0.05)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = opt.value === value ? 'rgba(14, 165, 233, 0.15)' : 'transparent';
+                  }}
+                >
+                  {opt.label}
+                </div>
+              ))
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
+
 const Agreements = ({ agreements, setAgreements, inventory, setInventory, items }) => {
   const [activeTab, setActiveTab] = useState('list'); // 'list' or 'new'
   const [expandedAgreementId, setExpandedAgreementId] = useState(null);
@@ -38,7 +168,9 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
     setEditingAgreementId(agreement.id);
     setEditForm({
       ...agreement,
-      totalQty: String(agreement.totalQty),
+      itemsList: agreement.itemsList || [
+        { itemName: agreement.itemName, totalQty: agreement.totalQty, unit: agreement.unit }
+      ],
       attachments: agreement.attachments || []
     });
     setEditFormSearchQuery('');
@@ -47,24 +179,36 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
 
   const handleSaveEdit = (e) => {
     if (e) e.preventDefault();
-    if (!editForm.totalQty || !editForm.supplier) {
-      alert("กรุณากรอกข้อมูลที่จำเป็นให้ครบถ้วน (จำนวนทั้งหมด, ผู้จัดจำหน่าย)");
+    if (!editForm.supplier) {
+      alert("กรุณากรอกข้อมูลที่จำเป็นให้ครบถ้วน (ผู้จัดจำหน่าย)");
       return;
     }
 
-    if (Number(editForm.totalQty) <= 0) {
-      alert("กรุณาระบุจำนวนจัดซื้อตามสัญญาให้ถูกต้อง (ต้องมีค่ามากกว่า 0)");
+    if (!editForm.itemsList || editForm.itemsList.length === 0) {
+      alert("กรุณาเพิ่มรายการพัสดุในสัญญาอย่างน้อย 1 รายการ");
+      return;
+    }
+
+    const hasInvalidItem = editForm.itemsList.some(item => !item.itemName || !item.totalQty || Number(item.totalQty) <= 0);
+    if (hasInvalidItem) {
+      alert("กรุณาระบุสินค้าและจำนวนจัดซื้อในสัญญาให้ถูกต้อง (ต้องมีค่ามากกว่า 0)");
       return;
     }
 
     const updatedAgreements = agreements.map(ag => {
       if (ag.id === editingAgreementId) {
+        const primaryItem = editForm.itemsList[0] || { itemName: '', totalQty: 0, unit: 'ชิ้น' };
         return {
           ...ag,
           supplier: editForm.supplier,
-          itemName: editForm.itemName,
-          totalQty: Number(editForm.totalQty),
-          unit: editForm.unit,
+          itemsList: editForm.itemsList.map(item => ({
+            ...item,
+            totalQty: Number(item.totalQty)
+          })),
+          // Fallback properties for compatibility with other parts of the application:
+          itemName: primaryItem.itemName,
+          totalQty: Number(primaryItem.totalQty),
+          unit: primaryItem.unit,
           startDate: editForm.startDate,
           endDate: editForm.endDate,
           remarks: editForm.remarks,
@@ -208,12 +352,86 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
     }
   };
 
+  // Helper handlers for dynamic multi-item lists in newAgreement
+  const handleAddNewAgreementItemRow = () => {
+    setNewAgreement(prev => ({
+      ...prev,
+      itemsList: [
+        ...(prev.itemsList || []),
+        { itemName: (items && items.length > 0) ? items[0].name : '', totalQty: '', unit: (items && items.length > 0) ? items[0].unit : 'ชิ้น' }
+      ]
+    }));
+  };
+
+  const handleUpdateNewAgreementItemRow = (index, key, val) => {
+    setNewAgreement(prev => {
+      const list = [...(prev.itemsList || [])];
+      if (key === 'itemName') {
+        const prod = items.find(i => i.name === val);
+        list[index] = {
+          ...list[index],
+          itemName: val,
+          unit: prod ? prod.unit : 'ชิ้น'
+        };
+      } else {
+        list[index] = {
+          ...list[index],
+          [key]: val
+        };
+      }
+      return { ...prev, itemsList: list };
+    });
+  };
+
+  const handleRemoveNewAgreementItemRow = (index) => {
+    setNewAgreement(prev => ({
+      ...prev,
+      itemsList: (prev.itemsList || []).filter((_, i) => i !== index)
+    }));
+  };
+
+  // Helper handlers for dynamic multi-item lists in editForm
+  const handleAddEditAgreementItemRow = () => {
+    setEditForm(prev => ({
+      ...prev,
+      itemsList: [
+        ...(prev.itemsList || []),
+        { itemName: (items && items.length > 0) ? items[0].name : '', totalQty: '', unit: (items && items.length > 0) ? items[0].unit : 'ชิ้น' }
+      ]
+    }));
+  };
+
+  const handleUpdateEditAgreementItemRow = (index, key, val) => {
+    setEditForm(prev => {
+      const list = [...(prev.itemsList || [])];
+      if (key === 'itemName') {
+        const prod = items.find(i => i.name === val);
+        list[index] = {
+          ...list[index],
+          itemName: val,
+          unit: prod ? prod.unit : 'ชิ้น'
+        };
+      } else {
+        list[index] = {
+          ...list[index],
+          [key]: val
+        };
+      }
+      return { ...prev, itemsList: list };
+    });
+  };
+
+  const handleRemoveEditAgreementItemRow = (index) => {
+    setEditForm(prev => ({
+      ...prev,
+      itemsList: (prev.itemsList || []).filter((_, i) => i !== index)
+    }));
+  };
+
   // New agreement form state
   const [newAgreement, setNewAgreement] = useState({
     id: '',
-    itemName: (items && items.length > 0) ? items[0].name : '',
-    unit: (items && items.length > 0) ? items[0].unit : 'ชิ้น',
-    totalQty: '',
+    itemsList: [{ itemName: (items && items.length > 0) ? items[0].name : '', totalQty: '', unit: (items && items.length > 0) ? items[0].unit : 'ชิ้น' }],
     supplier: '',
     startDate: new Date().toISOString().split('T')[0],
     endDate: new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString().split('T')[0],
@@ -224,13 +442,19 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
   // Handle saving new agreement
   const handleSaveAgreement = (e) => {
     e.preventDefault();
-    if (!newAgreement.id || !newAgreement.totalQty || !newAgreement.supplier) {
-      alert("กรุณากรอกข้อมูลที่จำเป็นให้ครบถ้วน (เลขที่สัญญา, จำนวนทั้งหมด, ผู้จัดจำหน่าย)");
+    if (!newAgreement.id || !newAgreement.supplier) {
+      alert("กรุณากรอกข้อมูลที่จำเป็นให้ครบถ้วน (เลขที่สัญญา, ผู้จัดจำหน่าย)");
       return;
     }
 
-    if (Number(newAgreement.totalQty) <= 0) {
-      alert("กรุณาระบุจำนวนจัดซื้อตามสัญญาให้ถูกต้อง (ต้องมีค่ามากกว่า 0)");
+    if (!newAgreement.itemsList || newAgreement.itemsList.length === 0) {
+      alert("กรุณาเพิ่มรายการพัสดุในสัญญาอย่างน้อย 1 รายการ");
+      return;
+    }
+
+    const hasInvalidItem = newAgreement.itemsList.some(item => !item.itemName || !item.totalQty || Number(item.totalQty) <= 0);
+    if (hasInvalidItem) {
+      alert("กรุณาระบุสินค้าและจำนวนจัดซื้อในสัญญาให้ถูกต้อง (ต้องมีค่ามากกว่า 0)");
       return;
     }
 
@@ -240,11 +464,17 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
       return;
     }
 
-    const selected = items.find(i => i.name === newAgreement.itemName);
+    const primaryItem = newAgreement.itemsList[0] || { itemName: '', totalQty: 0, unit: 'ชิ้น' };
     const agreementToAdd = {
       ...newAgreement,
-      totalQty: Number(newAgreement.totalQty),
-      unit: selected ? selected.unit : 'ชิ้น',
+      itemsList: newAgreement.itemsList.map(item => ({
+        ...item,
+        totalQty: Number(item.totalQty)
+      })),
+      // Fallback properties for compatibility with other parts of the application:
+      itemName: primaryItem.itemName,
+      totalQty: Number(primaryItem.totalQty),
+      unit: primaryItem.unit,
       status: 'Active', // Initial status
       createdAt: new Date().toISOString(),
       attachments: newAgreement.attachments || []
@@ -256,9 +486,7 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
     // Reset form and go back to list
     setNewAgreement({
       id: '',
-      itemName: (items && items.length > 0) ? items[0].name : '',
-      unit: (items && items.length > 0) ? items[0].unit : 'ชิ้น',
-      totalQty: '',
+      itemsList: [{ itemName: (items && items.length > 0) ? items[0].name : '', totalQty: '', unit: (items && items.length > 0) ? items[0].unit : 'ชิ้น' }],
       supplier: '',
       startDate: new Date().toISOString().split('T')[0],
       endDate: new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString().split('T')[0],
@@ -342,8 +570,10 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
     return processedAgreements.filter(ag => 
       (ag.id && ag.id.toLowerCase().includes(q)) || 
       (ag.supplier && ag.supplier.toLowerCase().includes(q)) || 
-      (ag.itemName && ag.itemName.toLowerCase().includes(q)) ||
-      (ag.remarks && ag.remarks.toLowerCase().includes(q))
+      (ag.remarks && ag.remarks.toLowerCase().includes(q)) ||
+      (ag.itemsListWithStats || []).some(item => 
+        String(item.itemName || '').toLowerCase().includes(q)
+      )
     );
   }, [processedAgreements, searchQuery]);
 
@@ -602,26 +832,29 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
               </tr>
             </thead>
             <tbody>
-              ${outstandingAgreements.map(ag => `
+              ${outstandingAgreements.flatMap(ag => 
+                (ag.itemsListWithStats || []).filter(item => item.outstandingQty > 0).map((item, index) => `
                 <tr>
-                  <td class="col-agreement" style="font-weight: 600;">${escapeHTML(ag.id)}</td>
-                  <td class="col-supplier">${escapeHTML(ag.supplier)}</td>
-                  <td class="col-item" style="font-weight: 600;">${escapeHTML(ag.itemName)}</td>
-                  <td class="col-totalqty" style="text-align: right;">${ag.totalQty.toLocaleString()}</td>
-                  <td class="col-acceptedqty" style="text-align: right; color: #0f5132;">${ag.acceptedQty.toLocaleString()}</td>
-                  <td class="col-pendingqty" style="text-align: right; color: #664d03;">${ag.pendingQty.toLocaleString()}</td>
-                  <td class="col-outstandingqty" style="text-align: right; font-weight: 700; color: #b71c1c;">${ag.outstandingQty.toLocaleString()}</td>
-                  <td class="col-unit">${escapeHTML(ag.unit)}</td>
-                  <td class="col-enddate nowrap">${formatDateToDDMMYY(ag.endDate)}</td>
+                  <td class="col-agreement" style="font-weight: 600;">${index === 0 ? escapeHTML(ag.id) : ''}</td>
+                  <td class="col-supplier">${index === 0 ? escapeHTML(ag.supplier) : ''}</td>
+                  <td class="col-item" style="font-weight: 600;">${escapeHTML(item.itemName)}</td>
+                  <td class="col-totalqty" style="text-align: right;">${item.totalQty.toLocaleString()}</td>
+                  <td class="col-acceptedqty" style="text-align: right; color: #0f5132;">${item.acceptedQty.toLocaleString()}</td>
+                  <td class="col-pendingqty" style="text-align: right; color: #664d03;">${item.pendingQty.toLocaleString()}</td>
+                  <td class="col-outstandingqty" style="text-align: right; font-weight: 700; color: #b71c1c;">${item.outstandingQty.toLocaleString()}</td>
+                  <td class="col-unit">${escapeHTML(item.unit)}</td>
+                  <td class="col-enddate nowrap">${index === 0 ? formatDateToDDMMYY(ag.endDate) : ''}</td>
                   <td class="col-status">
+                    ${index === 0 ? `
                     <span class="status-badge ${
                       ag.displayStatus === 'Expired' ? 'status-expired' : 'status-active'
                     }">
                       ${ag.displayStatus === 'Expired' ? 'หมดอายุสัญญา' : 'กำลังดำเนินการ'}
                     </span>
+                    ` : ''}
                   </td>
                 </tr>
-              `).join("")}
+              `)).join("")}
               <tr id="total-row" class="total-row">
                 <td id="total-label-cell" colspan="3" style="text-align: right;">รวมทั้งหมด:</td>
                 <td id="total-totalqty-cell" class="col-totalqty" style="text-align: right;">
@@ -1141,125 +1374,85 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
                             required
                           />
                         </div>
-                        <div>
-                          <label style={{ display: 'block', marginBottom: '0.4rem', fontSize: '0.85rem' }}>เลือกสินค้าจัดซื้อ <span style={{ color: 'var(--danger)' }}>*</span></label>
-                          <div style={{ position: 'relative' }}>
-                            <div 
-                              style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                border: '1px solid var(--glass-border)',
-                                borderRadius: '8px',
-                                background: 'var(--glass-bg)',
-                                padding: '0.45rem 0.75rem',
-                                cursor: 'pointer',
-                                justifyContent: 'space-between'
-                              }}
-                              onClick={() => setIsEditFormDropdownOpen(!isEditFormDropdownOpen)}
-                            >
-                              <input
-                                type="text"
-                                placeholder="พิมพ์เพื่อค้นหาชื่อสินค้า..."
-                                value={isEditFormDropdownOpen ? editFormSearchQuery : editForm.itemName}
-                                onChange={(e) => {
-                                  setEditFormSearchQuery(e.target.value);
-                                  setIsEditFormDropdownOpen(true);
-                                }}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setIsEditFormDropdownOpen(true);
-                                }}
-                                style={{
-                                  border: 'none',
-                                  outline: 'none',
-                                  background: 'transparent',
-                                  width: '100%',
-                                  color: 'var(--text-primary)',
-                                  fontSize: '0.9rem'
-                                }}
-                              />
-                              <ChevronDown size={18} color="var(--text-secondary)" style={{ transform: isEditFormDropdownOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s', flexShrink: 0 }} />
-                            </div>
-
-                            {isEditFormDropdownOpen && (
-                              <>
-                                <div 
-                                  style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 998 }} 
-                                  onClick={() => { setIsEditFormDropdownOpen(false); setEditFormSearchQuery(''); }}
-                                />
-                                <div 
-                                  style={{
-                                    position: 'absolute',
-                                    top: '105%',
-                                    left: 0,
-                                    right: 0,
-                                    maxHeight: '250px',
-                                    overflowY: 'auto',
-                                    background: '#ffffff',
-                                    backdropFilter: 'blur(10px)',
-                                    border: '1px solid var(--glass-border)',
-                                    borderRadius: '8px',
-                                    zIndex: 999,
-                                    boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.15), 0 4px 6px -2px rgba(0, 0, 0, 0.05)'
-                                  }}
-                                >
-                                  {((items ? items.filter(item => item.name.toLowerCase().includes(editFormSearchQuery.toLowerCase())) : []).length === 0) ? (
-                                    <div style={{ padding: '0.75rem 1rem', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-                                      ไม่พบสินค้าที่ตรงกับคำค้นหา
+                      </div>
+                      {/* รายการพัสดุในสัญญา */}
+                      <div style={{ marginTop: '0.5rem', marginBottom: '0.5rem' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                          <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)' }}>รายการพัสดุจัดซื้อตามสัญญา <span style={{ color: 'var(--danger)' }}>*</span></label>
+                          <button 
+                            type="button" 
+                            className="btn btn-secondary" 
+                            onClick={handleAddEditAgreementItemRow}
+                            style={{ padding: '0.3rem 0.6rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
+                          >
+                            <Plus size={14} /> เพิ่มรายการพัสดุ
+                          </button>
+                        </div>
+                        
+                        <div style={{ border: '1px solid var(--glass-border)', borderRadius: '8px', overflow: 'hidden', background: 'var(--glass-bg)' }}>
+                          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+                            <thead>
+                              <tr style={{ background: 'rgba(255, 255, 255, 0.02)', borderBottom: '1px solid var(--glass-border)', textAlign: 'left', color: 'var(--text-muted)' }}>
+                                <th style={{ padding: '0.6rem 0.75rem', width: '55%' }}>รายการสินค้า</th>
+                                <th style={{ padding: '0.6rem 0.75rem', width: '30%' }}>จำนวนจัดซื้อตามสัญญา</th>
+                                <th style={{ padding: '0.6rem 0.75rem', width: '15%', textAlign: 'center' }}>ลบ</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {(editForm.itemsList || []).map((itemRow, idx) => (
+                                <tr key={idx} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.02)' }}>
+                                  <td style={{ padding: '0.5rem 0.75rem' }}>
+                                    <SearchableSelect
+                                      value={itemRow.itemName}
+                                      onChange={(val) => handleUpdateEditAgreementItemRow(idx, 'itemName', val)}
+                                      placeholder="ค้นหาและเลือกสินค้า..."
+                                      options={items.map(item => ({ value: item.name, label: item.name }))}
+                                    />
+                                  </td>
+                                  <td style={{ padding: '0.5rem 0.75rem' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                      <input
+                                        type="number"
+                                        value={itemRow.totalQty}
+                                        onChange={(e) => handleUpdateEditAgreementItemRow(idx, 'totalQty', e.target.value)}
+                                        placeholder="เช่น 1000"
+                                        style={{ width: '100%', padding: '0.4rem 0.5rem', fontSize: '0.8rem', outline: 'none' }}
+                                        required
+                                      />
+                                      <span style={{ color: 'var(--text-secondary)', fontWeight: 600, fontSize: '0.8rem', minWidth: '35px' }}>
+                                        {itemRow.unit}
+                                      </span>
                                     </div>
-                                  ) : (
-                                    (items ? items.filter(item => item.name.toLowerCase().includes(editFormSearchQuery.toLowerCase())) : []).map(item => (
-                                      <div
-                                        key={item.name}
-                                        style={{
-                                          padding: '0.6rem 1rem',
-                                          cursor: 'pointer',
-                                          background: editForm.itemName === item.name ? 'rgba(245, 158, 11, 0.15)' : 'transparent',
-                                          color: 'var(--text-primary)',
-                                          fontSize: '0.88rem',
-                                          borderBottom: '1px solid rgba(0, 0, 0, 0.05)',
-                                          transition: 'background 0.15s'
-                                        }}
-                                        onMouseEnter={(e) => e.target.style.background = 'rgba(15, 23, 42, 0.05)'}
-                                        onMouseLeave={(e) => e.target.style.background = editForm.itemName === item.name ? 'rgba(245, 158, 11, 0.15)' : 'transparent'}
-                                        onClick={() => {
-                                          setEditForm({
-                                            ...editForm,
-                                            itemName: item.name,
-                                            unit: item.unit || 'ชิ้น'
-                                          });
-                                          setIsEditFormDropdownOpen(false);
-                                          setEditFormSearchQuery('');
-                                        }}
-                                      >
-                                        {item.name} {item.unit ? `(${item.unit})` : ''}
-                                      </div>
-                                    ))
-                                  )}
-                                </div>
-                              </>
-                            )}
-                          </div>
+                                  </td>
+                                  <td style={{ padding: '0.5rem 0.75rem', textAlign: 'center' }}>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleRemoveEditAgreementItemRow(idx)}
+                                      disabled={(editForm.itemsList || []).length <= 1}
+                                      style={{
+                                        background: 'transparent',
+                                        border: 'none',
+                                        color: (editForm.itemsList || []).length <= 1 ? 'var(--text-muted)' : 'var(--danger)',
+                                        cursor: (editForm.itemsList || []).length <= 1 ? 'not-allowed' : 'pointer',
+                                        opacity: (editForm.itemsList || []).length <= 1 ? 0.4 : 1,
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        padding: '0.3rem'
+                                      }}
+                                    >
+                                      <Trash2 size={16} />
+                                    </button>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
                         </div>
                       </div>
 
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
-                        <div>
-                          <label style={{ display: 'block', marginBottom: '0.4rem', fontSize: '0.85rem' }}>จำนวนจัดซื้อตามสัญญา <span style={{ color: 'var(--danger)' }}>*</span></label>
-                          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                            <input 
-                              type="number" 
-                              value={editForm.totalQty} 
-                              onChange={e => setEditForm({...editForm, totalQty: e.target.value})} 
-                              required 
-                              style={{ flex: 1 }}
-                            />
-                            <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', fontWeight: 600, minWidth: '40px' }}>
-                              {editForm.unit}
-                            </span>
-                          </div>
-                        </div>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', gridColumn: 'span 2' }}>
                           <div>
                             <label style={{ display: 'block', marginBottom: '0.4rem', fontSize: '0.85rem' }}>วันเริ่มสัญญา</label>
                             <input 
@@ -1403,7 +1596,7 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
                         <StatusBadge status={agreement.displayStatus} />
                       </div>
                       <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                        คู่สัญญา: <strong style={{ color: 'var(--text-primary)' }}>{agreement.supplier}</strong> | ชนิดพัสดุ: <strong style={{ color: 'var(--text-primary)' }}>{agreement.itemName}</strong>
+                        คู่สัญญา: <strong style={{ color: 'var(--text-primary)' }}>{agreement.supplier}</strong> | รายการพัสดุตามสัญญา: <strong style={{ color: 'var(--text-primary)' }}>{agreement.itemsListWithStats.length} รายการ</strong>
                       </div>
                     </div>
 
@@ -1435,63 +1628,81 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
                     </div>
                   </div>
 
-                  {/* Tri-Color Progress Bar */}
-                  <div style={{ marginBottom: '1.5rem' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginBottom: '0.5rem', fontWeight: 600 }}>
-                      <span style={{ color: 'var(--success)' }}>ตรวจรับผ่านแล้ว: {agreement.acceptedQty.toLocaleString()} {agreement.unit} ({acceptedPct.toFixed(1)}%)</span>
-                      {agreement.pendingQty > 0 && <span style={{ color: 'var(--quarantine)' }}>รอตรวจรับ: {agreement.pendingQty.toLocaleString()} {agreement.unit} ({pendingPct.toFixed(1)}%)</span>}
-                      <span style={{ color: 'var(--text-muted)' }}>ค้างรับ: {agreement.outstandingQty.toLocaleString()} {agreement.unit}</span>
-                    </div>
-                    
-                    <div style={{ 
-                      height: '14px', 
-                      background: 'rgba(255,255,255,0.05)', 
-                      borderRadius: '10px', 
-                      overflow: 'hidden', 
-                      display: 'flex',
-                      border: '1px solid var(--glass-border)'
-                    }}>
-                      <div style={{ width: `${acceptedPct}%`, height: '100%', background: 'var(--success)', transition: 'width 0.3s ease' }} title="ตรวจรับผ่านแล้ว" />
-                      <div style={{ width: `${pendingPct}%`, height: '100%', background: 'var(--quarantine)', transition: 'width 0.3s ease' }} title="อยู่ระหว่างรอตรวจรับ" />
-                      <div style={{ width: `${remainingPct}%`, height: '100%', background: 'transparent', transition: 'width 0.3s ease' }} title="ค้างส่งมอบ" />
-                    </div>
-                    
-                    {agreement.rejectedQty > 0 && (
-                      <div style={{ color: 'var(--danger)', fontSize: '0.8rem', fontWeight: 600, marginTop: '0.4rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                        <ShieldAlert size={14} /> ตีกลับ/กรรมการปฏิเสธการรับแล้ว: {agreement.rejectedQty.toLocaleString()} {agreement.unit} (ไม่ลดจำนวนค้างส่งในสัญญา)
-                      </div>
-                    )}
-                  </div>
+                  {/* รายการสินค้าแยกย่อยและ Progress Bar ของแต่ละชนิด */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '1.25rem' }}>
+                    {(agreement.itemsListWithStats || []).map((item, itemIdx) => {
+                      const itemAcceptedPct = Math.min(100, (item.acceptedQty / Number(item.totalQty || 1)) * 100);
+                      const itemPendingPct = Math.min(100 - itemAcceptedPct, (item.pendingQty / Number(item.totalQty || 1)) * 100);
+                      const itemRemainingPct = Math.max(0, 100 - itemAcceptedPct - itemPendingPct);
 
-                  {/* Compact Stats */}
-                  <div style={{ 
-                    display: 'grid', 
-                    gridTemplateColumns: 'repeat(4, 1fr)', 
-                    gap: '1rem', 
-                    background: 'rgba(255,255,255,0.02)', 
-                    padding: '0.75rem 1rem', 
-                    borderRadius: '8px', 
-                    border: '1px solid var(--glass-border)',
-                    fontSize: '0.85rem'
-                  }}>
-                    <div>
-                      <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>ยอดสัญญาทั้งหมด</div>
-                      <div style={{ fontWeight: 700, fontSize: '1rem', marginTop: '0.2rem' }}>{agreement.totalQty.toLocaleString()} {agreement.unit}</div>
-                    </div>
-                    <div>
-                      <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>มาส่งแล้วทั้งหมด (กายภาพ)</div>
-                      <div style={{ fontWeight: 700, fontSize: '1rem', marginTop: '0.2rem', color: 'var(--accent-secondary)' }}>{agreement.totalDelivered.toLocaleString()} {agreement.unit}</div>
-                    </div>
-                    <div>
-                      <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>ตรวจรับผ่านแล้ว (หักสัญญา)</div>
-                      <div style={{ fontWeight: 700, fontSize: '1rem', marginTop: '0.2rem', color: 'var(--success)' }}>{agreement.acceptedQty.toLocaleString()} {agreement.unit}</div>
-                    </div>
-                    <div>
-                      <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>ยอดค้างส่ง (เป็นทางการ)</div>
-                      <div style={{ fontWeight: 700, fontSize: '1rem', marginTop: '0.2rem', color: agreement.outstandingQty > 0 ? 'var(--accent-color)' : 'var(--text-muted)' }}>
-                        {agreement.outstandingQty.toLocaleString()} {agreement.unit}
-                      </div>
-                    </div>
+                      return (
+                        <div 
+                          key={itemIdx} 
+                          style={{ 
+                            background: 'rgba(255, 255, 255, 0.01)', 
+                            border: '1px dashed var(--glass-border)', 
+                            borderRadius: '8px', 
+                            padding: '0.85rem 1.25rem' 
+                          }}
+                        >
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+                            <span style={{ fontWeight: 600, fontSize: '0.88rem', color: 'var(--text-primary)' }}>
+                              📦 {item.itemName}
+                            </span>
+                            <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                              ยอดตามสัญญา: <strong style={{ color: 'var(--text-primary)' }}>{Number(item.totalQty).toLocaleString()} {item.unit}</strong>
+                            </span>
+                          </div>
+
+                          {/* Tri-Color Progress Bar for this item */}
+                          <div style={{ marginBottom: '0.75rem' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', marginBottom: '0.35rem' }}>
+                              <span style={{ color: 'var(--success)', fontWeight: 500 }}>
+                                ตรวจรับผ่านแล้ว: {item.acceptedQty.toLocaleString()} {item.unit} ({itemAcceptedPct.toFixed(1)}%)
+                              </span>
+                              {item.pendingQty > 0 && (
+                                <span style={{ color: 'var(--quarantine)', fontWeight: 500 }}>
+                                  รอตรวจรับ: {item.pendingQty.toLocaleString()} {item.unit}
+                                </span>
+                              )}
+                              <span style={{ color: 'var(--text-muted)' }}>
+                                ค้างรับ: {item.outstandingQty.toLocaleString()} {item.unit}
+                              </span>
+                            </div>
+                            
+                            <div style={{ 
+                              height: '10px', 
+                              background: 'rgba(255,255,255,0.05)', 
+                              borderRadius: '10px', 
+                              overflow: 'hidden', 
+                              display: 'flex',
+                              border: '1px solid var(--glass-border)'
+                            }}>
+                              <div style={{ width: `${itemAcceptedPct}%`, height: '100%', background: 'var(--success)' }} title="ตรวจรับผ่านแล้ว" />
+                              <div style={{ width: `${itemPendingPct}%`, height: '100%', background: 'var(--quarantine)' }} title="อยู่ระหว่างรอตรวจรับ" />
+                              <div style={{ width: `${itemRemainingPct}%`, height: '100%', background: 'transparent' }} title="ค้างส่งมอบ" />
+                            </div>
+                          </div>
+
+                          {/* Compact Stats for this item */}
+                          <div style={{ 
+                            display: 'grid', 
+                            gridTemplateColumns: 'repeat(4, 1fr)', 
+                            gap: '0.5rem', 
+                            fontSize: '0.78rem',
+                            color: 'var(--text-secondary)',
+                            borderTop: '1px solid rgba(255, 255, 255, 0.03)',
+                            paddingTop: '0.5rem',
+                            marginTop: '0.5rem'
+                          }}>
+                            <div>ยอดตามสัญญา: <strong style={{ color: 'var(--text-primary)' }}>{Number(item.totalQty).toLocaleString()} {item.unit}</strong></div>
+                            <div>มาส่งแล้วทั้งหมด: <strong style={{ color: 'var(--accent-secondary)' }}>{item.totalDelivered.toLocaleString()} {item.unit}</strong></div>
+                            <div>ตรวจรับผ่าน: <strong style={{ color: 'var(--success)' }}>{item.acceptedQty.toLocaleString()} {item.unit}</strong></div>
+                            <div>ยอดค้างส่ง: <strong style={{ color: item.outstandingQty > 0 ? 'var(--accent-color)' : 'var(--text-muted)' }}>{item.outstandingQty.toLocaleString()} {item.unit}</strong></div>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
 
                   {/* Remarks */}
