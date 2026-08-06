@@ -41,7 +41,7 @@ const AcceptanceBadge = ({ status }) => {
   );
 };
 
-const Withdrawal = ({ inventory, setInventory, items }) => {
+const Withdrawal = ({ inventory, setInventory, items, agreements = [] }) => {
   const [withdrawalTab, setWithdrawalTab] = useState('new'); // 'new' or 'history'
   const [selectedItem, setSelectedItem] = useState((items && items.length > 0) ? items[0].name : '');
   const [withdrawalDate, setWithdrawalDate] = useState(new Date().toISOString().split('T')[0]);
@@ -108,6 +108,7 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
   const [historyFilterItem, setHistoryFilterItem] = useState('All');
   const [historyFilterLocation, setHistoryFilterLocation] = useState('All');
   const [historyFilterReason, setHistoryFilterReason] = useState('All');
+  const [historyFilterAgreement, setHistoryFilterAgreement] = useState('All');
 
 
 
@@ -144,6 +145,7 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
               itemName: item.itemName,
               supplierLot: item.supplierLot,
               inhouseLot: item.inhouseLot,
+              agreementId: item.agreementId || '',
               packSize: item.packSize || '-',
               unit: item.unit || 'ชิ้น',
               location: item.location,
@@ -169,6 +171,7 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
       const search = lotSearchQuery.toLowerCase();
       return i.supplierLot.toLowerCase().includes(search) || 
              (i.inhouseLot && i.inhouseLot.toLowerCase().includes(search)) ||
+             (i.agreementId && i.agreementId.toLowerCase().includes(search)) ||
              (i.location && i.location.toLowerCase().includes(search));
     });
   }, [inventory, selectedItem, lotSearchQuery, lotPendingAmounts]);
@@ -201,15 +204,15 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
     return Array.from(locs).sort((a, b) => String(a).localeCompare(String(b), 'th'));
   }, [historicalWithdrawals]);
 
-  const uniqueHistoryReasons = useMemo(() => {
-    const reasons = new Set();
+  const uniqueHistoryAgreements = useMemo(() => {
+    const set = new Set();
     (historicalWithdrawals || []).forEach(w => {
-      if (w && w.reason) reasons.add(w.reason);
+      if (w && w.agreementId) set.add(w.agreementId);
     });
-    return Array.from(reasons).sort((a, b) => String(a).localeCompare(String(b), 'th'));
+    return Array.from(set).sort((a, b) => String(a).localeCompare(String(b), 'th'));
   }, [historicalWithdrawals]);
 
-  // Filter historical list based on search term, date range, items, locations, reasons, and sorting
+  // Filter historical list based on search term, date range, items, locations, reasons, agreements, and sorting
   const filteredWithdrawals = useMemo(() => {
     let result = (historicalWithdrawals || []).filter(w => {
       if (!w) return false;
@@ -218,6 +221,7 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
                           (w.itemName && w.itemName.toLowerCase().includes(search)) ||
                           (w.supplierLot && w.supplierLot.toLowerCase().includes(search)) ||
                           (w.inhouseLot && w.inhouseLot.toLowerCase().includes(search)) ||
+                          (w.agreementId && w.agreementId.toLowerCase().includes(search)) ||
                           (w.reason && w.reason.toLowerCase().includes(search));
       
       let matchesDate = true;
@@ -231,8 +235,9 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
       const matchesItem = historyFilterItem === 'All' || w.itemName === historyFilterItem;
       const matchesLocation = historyFilterLocation === 'All' || w.location === historyFilterLocation;
       const matchesReason = historyFilterReason === 'All' || w.reason === historyFilterReason;
+      const matchesAgreement = historyFilterAgreement === 'All' || (w.agreementId || '') === historyFilterAgreement;
       
-      return matchesSearch && matchesDate && matchesItem && matchesLocation && matchesReason;
+      return matchesSearch && matchesDate && matchesItem && matchesLocation && matchesReason && matchesAgreement;
     });
 
     result.sort((a, b) => {
@@ -259,6 +264,12 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
       }
       if (historySortType === 'inhouseLot-desc') {
         return (b.inhouseLot || '').localeCompare(a.inhouseLot || '');
+      }
+      if (historySortType === 'agreement-asc') {
+        return (a.agreementId || '').localeCompare(b.agreementId || '', 'th');
+      }
+      if (historySortType === 'agreement-desc') {
+        return (b.agreementId || '').localeCompare(a.agreementId || '', 'th');
       }
       if (historySortType === 'amount-asc') {
         return Number(a.amount || 0) - Number(b.amount || 0);
@@ -358,6 +369,7 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
         itemName: lot.itemName,
         supplierLot: lot.supplierLot,
         inhouseLot: lot.inhouseLot,
+        agreementId: lot.agreementId || '',
         unit: lot.unit || 'ชิ้น',
         amount: amt,
         date: withdrawalDate,
@@ -708,13 +720,14 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
             <thead>
               <tr>
                 <th id="th-date" class="col-date" style="width: 10%;">วันที่ตัดจ่าย</th>
-                <th id="th-item" class="col-item" style="width: 25%;">รายการสินค้า</th>
-                <th id="th-supplier" class="col-supplier" style="width: 12%;">Supplier Lot</th>
-                <th id="th-inhouse" class="col-inhouse" style="width: 12%;">QC Lot</th>
-                <th id="th-qty" class="col-qty" style="width: 10%; text-align: right;">จำนวนตัดจ่าย</th>
-                <th id="th-unit" class="col-unit" style="width: 7%;">หน่วย</th>
-                <th id="th-location" class="col-location" style="width: 8%;">ที่เก็บเดิม</th>
-                <th id="th-reason" class="col-reason" style="width: 16%;">เหตุผล / หมายเหตุ</th>
+                <th id="th-item" class="col-item" style="width: 21%;">รายการสินค้า</th>
+                <th id="th-supplier" class="col-supplier" style="width: 11%;">Supplier Lot</th>
+                <th id="th-inhouse" class="col-inhouse" style="width: 11%;">QC Lot</th>
+                <th id="th-agreement" class="col-agreement" style="width: 11%;">เลขสัญญา</th>
+                <th id="th-qty" class="col-qty" style="width: 9%; text-align: right;">จำนวนตัดจ่าย</th>
+                <th id="th-unit" class="col-unit" style="width: 6%;">หน่วย</th>
+                <th id="th-location" class="col-location" style="width: 7%;">ที่เก็บเดิม</th>
+                <th id="th-reason" class="col-reason" style="width: 14%;">เหตุผล / หมายเหตุ</th>
               </tr>
             </thead>
             <tbody>
@@ -724,6 +737,7 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
                   <td class="col-item" style="font-weight: 600;">${escapeHTML(w.itemName)}</td>
                   <td class="col-supplier">${escapeHTML(w.supplierLot) || '-'}</td>
                   <td class="col-inhouse">${escapeHTML(w.inhouseLot) || '-'}</td>
+                  <td class="col-agreement" style="color: #0284c7; font-weight: 500;">${escapeHTML(w.agreementId) || '-'}</td>
                   <td class="col-qty" style="font-weight: 700; color: #dc2626; text-align: right;">
                     ${w.isCancelled ? `<s>-${w.amount.toLocaleString()}</s> <span style="font-size: 10px; color: #ef4444; display: block;">(ยกเลิกแล้ว)</span>` : `-${w.amount.toLocaleString()}`}
                   </td>
@@ -733,7 +747,7 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
                 </tr>
               `).join('')}
               <tr id="total-row" class="total-row">
-                <td id="total-label-cell" colspan="4" style="text-align: right;">รวมจำนวนตัดจ่ายทั้งสิ้น:</td>
+                <td id="total-label-cell" colspan="5" style="text-align: right;">รวมจำนวนตัดจ่ายทั้งสิ้น:</td>
                 <td id="total-val-cell" class="col-qty" style="color: #dc2626; text-align: right;">-${withdrawalList.reduce((sum, w) => sum + (w.isCancelled ? 0 : w.amount), 0).toLocaleString()}</td>
                 <td id="total-unit-cell" class="col-unit" colspan="3">หน่วยตามรายการ</td>
               </tr>
@@ -1876,6 +1890,10 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
                                 <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginRight: '0.2rem' }}>QC Lot:</span>
                                 {lot.inhouseLot || '-'}
                               </div>
+                              <div style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                                <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginRight: '0.2rem' }}>สัญญา:</span>
+                                {lot.agreementId ? <span style={{ color: 'var(--accent-color)' }}>{lot.agreementId}</span> : '-'}
+                              </div>
                               <span className={`status-badge status-${(lot.qcStatus || 'Quarantine').toLowerCase()}`} style={{ padding: '0.15rem 0.5rem', fontSize: '0.65rem', borderRadius: '4px', textTransform: 'none', border: '1px solid transparent' }}>
                                 {lot.qcStatus || 'Quarantine'}
                               </span>
@@ -1922,6 +1940,10 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
                               <div>
                                 <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>QC Lot:</div>
                                 <div style={{ fontWeight: 700 }}>{lot.inhouseLot || '-'}</div>
+                              </div>
+                              <div>
+                                <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>เลขสัญญา:</div>
+                                <div style={{ fontWeight: 700, color: 'var(--accent-color)' }}>{lot.agreementId || '-'}</div>
                               </div>
                             </div>
                             <div style={{ marginTop: '0.5rem', fontSize: '0.85rem' }}>
@@ -2096,6 +2118,7 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
                       <th style={{ padding: '0.5rem' }}>ชื่อสินค้า</th>
                       <th style={{ padding: '0.5rem' }}>Supplier Lot</th>
                       <th style={{ padding: '0.5rem' }}>QC Lot</th>
+                      <th style={{ padding: '0.5rem' }}>เลขสัญญา</th>
                       <th style={{ padding: '0.5rem', textAlign: 'right' }}>จำนวนที่ตัดจ่าย</th>
                       <th style={{ padding: '0.5rem' }}>หน่วย</th>
                       <th style={{ padding: '0.5rem' }}>วันที่ตัดจ่าย</th>
@@ -2110,6 +2133,7 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
                         <td style={{ padding: '0.5rem', fontWeight: 600 }}>{cartItem.itemName}</td>
                         <td style={{ padding: '0.5rem' }}>{cartItem.supplierLot}</td>
                         <td style={{ padding: '0.5rem' }}>{cartItem.inhouseLot || '-'}</td>
+                        <td style={{ padding: '0.5rem', color: 'var(--accent-color)', fontWeight: 500 }}>{cartItem.agreementId || '-'}</td>
                         <td style={{ padding: '0.5rem', textAlign: 'right', fontWeight: 700, color: 'var(--accent-color)' }}>{cartItem.amount}</td>
                         <td style={{ padding: '0.5rem', color: 'var(--text-muted)' }}>{cartItem.unit}</td>
                         <td style={{ padding: '0.5rem' }}>{formatDateToDDMMYYYY(cartItem.date)}</td>
@@ -2344,6 +2368,29 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
                   </th>
                   <th style={{ padding: '0.75rem 1rem' }}>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                      <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>เลขสัญญา</span>
+                      <select 
+                        value={historySortType.startsWith('agreement-') ? historySortType : 'none'} 
+                        onChange={(e) => setHistorySortType(e.target.value === 'none' ? 'date-desc' : e.target.value)}
+                        style={{ fontSize: '0.68rem', padding: '0.15rem', background: 'var(--input-bg)', color: 'var(--accent-color)', border: '1px solid var(--glass-border)', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', marginBottom: '0.1rem' }}
+                      >
+                        <option value="none">ปกติ ↕️</option>
+                        <option value="agreement-asc">A-Z 🔼</option>
+                        <option value="agreement-desc">Z-A 🔽</option>
+                      </select>
+                      <select 
+                        value={historyFilterAgreement} 
+                        onChange={(e) => setHistoryFilterAgreement(e.target.value)}
+                        style={{ fontSize: '0.68rem', padding: '0.15rem', background: 'var(--input-bg)', color: 'var(--text-primary)', border: '1px solid var(--glass-border)', borderRadius: '4px', cursor: 'pointer', width: '100%', minWidth: '100px' }}
+                      >
+                        <option value="All">ทั้งหมด</option>
+                        <option value="">ไม่มีสัญญา</option>
+                        {uniqueHistoryAgreements.map(ag => <option key={ag} value={ag}>{ag}</option>)}
+                      </select>
+                    </div>
+                  </th>
+                  <th style={{ padding: '0.75rem 1rem' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
                       <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>จำนวนตัดจ่าย</span>
                       <select 
                         value={historySortType.startsWith('amount-') ? historySortType : 'none'} 
@@ -2406,7 +2453,7 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
               <tbody>
                 {filteredWithdrawals.length === 0 ? (
                   <tr>
-                    <td colSpan="8" style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
+                    <td colSpan="9" style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
                       ไม่พบประวัติการตัดจ่ายพัสดุ
                     </td>
                   </tr>
@@ -2425,6 +2472,13 @@ const Withdrawal = ({ inventory, setInventory, items }) => {
                       <td style={{ padding: '1rem' }}>
                         <div>{w.supplierLot}</div>
                         <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{w.inhouseLot || '-'}</div>
+                      </td>
+                      <td style={{ padding: '1rem' }}>
+                        {w.agreementId ? (
+                          <span style={{ fontSize: '0.82rem', fontWeight: 500, color: 'var(--accent-color)' }}>{w.agreementId}</span>
+                        ) : (
+                          <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>-</span>
+                        )}
                       </td>
                       <td style={{ padding: '1rem', fontWeight: 700, color: 'var(--danger)' }}>
                         {w.isCancelled ? (

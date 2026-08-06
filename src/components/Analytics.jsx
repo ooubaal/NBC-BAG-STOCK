@@ -32,7 +32,7 @@ const formatDateToDDMMYYYY = (dateStr) => {
   return `${dd}/${mm}/${yyyy}`;
 };
 
-const Analytics = ({ inventory, items }) => {
+const Analytics = ({ inventory, items, agreements = [] }) => {
   const [selectedItem, setSelectedItem] = useState((items && items.length > 0) ? items[0].name : '');
   const [searchQuery, setSearchQuery] = useState('');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -52,6 +52,7 @@ const Analytics = ({ inventory, items }) => {
   // Column filter states for details by lot table
   const [filterLot, setFilterLot] = useState('');
   const [filterInhouseLot, setFilterInhouseLot] = useState('');
+  const [filterAgreement, setFilterAgreement] = useState('');
   const [filterQty, setFilterQty] = useState('');
   const [filterLocation, setFilterLocation] = useState('');
   const [filterAcceptance, setFilterAcceptance] = useState('All');
@@ -69,6 +70,7 @@ const Analytics = ({ inventory, items }) => {
     const lots = itemRecords.map(i => ({ 
       lot: i.supplierLot, 
       inhouseLot: i.inhouseLot, 
+      agreementId: i.agreementId || '',
       qty: i.remainingQty, 
       status: i.qcStatus, 
       location: i.location,
@@ -81,7 +83,7 @@ const Analytics = ({ inventory, items }) => {
     }, {});
     
     // Withdrawal rate analysis
-    const allWithdrawals = itemRecords.flatMap(i => i.withdrawals || []);
+    const allWithdrawals = itemRecords.flatMap(i => (i.withdrawals || []).map(w => ({ ...w, agreementId: i.agreementId || '' })));
     const totalWithdrawn = allWithdrawals.reduce((acc, curr) => acc + curr.amount, 0);
     
     // Run-out prediction calculation
@@ -189,6 +191,7 @@ const Analytics = ({ inventory, items }) => {
     return stats.lots.filter(l => {
       const matchLot = !filterLot || (l.lot && l.lot.toLowerCase().includes(filterLot.toLowerCase()));
       const matchInhouse = !filterInhouseLot || (l.inhouseLot && l.inhouseLot.toLowerCase().includes(filterInhouseLot.toLowerCase()));
+      const matchAgreement = !filterAgreement || (l.agreementId && l.agreementId.toLowerCase().includes(filterAgreement.toLowerCase()));
       const matchQty = !filterQty || String(l.qty).toLowerCase().includes(filterQty.toLowerCase());
       const matchLocation = !filterLocation || (l.location && l.location.toLowerCase().includes(filterLocation.toLowerCase()));
       const matchDate = !filterDate || (l.date && formatDateToDDMMYYYY(l.date).toLowerCase().includes(filterDate.toLowerCase()));
@@ -204,9 +207,9 @@ const Analytics = ({ inventory, items }) => {
       
       const matchQc = filterQcStatus === 'All' || l.status === filterQcStatus;
       
-      return matchLot && matchInhouse && matchQty && matchLocation && matchAcceptance && matchQc && matchDate;
+      return matchLot && matchInhouse && matchAgreement && matchQty && matchLocation && matchAcceptance && matchQc && matchDate;
     });
-  }, [stats.lots, filterLot, filterInhouseLot, filterQty, filterLocation, filterAcceptance, filterQcStatus, filterDate]);
+  }, [stats.lots, filterLot, filterInhouseLot, filterAgreement, filterQty, filterLocation, filterAcceptance, filterQcStatus, filterDate]);
 
   const sortedLots = useMemo(() => {
     const list = [...filteredLots];
@@ -370,6 +373,7 @@ const Analytics = ({ inventory, items }) => {
                           // Reset filters when switching product
                           setFilterLot('');
                           setFilterInhouseLot('');
+                          setFilterAgreement('');
                           setFilterQty('');
                           setFilterLocation('');
                           setFilterAcceptance('All');
@@ -418,6 +422,7 @@ const Analytics = ({ inventory, items }) => {
                     // Reset filters when switching product
                     setFilterLot('');
                     setFilterInhouseLot('');
+                    setFilterAgreement('');
                     setFilterQty('');
                     setFilterLocation('');
                     setFilterAcceptance('All');
@@ -479,6 +484,7 @@ const Analytics = ({ inventory, items }) => {
                 <tr style={{ textAlign: 'left', borderBottom: '1px solid var(--glass-border)', color: 'var(--text-muted)' }}>
                   {renderHeader('Lot no.', 'lot')}
                   {renderHeader('QC Lot', 'inhouseLot')}
+                  {renderHeader('เลขสัญญา', 'agreementId')}
                   {renderHeader('วันที่รับ', 'date')}
                   {renderHeader(`คงเหลือ (${currentUnit})`, 'qty')}
                   {renderHeader('ที่เก็บ', 'location')}
@@ -501,6 +507,15 @@ const Analytics = ({ inventory, items }) => {
                       placeholder="กรอง..." 
                       value={filterInhouseLot} 
                       onChange={(e) => setFilterInhouseLot(e.target.value)} 
+                      style={{ width: '100%', padding: '0.3rem', fontSize: '0.8rem', border: '1px solid var(--glass-border)', borderRadius: '4px', background: 'var(--input-bg)', color: 'var(--text-primary)' }}
+                    />
+                  </th>
+                  <th style={{ padding: '0.25rem 0.5rem' }}>
+                    <input 
+                      type="text" 
+                      placeholder="กรอง..." 
+                      value={filterAgreement} 
+                      onChange={(e) => setFilterAgreement(e.target.value)} 
                       style={{ width: '100%', padding: '0.3rem', fontSize: '0.8rem', border: '1px solid var(--glass-border)', borderRadius: '4px', background: 'var(--input-bg)', color: 'var(--text-primary)' }}
                     />
                   </th>
@@ -560,12 +575,13 @@ const Analytics = ({ inventory, items }) => {
               </thead>
               <tbody>
                 {sortedLots.length === 0 ? (
-                  <tr><td colSpan="7" style={{ padding: '1rem', textAlign: 'center' }}>ไม่พบข้อมูลที่ตรงกับตัวกรอง</td></tr>
+                  <tr><td colSpan="8" style={{ padding: '1rem', textAlign: 'center' }}>ไม่พบข้อมูลที่ตรงกับตัวกรอง</td></tr>
                 ) : (
                   sortedLots.map((l, i) => (
                     <tr key={i} style={{ borderBottom: '1px solid var(--glass-border)' }}>
                       <td style={{ padding: '0.75rem' }}>{l.lot || '-'}</td>
                       <td style={{ padding: '0.75rem' }}>{l.inhouseLot || '-'}</td>
+                      <td style={{ padding: '0.75rem' }}>{l.agreementId ? <span style={{ color: 'var(--accent-color)', fontWeight: 500 }}>{l.agreementId}</span> : '-'}</td>
                       <td style={{ padding: '0.75rem' }}>{formatDateToDDMMYYYY(l.date)}</td>
                       <td style={{ padding: '0.75rem', fontWeight: 600 }}>{l.qty}</td>
                       <td style={{ padding: '0.75rem' }}>{l.location}</td>
@@ -595,7 +611,9 @@ const Analytics = ({ inventory, items }) => {
                 <div key={i} className="glass" style={{ padding: '1rem', borderRadius: '8px', marginBottom: '0.75rem', display: 'flex', justifyContent: 'space-between' }}>
                   <div>
                     <div style={{ fontWeight: 600 }}>{w.reason || "ไม่ระบุเหตุผล"}</div>
-                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{w.date}</div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                      {w.date} {w.agreementId ? ` | สัญญา: ${w.agreementId}` : ''}
+                    </div>
                   </div>
                   <div style={{ color: 'var(--danger)', fontWeight: 700 }}>-{w.amount} {currentUnit}</div>
                 </div>

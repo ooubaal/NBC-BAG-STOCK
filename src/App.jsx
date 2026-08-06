@@ -643,9 +643,9 @@ function App() {
       case 'inbound':
         return <Inbound setInventory={updateInventory} items={items} inventory={inventory} agreements={agreements} />;
       case 'withdrawal':
-        return <Withdrawal inventory={inventory} setInventory={updateInventory} items={items} />;
+        return <Withdrawal inventory={inventory} setInventory={updateInventory} items={items} agreements={agreements} />;
       case 'analytics':
-        return <Analytics inventory={inventory} items={items} />;
+        return <Analytics inventory={inventory} items={items} agreements={agreements} />;
       case 'ncp':
         return <NCP inventory={inventory} items={items} claims={claims} setClaims={updateClaims} />;
       case 'agreements':
