@@ -639,7 +639,7 @@ function App() {
       case 'items':
         return <ProductRegistry items={items} setItems={updateItems} />;
       case 'inventory':
-        return <Inventory inventory={inventory} setInventory={updateInventory} items={items} />;
+        return <Inventory inventory={inventory} setInventory={updateInventory} items={items} agreements={agreements} />;
       case 'inbound':
         return <Inbound setInventory={updateInventory} items={items} inventory={inventory} agreements={agreements} />;
       case 'withdrawal':

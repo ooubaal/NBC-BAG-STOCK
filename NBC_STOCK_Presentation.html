@@ -1,0 +1,985 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NBC STOCK — โครงการพัฒนาคุณภาพ Best Quality for All 2569</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@300;400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --primary: #0ea5e9;
+    --primary-dark: #0284c7;
+    --accent: #8b5cf6;
+    --accent-secondary: #f59e0b;
+    --success: #10b981;
+    --danger: #ef4444;
+    --bg-dark: #0f172a;
+    --bg-card: #1e293b;
+    --text-light: #f1f5f9;
+    --text-muted: #94a3b8;
+    --glass: rgba(30, 41, 59, 0.7);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Noto Sans Thai', 'Inter', sans-serif;
+    background: var(--bg-dark);
+    color: var(--text-light);
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
+  }
+
+  .presentation { width: 100vw; height: 100vh; position: relative; }
+
+  .slide {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    display: none;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 4rem 6rem;
+    opacity: 0;
+    transition: opacity 0.5s ease;
+  }
+
+  .slide.active { display: flex; opacity: 1; }
+
+  .nav-bar {
+    position: fixed;
+    bottom: 0;
+    left: 0; right: 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 2rem;
+    background: rgba(15, 23, 42, 0.9);
+    backdrop-filter: blur(10px);
+    border-top: 1px solid rgba(148, 163, 184, 0.1);
+    z-index: 100;
+  }
+
+  .nav-bar button {
+    background: rgba(148, 163, 184, 0.15);
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    color: var(--text-light);
+    padding: 0.6rem 1.5rem;
+    border-radius: 8px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 0.9rem;
+    transition: all 0.2s;
+  }
+
+  .nav-bar button:hover { background: var(--primary); border-color: var(--primary); transform: translateY(-1px); }
+  .nav-bar button:disabled { opacity: 0.3; cursor: not-allowed; transform: none; }
+
+  .slide-counter { font-size: 0.85rem; color: var(--text-muted); font-weight: 500; }
+
+  .progress-track {
+    position: fixed; top: 0; left: 0;
+    width: 100%; height: 4px;
+    background: rgba(148, 163, 184, 0.1);
+    z-index: 100;
+  }
+
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--primary), var(--accent));
+    transition: width 0.4s ease;
+    border-radius: 0 2px 2px 0;
+  }
+
+  .slide-title { font-size: 2.8rem; font-weight: 800; margin-bottom: 1rem; line-height: 1.3; }
+  .slide-subtitle { font-size: 1.3rem; color: var(--text-muted); font-weight: 400; margin-bottom: 2rem; }
+
+  .gradient-text {
+    background: linear-gradient(135deg, var(--primary), var(--accent));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .accent-text { color: var(--accent-secondary); }
+  .success-text { color: var(--success); }
+  .danger-text { color: var(--danger); }
+
+  .title-slide {
+    background: radial-gradient(ellipse at 30% 50%, rgba(14, 165, 233, 0.15), transparent 60%),
+                radial-gradient(ellipse at 70% 80%, rgba(139, 92, 246, 0.1), transparent 50%),
+                var(--bg-dark);
+    text-align: center;
+  }
+
+  .title-slide .logo-icon { font-size: 4rem; margin-bottom: 1rem; }
+  .title-slide .main-title { font-size: 4rem; font-weight: 900; margin-bottom: 0.5rem; letter-spacing: -1px; }
+  .title-slide .tagline { font-size: 1.5rem; color: var(--text-muted); margin-bottom: 3rem; font-weight: 300; }
+
+  .title-slide .competition-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.75rem;
+    background: rgba(245, 158, 11, 0.1);
+    border: 1px solid rgba(245, 158, 11, 0.3);
+    padding: 0.75rem 1.5rem;
+    border-radius: 12px;
+    font-size: 1rem;
+    color: var(--accent-secondary);
+    font-weight: 600;
+  }
+
+  .content-slide {
+    background: radial-gradient(ellipse at 10% 20%, rgba(14, 165, 233, 0.06), transparent 50%), var(--bg-dark);
+    align-items: flex-start;
+  }
+
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 3rem; width: 100%; margin-top: 1rem; }
+  .three-col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 2rem; width: 100%; margin-top: 1rem; }
+  .four-col { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.5rem; width: 100%; margin-top: 1rem; }
+
+  .card {
+    background: var(--glass);
+    border: 1px solid rgba(148, 163, 184, 0.1);
+    border-radius: 16px;
+    padding: 2rem;
+    backdrop-filter: blur(10px);
+  }
+
+  .card-icon { font-size: 2.5rem; margin-bottom: 1rem; }
+  .card h3 { font-size: 1.2rem; font-weight: 700; margin-bottom: 0.75rem; }
+  .card p, .card li { font-size: 0.95rem; color: var(--text-muted); line-height: 1.7; }
+  .card ul { list-style: none; padding: 0; }
+  .card ul li { padding: 0.3rem 0; padding-left: 1.5rem; position: relative; }
+  .card ul li::before { content: '\25B8'; position: absolute; left: 0; color: var(--primary); font-weight: bold; }
+
+  .highlight-card { border-top: 3px solid var(--primary); }
+  .highlight-card.danger { border-top-color: var(--danger); }
+  .highlight-card.success { border-top-color: var(--success); }
+  .highlight-card.accent { border-top-color: var(--accent); }
+
+  .stat-big { font-size: 3.5rem; font-weight: 900; line-height: 1; margin-bottom: 0.5rem; }
+  .stat-label { font-size: 0.9rem; color: var(--text-muted); font-weight: 400; }
+
+  .before-after { display: grid; grid-template-columns: 1fr auto 1fr; gap: 2rem; align-items: stretch; width: 100%; margin-top: 1rem; }
+
+  .before-col {
+    background: rgba(239, 68, 68, 0.05);
+    border: 1px solid rgba(239, 68, 68, 0.2);
+    border-radius: 16px;
+    padding: 2rem;
+  }
+
+  .after-col {
+    background: rgba(16, 185, 129, 0.05);
+    border: 1px solid rgba(16, 185, 129, 0.2);
+    border-radius: 16px;
+    padding: 2rem;
+  }
+
+  .arrow-col { display: flex; align-items: center; justify-content: center; font-size: 3rem; color: var(--accent-secondary); }
+  .before-col h3 { color: var(--danger); margin-bottom: 1rem; font-size: 1.1rem; }
+  .after-col h3 { color: var(--success); margin-bottom: 1rem; font-size: 1.1rem; }
+  .before-col ul, .after-col ul { list-style: none; padding: 0; }
+  .before-col li, .after-col li { padding: 0.5rem 0; font-size: 0.95rem; color: var(--text-muted); border-bottom: 1px solid rgba(148, 163, 184, 0.05); }
+  .before-col li:last-child, .after-col li:last-child { border-bottom: none; }
+
+  .pdca-grid { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 1.5rem; width: 100%; margin-top: 1rem; }
+
+  .pdca-card { border-radius: 16px; padding: 2rem; background: var(--glass); border: 1px solid rgba(148, 163, 184, 0.1); }
+  .pdca-card .step-letter { font-size: 2.5rem; font-weight: 900; margin-bottom: 0.5rem; display: inline-block; }
+  .pdca-card h3 { font-size: 1.15rem; font-weight: 700; margin-bottom: 0.5rem; }
+  .pdca-card p { font-size: 0.88rem; color: var(--text-muted); line-height: 1.6; }
+
+  .feature-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; width: 100%; margin-top: 1rem; }
+
+  .feature-card {
+    background: var(--glass);
+    border: 1px solid rgba(148, 163, 184, 0.1);
+    border-radius: 12px;
+    padding: 1.5rem;
+    text-align: center;
+  }
+
+  .feature-card .f-icon { font-size: 2rem; margin-bottom: 0.75rem; }
+  .feature-card h4 { font-size: 1rem; font-weight: 700; margin-bottom: 0.4rem; }
+  .feature-card p { font-size: 0.8rem; color: var(--text-muted); line-height: 1.5; }
+
+  .timeline { display: flex; gap: 0; width: 100%; margin-top: 1.5rem; position: relative; }
+
+  .timeline::before {
+    content: '';
+    position: absolute;
+    top: 2.5rem;
+    left: 0; right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--primary), var(--accent), var(--accent-secondary), var(--success));
+    z-index: 0;
+  }
+
+  .timeline-item { flex: 1; text-align: center; position: relative; z-index: 1; }
+
+  .timeline-item .dot {
+    width: 20px; height: 20px;
+    border-radius: 50%;
+    background: var(--primary);
+    margin: 1.5rem auto 1rem;
+    border: 3px solid var(--bg-dark);
+    box-shadow: 0 0 0 2px var(--primary);
+  }
+
+  .timeline-item:nth-child(2) .dot { background: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
+  .timeline-item:nth-child(3) .dot { background: var(--accent-secondary); box-shadow: 0 0 0 2px var(--accent-secondary); }
+  .timeline-item:nth-child(4) .dot { background: var(--success); box-shadow: 0 0 0 2px var(--success); }
+
+  .timeline-item h4 { font-size: 0.9rem; font-weight: 700; margin-bottom: 0.4rem; }
+  .timeline-item p { font-size: 0.78rem; color: var(--text-muted); line-height: 1.5; padding: 0 0.5rem; }
+
+  .kpi-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    margin-top: 1.5rem;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid rgba(148, 163, 184, 0.1);
+  }
+
+  .kpi-table th {
+    background: rgba(14, 165, 233, 0.15);
+    padding: 1rem 1.5rem;
+    text-align: left;
+    font-weight: 700;
+    font-size: 0.95rem;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+  }
+
+  .kpi-table td {
+    padding: 0.85rem 1.5rem;
+    font-size: 0.9rem;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.05);
+    color: var(--text-muted);
+  }
+
+  .kpi-table tr:nth-child(even) td { background: rgba(148, 163, 184, 0.02); }
+  .kpi-table .value-highlight { font-weight: 700; color: var(--success); font-size: 1rem; }
+  .kpi-table .value-before { color: var(--danger); font-weight: 600; }
+
+  .closing-slide {
+    background: radial-gradient(ellipse at 50% 50%, rgba(139, 92, 246, 0.12), transparent 60%),
+                radial-gradient(ellipse at 30% 80%, rgba(14, 165, 233, 0.1), transparent 50%),
+                var(--bg-dark);
+    text-align: center;
+  }
+
+  .closing-slide .big-thanks { font-size: 4rem; font-weight: 900; margin-bottom: 1rem; }
+
+  .bullet-list { list-style: none; padding: 0; width: 100%; }
+
+  .bullet-list li {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    padding: 1rem 0;
+    font-size: 1.05rem;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.05);
+    color: var(--text-muted);
+  }
+
+  .bullet-list li:last-child { border-bottom: none; }
+
+  .bullet-icon {
+    flex-shrink: 0;
+    width: 36px; height: 36px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.1rem;
+    font-weight: 700;
+  }
+
+  .section-number {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--primary);
+    text-transform: uppercase;
+    letter-spacing: 3px;
+    margin-bottom: 0.5rem;
+  }
+
+  @media print {
+    .nav-bar { display: none; }
+    .progress-track { display: none; }
+    .slide {
+      position: relative;
+      display: flex !important;
+      opacity: 1 !important;
+      page-break-after: always;
+      height: auto;
+      min-height: 100vh;
+    }
+  }
+</style>
+</head>
+<body>
+
+<div class="progress-track">
+  <div class="progress-fill" id="progressFill" style="width: 0%"></div>
+</div>
+
+<div class="presentation" id="presentation">
+
+  <!-- SLIDE 1: Title -->
+  <div class="slide title-slide active" data-slide="1">
+    <div class="logo-icon">📦</div>
+    <div class="main-title"><span class="gradient-text">NBC STOCK</span></div>
+    <div class="tagline">ระบบบริหารจัดการคลังพัสดุอัจฉริยะ</div>
+    <div class="competition-badge">
+      🏆 โครงการพัฒนาคุณภาพ BEST QUALITY for ALL ประจำปี 2569
+    </div>
+    <div style="margin-top: 2rem;">
+      <p style="font-size: 1.1rem; color: var(--text-light); font-weight: 600;">
+        ศูนย์บริการโลหิตแห่งชาติ สภากาชาดไทย
+      </p>
+      <p style="margin-top: 0.5rem; color: var(--text-muted);">
+        [ชื่อทีม / ฝ่ายงาน]
+      </p>
+    </div>
+  </div>
+
+  <!-- SLIDE 2: Agenda -->
+  <div class="slide content-slide" data-slide="2">
+    <div class="section-number">Agenda</div>
+    <div class="slide-title">สิ่งที่จะนำเสนอวันนี้</div>
+    <div class="slide-subtitle">ภาพรวม 15 นาที</div>
+    <ul class="bullet-list">
+      <li>
+        <div class="bullet-icon" style="background: rgba(14, 165, 233, 0.15); color: var(--primary);">1</div>
+        <div><strong>สภาพปัญหาก่อนมีระบบ</strong> — Pain points ที่เจออยู่ทุกวัน</div>
+      </li>
+      <li>
+        <div class="bullet-icon" style="background: rgba(139, 92, 246, 0.15); color: var(--accent);">2</div>
+        <div><strong>แนวคิดและวัตถุประสงค์</strong> — ทำไมถึงเลือกสร้างระบบนี้</div>
+      </li>
+      <li>
+        <div class="bullet-icon" style="background: rgba(245, 158, 11, 0.15); color: var(--accent-secondary);">3</div>
+        <div><strong>ฟีเจอร์หลักของระบบ</strong> — รับเข้า คลังพัสดุ ตัดจ่าย เคลม สัญญาจัดซื้อ</div>
+      </li>
+      <li>
+        <div class="bullet-icon" style="background: rgba(16, 185, 129, 0.15); color: var(--success);">4</div>
+        <div><strong>ผลลัพธ์ที่เกิดขึ้นจริง</strong> — ตัวชี้วัด Before / After</div>
+      </li>
+      <li>
+        <div class="bullet-icon" style="background: rgba(239, 68, 68, 0.15); color: var(--danger);">5</div>
+        <div><strong>แผนพัฒนาต่อยอด (Roadmap)</strong> — ความยั่งยืนและอนาคต</div>
+      </li>
+    </ul>
+  </div>
+
+  <!-- SLIDE 3: Problem Statement -->
+  <div class="slide content-slide" data-slide="3">
+    <div class="section-number">01 · สภาพปัญหา</div>
+    <div class="slide-title">ปัญหาที่เราเจอ<span class="danger-text">ทุกวัน</span></div>
+    <div class="slide-subtitle">ก่อนมีระบบ NBC STOCK</div>
+    <div class="three-col">
+      <div class="card highlight-card danger">
+        <div class="card-icon">📋</div>
+        <h3>จดบันทึกด้วยมือ</h3>
+        <p>บันทึกการรับเข้า-ตัดจ่ายลงสมุด/กระดาษ ข้อมูลกระจัดกระจาย ค้นหาย้อนกลับยาก สูญหายได้ง่าย</p>
+      </div>
+      <div class="card highlight-card danger">
+        <div class="card-icon">🔍</div>
+        <h3>ค้นหา Lot ได้ยาก</h3>
+        <p>ต้องพลิกสมุดทีละหน้าเพื่อหา Lot Number หรือตรวจสอบสถานะ QC ใช้เวลา 10-15 นาทีต่อครั้ง</p>
+      </div>
+      <div class="card highlight-card danger">
+        <div class="card-icon">⚠️</div>
+        <h3>ไม่รู้ว่าของใกล้หมด</h3>
+        <p>ไม่มีระบบแจ้งเตือนเมื่อพัสดุใกล้หมดคลัง ทำให้สั่งซื้อไม่ทัน กระทบการส่งมอบงาน</p>
+      </div>
+    </div>
+    <div class="three-col" style="margin-top: 1.5rem;">
+      <div class="card highlight-card danger">
+        <div class="card-icon">📞</div>
+        <h3>เคลม NCP ตกหล่น</h3>
+        <p>ไม่มีระบบติดตามการเคลมสินค้าที่ไม่ผ่าน QC มีเคสที่เลยกำหนดติดตามโดยไม่รู้ตัว</p>
+      </div>
+      <div class="card highlight-card danger">
+        <div class="card-icon">📊</div>
+        <h3>ไม่มีข้อมูลวิเคราะห์</h3>
+        <p>ไม่สามารถดูภาพรวมสต็อก หรือวิเคราะห์แนวโน้มการใช้พัสดุได้เลย</p>
+      </div>
+      <div class="card highlight-card danger">
+        <div class="card-icon">📑</div>
+        <h3>ทำรายงานช้า</h3>
+        <p>สรุปรายงานเพื่อ audit ต้องรวบรวมจากหลายแหล่ง ใช้เวลาหลายชั่วโมง</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- SLIDE 4: Objective -->
+  <div class="slide content-slide" data-slide="4">
+    <div class="section-number">02 · วัตถุประสงค์</div>
+    <div class="slide-title">เราจะ<span class="gradient-text">แก้ปัญหา</span>อย่างไร</div>
+    <div class="two-col">
+      <div>
+        <div class="card" style="margin-bottom: 1.5rem; border-left: 4px solid var(--primary);">
+          <h3 style="color: var(--primary);">🎯 วัตถุประสงค์หลัก</h3>
+          <ul>
+            <li>พัฒนาระบบบริหารคลังพัสดุแบบดิจิทัล ทดแทนการจดด้วยมือ</li>
+            <li>ลดเวลาการค้นหาและตรวจสอบข้อมูลพัสดุ</li>
+            <li>สร้างระบบแจ้งเตือนอัตโนมัติเมื่อพัสดุใกล้หมดคลัง</li>
+            <li>สร้างระบบติดตามการเคลม NCP อย่างเป็นระบบ</li>
+            <li>รองรับการออกรายงานและส่งออก Excel ได้ทันที</li>
+          </ul>
+        </div>
+      </div>
+      <div>
+        <div class="card" style="margin-bottom: 1.5rem; border-left: 4px solid var(--accent);">
+          <h3 style="color: var(--accent);">💡 แนวคิดหลัก</h3>
+          <ul>
+            <li><strong>ต้นทุนเป็นศูนย์</strong> — ใช้เทคโนโลยี Open Source ไม่มีค่า License</li>
+            <li><strong>ออกแบบจาก Pain Point จริง</strong> — ไม่ซื้อสำเร็จรูป</li>
+            <li><strong>ใช้ได้ทุกอุปกรณ์</strong> — Web App เปิดได้ทั้งคอม แท็บเล็ต มือถือ</li>
+            <li><strong>ซิงค์ข้ามเครื่อง</strong> — Cloud Sync ผ่าน Firebase</li>
+          </ul>
+        </div>
+        <div class="card" style="border-left: 4px solid var(--success);">
+          <h3 style="color: var(--success);">📐 ตัวชี้วัด (KPI)</h3>
+          <ul>
+            <li>ลดเวลาค้นหาพัสดุ ≥ 80%</li>
+            <li>ลดเคส NCP ที่ตกหล่น = 0 เคส</li>
+            <li>ลดเวลาจัดทำรายงาน ≥ 70%</li>
+            <li>ความพึงพอใจผู้ใช้งาน ≥ 80%</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SLIDE 5: PDCA -->
+  <div class="slide content-slide" data-slide="5">
+    <div class="section-number">02 · วิธีการดำเนินงาน</div>
+    <div class="slide-title">วงจรคุณภาพ <span class="gradient-text">PDCA</span></div>
+    <div class="pdca-grid">
+      <div class="pdca-card" style="border-left: 4px solid var(--primary);">
+        <div class="step-letter" style="color: var(--primary);">P</div>
+        <h3>Plan — วางแผน</h3>
+        <p>สำรวจปัญหาการจัดการคลังพัสดุ รวบรวม pain points จากผู้ใช้จริง กำหนด requirement และตัวชี้วัด ออกแบบ workflow</p>
+      </div>
+      <div class="pdca-card" style="border-left: 4px solid var(--accent);">
+        <div class="step-letter" style="color: var(--accent);">D</div>
+        <h3>Do — ลงมือทำ</h3>
+        <p>พัฒนาระบบ NBC STOCK ด้วย React + Firebase ทดสอบกับผู้ใช้จริง ปรับปรุงตาม feedback เช่น เพิ่ม filter, multi-item สัญญา</p>
+      </div>
+      <div class="pdca-card" style="border-left: 4px solid var(--accent-secondary);">
+        <div class="step-letter" style="color: var(--accent-secondary);">C</div>
+        <h3>Check — ตรวจสอบ</h3>
+        <p>วัดผลเทียบกับ KPI ที่ตั้งไว้ เก็บ feedback ความพึงพอใจผู้ใช้ ตรวจสอบว่าปัญหาเดิมถูกแก้ไขได้จริง</p>
+      </div>
+      <div class="pdca-card" style="border-left: 4px solid var(--success);">
+        <div class="step-letter" style="color: var(--success);">A</div>
+        <h3>Act — ปรับปรุง</h3>
+        <p>ปรับปรุงระบบต่อเนื่องจาก feedback เช่น เพิ่มระบบพิมพ์ป้ายสถานะ วิเคราะห์ stock วางแผน roadmap เฟสถัดไป</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- SLIDE 6: 3S+1E -->
+  <div class="slide content-slide" data-slide="6">
+    <div class="section-number">02 · ความสอดคล้อง</div>
+    <div class="slide-title">สอดคล้องกับเกณฑ์ <span class="gradient-text">3S + 1E</span></div>
+    <div class="four-col">
+      <div class="card highlight-card" style="border-top-color: var(--primary); text-align: center;">
+        <div class="card-icon">🛡️</div>
+        <h3>Safety</h3>
+        <p>ระบบ QC Status Tracking ป้องกันพัสดุที่ไม่ผ่าน QC หลุดเข้าสู่กระบวนการใช้งาน ลดความเสี่ยงด้านคุณภาพ</p>
+      </div>
+      <div class="card highlight-card" style="border-top-color: var(--accent); text-align: center;">
+        <div class="card-icon">😊</div>
+        <h3>Satisfaction</h3>
+        <p>ผู้ใช้ค้นหาข้อมูลได้เร็วขึ้น ลดภาระงานซ้ำซ้อน มี Dashboard ภาพรวมที่ชัดเจน ทำงานสะดวกขึ้น</p>
+      </div>
+      <div class="card highlight-card" style="border-top-color: var(--success); text-align: center;">
+        <div class="card-icon">📏</div>
+        <h3>Standard</h3>
+        <p>สร้างมาตรฐานในการบริหารคลังพัสดุ ตั้งแต่รับเข้า ตรวจ QC จัดเก็บ ตัดจ่าย และเคลม ผ่านระบบเดียวกัน</p>
+      </div>
+      <div class="card highlight-card" style="border-top-color: var(--accent-secondary); text-align: center;">
+        <div class="card-icon">🌿</div>
+        <h3>Environment</h3>
+        <p>ลดการใช้กระดาษจากการจดบันทึกและพิมพ์รายงาน เปลี่ยนเป็นดิจิทัลทั้งหมด สภาพแวดล้อมการทำงานดีขึ้น</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- SLIDE 7: System Overview -->
+  <div class="slide content-slide" data-slide="7">
+    <div class="section-number">03 · ภาพรวมระบบ</div>
+    <div class="slide-title">NBC STOCK <span class="gradient-text">System Overview</span></div>
+    <div class="slide-subtitle">ครอบคลุมวงจรการบริหารคลังพัสดุทั้งหมด</div>
+    <div class="feature-grid">
+      <div class="feature-card" style="border-top: 3px solid var(--primary);">
+        <div class="f-icon">📋</div>
+        <h4>ทะเบียนพัสดุ</h4>
+        <p>จัดการรายการพัสดุทั้งหมด กำหนดชื่อ หน่วยนับ พร้อม Lot</p>
+      </div>
+      <div class="feature-card" style="border-top: 3px solid var(--success);">
+        <div class="f-icon">📥</div>
+        <h4>รับเข้า (Inbound)</h4>
+        <p>บันทึกรับเข้าพร้อม QC Status วันผลิต วันหมดอายุ ผู้ส่ง เอกสาร</p>
+      </div>
+      <div class="feature-card" style="border-top: 3px solid var(--accent);">
+        <div class="f-icon">🏪</div>
+        <h4>คลังพัสดุ</h4>
+        <p>ดูยอดคงเหลือ real-time ตรวจ QC Status และ Lot แต่ละรายการ</p>
+      </div>
+      <div class="feature-card" style="border-top: 3px solid var(--accent-secondary);">
+        <div class="f-icon">📤</div>
+        <h4>ตัดจ่าย</h4>
+        <p>บันทึกการตัดจ่าย ระบุผู้เบิก แผนก วัตถุประสงค์ หักยอดอัตโนมัติ</p>
+      </div>
+      <div class="feature-card" style="border-top: 3px solid var(--danger);">
+        <div class="f-icon">⚠️</div>
+        <h4>เคลม NCP</h4>
+        <p>ติดตามสินค้าไม่ผ่าน QC ตั้งกำหนดติดตาม แจ้งเตือนเลยกำหนด</p>
+      </div>
+      <div class="feature-card" style="border-top: 3px solid #64748b;">
+        <div class="f-icon">📊</div>
+        <h4>วิเคราะห์ Stock</h4>
+        <p>กราฟวิเคราะห์แนวโน้มการใช้ พยากรณ์ว่าจะหมดภายในกี่วัน</p>
+      </div>
+      <div class="feature-card" style="border-top: 3px solid #ec4899;">
+        <div class="f-icon">📝</div>
+        <h4>สัญญาจัดซื้อ</h4>
+        <p>บริหารสัญญาหลายรายการพัสดุ ติดตาม Progress การส่งมอบ</p>
+      </div>
+      <div class="feature-card" style="border-top: 3px solid #06b6d4;">
+        <div class="f-icon">🏷️</div>
+        <h4>พิมพ์ป้ายสถานะ</h4>
+        <p>พิมพ์ป้าย QC Status ติดพัสดุได้เลย ลดการเขียนป้ายด้วยมือ</p>
+      </div>
+      <div class="feature-card" style="border-top: 3px solid #8b5cf6;">
+        <div class="f-icon">☁️</div>
+        <h4>Cloud Sync</h4>
+        <p>ซิงค์ข้อมูลข้ามอุปกรณ์ผ่าน Firebase ทำงานร่วมกัน real-time</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- SLIDE 8: Dashboard Demo -->
+  <div class="slide content-slide" data-slide="8">
+    <div class="section-number">03 · ฟีเจอร์เด่น</div>
+    <div class="slide-title">Dashboard <span class="gradient-text">ภาพรวมอัจฉริยะ</span></div>
+    <div class="two-col">
+      <div>
+        <div class="card" style="margin-bottom: 1.5rem;">
+          <h3>🔔 ระบบแจ้งเตือนอัตโนมัติ</h3>
+          <ul>
+            <li><strong>พัสดุใกล้หมด</strong> — คำนวณจากอัตราการใช้จริง พยากรณ์ว่าจะหมดภายในกี่วัน</li>
+            <li><strong>พัสดุหมดคลัง</strong> — รายการที่ต้องสั่งซื้อเร่งด่วน</li>
+            <li><strong>เคลม NCP เลยกำหนด</strong> — แจ้งเตือนทันทีเมื่อมีเคสค้าง</li>
+            <li><strong>Quarantine ค้าง</strong> — พัสดุรอ QC กี่รายการ</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>📈 สรุปภาพรวม Real-time</h3>
+          <ul>
+            <li>จำนวนรายการทั้งหมดในคลัง</li>
+            <li>แยกสถานะ Pass / Quarantine / Reject</li>
+            <li>รายการรับเข้าล่าสุด 5 รายการ</li>
+            <li>กำหนดติดตามงานเคลมที่ใกล้ถึง</li>
+          </ul>
+        </div>
+      </div>
+      <div>
+        <div class="card" style="background: linear-gradient(135deg, rgba(14, 165, 233, 0.08), rgba(139, 92, 246, 0.05)); min-height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center;">
+          <div style="font-size: 5rem; margin-bottom: 1rem;">📊</div>
+          <h3 style="font-size: 1.5rem; margin-bottom: 1rem;">ตัวอย่าง Dashboard</h3>
+          <p style="color: var(--text-muted); font-size: 0.9rem;">(แนะนำ: เปิด Live Demo ให้กรรมการดูระบบจริงตรงนี้)</p>
+          <div style="margin-top: 1.5rem; display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; width: 100%;">
+            <div style="background: rgba(16, 185, 129, 0.1); padding: 1rem; border-radius: 8px;">
+              <div style="font-size: 2rem; font-weight: 800; color: var(--success);">✓</div>
+              <div style="font-size: 0.8rem; color: var(--text-muted);">Pass QC</div>
+            </div>
+            <div style="background: rgba(245, 158, 11, 0.1); padding: 1rem; border-radius: 8px;">
+              <div style="font-size: 2rem; font-weight: 800; color: var(--accent-secondary);">⏳</div>
+              <div style="font-size: 0.8rem; color: var(--text-muted);">Quarantine</div>
+            </div>
+            <div style="background: rgba(239, 68, 68, 0.1); padding: 1rem; border-radius: 8px;">
+              <div style="font-size: 2rem; font-weight: 800; color: var(--danger);">✗</div>
+              <div style="font-size: 0.8rem; color: var(--text-muted);">Reject</div>
+            </div>
+            <div style="background: rgba(14, 165, 233, 0.1); padding: 1rem; border-radius: 8px;">
+              <div style="font-size: 2rem; font-weight: 800; color: var(--primary);">🔔</div>
+              <div style="font-size: 0.8rem; color: var(--text-muted);">Alerts</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SLIDE 9: Workflow -->
+  <div class="slide content-slide" data-slide="9">
+    <div class="section-number">03 · ขั้นตอนการทำงาน</div>
+    <div class="slide-title">Workflow <span class="gradient-text">ครบวงจร</span></div>
+    <div class="slide-subtitle">จากรับเข้าจนถึงตัดจ่ายและเคลม — ผ่านระบบเดียว</div>
+    <div class="timeline">
+      <div class="timeline-item">
+        <h4>📥 รับเข้า</h4>
+        <div class="dot"></div>
+        <p>บันทึกพัสดุพร้อม Lot, วันผลิต, วันหมดอายุ, ผู้ส่ง, จำนวน, เอกสาร</p>
+      </div>
+      <div class="timeline-item">
+        <h4>🔬 ตรวจ QC</h4>
+        <div class="dot"></div>
+        <p>กำหนดสถานะ Pass / Quarantine / Reject พร้อมพิมพ์ป้ายติดพัสดุ</p>
+      </div>
+      <div class="timeline-item">
+        <h4>📤 ตัดจ่าย</h4>
+        <div class="dot"></div>
+        <p>เบิกจ่ายพัสดุ ระบุผู้เบิก แผนก วัตถุประสงค์ ตัดยอดอัตโนมัติ</p>
+      </div>
+      <div class="timeline-item">
+        <h4>⚠️ เคลม NCP</h4>
+        <div class="dot"></div>
+        <p>พัสดุ Reject สร้างเคสเคลม/คืน พร้อมกำหนดวันติดตาม</p>
+      </div>
+    </div>
+    <div style="margin-top: 3rem; width: 100%;">
+      <div class="card" style="border-left: 4px solid var(--accent-secondary);">
+        <div style="display: flex; gap: 2rem; align-items: center;">
+          <div style="flex-shrink: 0; font-size: 2.5rem;">💡</div>
+          <div>
+            <h3 style="margin-bottom: 0.3rem;">จุดเด่น: ข้อมูลเชื่อมโยงกันอัตโนมัติ</h3>
+            <p>รับเข้าพัสดุ → ยอดในคลังอัปเดตทันที → ตัดจ่ายหักยอดอัตโนมัติ → Reject สร้างเคส NCP ได้เลย → Dashboard แจ้งเตือนทั้งหมด</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SLIDE 10: Excel & Reports -->
+  <div class="slide content-slide" data-slide="10">
+    <div class="section-number">03 · รายงาน</div>
+    <div class="slide-title">ส่งออกรายงาน <span class="gradient-text">ได้ทันที</span></div>
+    <div class="two-col">
+      <div>
+        <div class="card" style="margin-bottom: 1.5rem; border-left: 4px solid var(--success);">
+          <h3 style="color: var(--success);">📥 Excel Export หลายรูปแบบ</h3>
+          <ul>
+            <li><strong>ทะเบียนรับเข้า</strong> — วันที่, Lot, ผู้ส่ง, QC Status, จำนวน, หน่วย</li>
+            <li><strong>ทะเบียนตัดจ่าย</strong> — ผู้เบิก, แผนก, จำนวน, วันที่เบิก</li>
+            <li><strong>ทะเบียนสัญญาจัดซื้อ</strong> — หลายรายการพัสดุ + progress</li>
+            <li><strong>ทะเบียนเคลม NCP</strong> — สถานะ, กำหนดติดตาม, หมายเหตุ</li>
+          </ul>
+        </div>
+        <div class="card" style="border-left: 4px solid var(--accent);">
+          <h3 style="color: var(--accent);">🏷️ พิมพ์ป้ายสถานะ</h3>
+          <ul>
+            <li>ป้าย Pass / Quarantine / Reject พร้อมข้อมูลครบ</li>
+            <li>พิมพ์ได้ทันทีจากระบบ ติดพัสดุได้เลย</li>
+            <li>ลดการเขียนป้ายด้วยมือ ลดความผิดพลาด</li>
+          </ul>
+        </div>
+      </div>
+      <div>
+        <div class="card" style="background: linear-gradient(135deg, rgba(16, 185, 129, 0.05), rgba(14, 165, 233, 0.05)); min-height: 100%; display: flex; flex-direction: column; justify-content: center;">
+          <h3 style="text-align: center; margin-bottom: 2rem;">เปรียบเทียบการทำรายงาน</h3>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+            <div style="background: rgba(239, 68, 68, 0.05); padding: 1.5rem; border-radius: 12px; text-align: center; border: 1px solid rgba(239, 68, 68, 0.15);">
+              <div style="font-size: 2.5rem; font-weight: 900; color: var(--danger);">3 ชม.</div>
+              <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.5rem;">ก่อน<br>(รวบรวมจากสมุด)</div>
+            </div>
+            <div style="background: rgba(16, 185, 129, 0.05); padding: 1.5rem; border-radius: 12px; text-align: center; border: 1px solid rgba(16, 185, 129, 0.15);">
+              <div style="font-size: 2.5rem; font-weight: 900; color: var(--success);">30 วิ.</div>
+              <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.5rem;">หลัง<br>(กดปุ่ม Export)</div>
+            </div>
+          </div>
+          <div style="text-align: center; margin-top: 1.5rem; font-size: 0.9rem; color: var(--accent-secondary); font-weight: 600;">
+            ⚡ ลดเวลาทำรายงาน > 99%
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SLIDE 11: Technology -->
+  <div class="slide content-slide" data-slide="11">
+    <div class="section-number">03 · เทคโนโลยี</div>
+    <div class="slide-title">เทคโนโลยี <span class="gradient-text">Open Source & Free</span></div>
+    <div class="slide-subtitle">ต้นทุนค่าซอฟต์แวร์ = 0 บาท</div>
+    <div class="four-col">
+      <div class="card" style="text-align: center;">
+        <div style="font-size: 3rem; margin-bottom: 0.75rem;">⚛️</div>
+        <h3>React 19</h3>
+        <p>Frontend Framework ยอดนิยมระดับโลก</p>
+      </div>
+      <div class="card" style="text-align: center;">
+        <div style="font-size: 3rem; margin-bottom: 0.75rem;">🔥</div>
+        <h3>Firebase</h3>
+        <p>Cloud Database จาก Google รองรับ Real-time Sync</p>
+      </div>
+      <div class="card" style="text-align: center;">
+        <div style="font-size: 3rem; margin-bottom: 0.75rem;">⚡</div>
+        <h3>Vite</h3>
+        <p>Build Tool รุ่นใหม่ โหลดเร็ว Deploy ง่าย</p>
+      </div>
+      <div class="card" style="text-align: center;">
+        <div style="font-size: 3rem; margin-bottom: 0.75rem;">📊</div>
+        <h3>ExcelJS</h3>
+        <p>สร้างไฟล์ Excel ทันทีจากเบราว์เซอร์</p>
+      </div>
+    </div>
+    <div style="margin-top: 2rem; width: 100%;">
+      <div class="card" style="border: 1px solid rgba(16, 185, 129, 0.3); background: rgba(16, 185, 129, 0.03);">
+        <div style="display: flex; gap: 3rem; justify-content: center; text-align: center;">
+          <div>
+            <div class="stat-big success-text">0</div>
+            <div class="stat-label">บาท ค่า License</div>
+          </div>
+          <div>
+            <div class="stat-big gradient-text">0</div>
+            <div class="stat-label">บาท ค่า Server</div>
+          </div>
+          <div>
+            <div class="stat-big" style="color: var(--accent);">100%</div>
+            <div class="stat-label">Open Source</div>
+          </div>
+          <div>
+            <div class="stat-big" style="color: var(--accent-secondary);">∞</div>
+            <div class="stat-label">จำนวนผู้ใช้</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SLIDE 12: Before / After -->
+  <div class="slide content-slide" data-slide="12">
+    <div class="section-number">04 · ผลลัพธ์</div>
+    <div class="slide-title">Before <span class="danger-text">vs</span> After <span class="success-text">✓</span></div>
+    <div class="before-after">
+      <div class="before-col">
+        <h3>❌ ก่อนใช้ NBC STOCK</h3>
+        <ul>
+          <li>📋 จดบันทึกด้วยสมุด/กระดาษ</li>
+          <li>🔍 ค้นหา Lot ใช้เวลา 10-15 นาที</li>
+          <li>❌ ไม่มีระบบแจ้งเตือนของใกล้หมด</li>
+          <li>📞 เคลม NCP ตกหล่น ไม่มีระบบติดตาม</li>
+          <li>📊 ทำรายงานใช้เวลาหลายชั่วโมง</li>
+          <li>✍️ เขียนป้ายสถานะด้วยมือ</li>
+          <li>🖥️ ข้อมูลดูได้แค่เครื่องเดียว</li>
+        </ul>
+      </div>
+      <div class="arrow-col">➡️</div>
+      <div class="after-col">
+        <h3>✅ หลังใช้ NBC STOCK</h3>
+        <ul>
+          <li>💻 ระบบดิจิทัล เปิดได้ทุกอุปกรณ์</li>
+          <li>⚡ ค้นหา Lot ได้ทันที (< 10 วินาที)</li>
+          <li>🔔 แจ้งเตือนอัตโนมัติ + พยากรณ์วันหมด</li>
+          <li>📋 NCP ครบวงจร + แจ้งเตือนเลยกำหนด</li>
+          <li>📥 กดปุ่ม Export Excel ทันที (30 วิ.)</li>
+          <li>🏷️ พิมพ์ป้ายสถานะจากระบบ</li>
+          <li>☁️ Cloud Sync ข้ามเครื่อง Real-time</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- SLIDE 13: KPI Results -->
+  <div class="slide content-slide" data-slide="13">
+    <div class="section-number">04 · ตัวชี้วัด</div>
+    <div class="slide-title">ผลลัพธ์ที่ <span class="gradient-text">วัดได้จริง</span></div>
+    <div class="slide-subtitle">เปรียบเทียบก่อนและหลังนำระบบไปใช้งาน</div>
+    <table class="kpi-table">
+      <thead>
+        <tr>
+          <th style="width: 35%;">ตัวชี้วัด (KPI)</th>
+          <th style="width: 20%;">ก่อน (Before)</th>
+          <th style="width: 20%;">หลัง (After)</th>
+          <th style="width: 25%;">ผลลัพธ์</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>เวลาค้นหาพัสดุ/Lot</td>
+          <td class="value-before">10-15 นาที</td>
+          <td class="value-highlight">< 10 วินาที</td>
+          <td class="value-highlight">↓ ลดลง > 98%</td>
+        </tr>
+        <tr>
+          <td>เคลม NCP ที่ตกหล่น/เลยกำหนด</td>
+          <td class="value-before">ไม่มีการติดตาม</td>
+          <td class="value-highlight">0 เคส (มีแจ้งเตือน)</td>
+          <td class="value-highlight">✓ แก้ปัญหาได้ 100%</td>
+        </tr>
+        <tr>
+          <td>เวลาจัดทำรายงาน</td>
+          <td class="value-before">2-3 ชั่วโมง</td>
+          <td class="value-highlight">30 วินาที</td>
+          <td class="value-highlight">↓ ลดลง > 99%</td>
+        </tr>
+        <tr>
+          <td>ต้นทุนค่าซอฟต์แวร์</td>
+          <td class="value-before">—</td>
+          <td class="value-highlight">0 บาท</td>
+          <td class="value-highlight">ฟรี 100%</td>
+        </tr>
+        <tr>
+          <td>การเข้าถึงข้อมูลข้ามอุปกรณ์</td>
+          <td class="value-before">ไม่ได้</td>
+          <td class="value-highlight">Real-time Sync</td>
+          <td class="value-highlight">✓ ทุกเครื่องเห็นข้อมูลเดียวกัน</td>
+        </tr>
+        <tr>
+          <td>ความพึงพอใจผู้ใช้งาน</td>
+          <td class="value-before">ยังไม่เคยวัด</td>
+          <td style="color: var(--accent-secondary); font-weight: 600;">[รอเก็บข้อมูล]</td>
+          <td style="color: var(--accent-secondary); font-weight: 600;">เป้าหมาย ≥ 80%</td>
+        </tr>
+      </tbody>
+    </table>
+    <div style="margin-top: 1.5rem; width: 100%; text-align: center;">
+      <div class="card" style="display: inline-block; padding: 1rem 2rem; border: 1px solid rgba(245, 158, 11, 0.3); background: rgba(245, 158, 11, 0.05);">
+        <span style="color: var(--accent-secondary); font-weight: 600;">💡 หมายเหตุ: ตัวเลขที่เป็น [รอเก็บข้อมูล] ควรเก็บจริงก่อนวันนำเสนอ</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- SLIDE 14: Roadmap -->
+  <div class="slide content-slide" data-slide="14">
+    <div class="section-number">05 · แผนพัฒนาต่อยอด</div>
+    <div class="slide-title">Roadmap <span class="gradient-text">ความยั่งยืน</span></div>
+    <div class="slide-subtitle">ระบบสามารถพัฒนาต่อยอดได้อีกมาก</div>
+    <div class="timeline">
+      <div class="timeline-item">
+        <h4>เฟส 1 (ปัจจุบัน ✅)</h4>
+        <div class="dot"></div>
+        <p>ระบบหลักครบ: รับเข้า, คลัง, ตัดจ่าย, เคลม, สัญญาจัดซื้อ, Excel Export, Cloud Sync</p>
+      </div>
+      <div class="timeline-item">
+        <h4>เฟส 2</h4>
+        <div class="dot"></div>
+        <p>เพิ่มระบบ Login/Permission, Barcode Scanning, Line Notification</p>
+      </div>
+      <div class="timeline-item">
+        <h4>เฟส 3</h4>
+        <div class="dot"></div>
+        <p>BI Dashboard ขั้นสูง, รายงานอัตโนมัติ, เชื่อมต่อระบบจัดซื้อกลาง</p>
+      </div>
+      <div class="timeline-item">
+        <h4>เฟส 4</h4>
+        <div class="dot"></div>
+        <p>ขยายไปใช้กับหน่วยงานอื่น, Mobile App, AI Forecasting</p>
+      </div>
+    </div>
+    <div style="margin-top: 2.5rem; width: 100%;">
+      <div class="two-col">
+        <div class="card highlight-card success">
+          <h3 style="color: var(--success);">✅ ทำไมจึงยั่งยืน</h3>
+          <ul>
+            <li>Open Source — ซอร์สโค้ดอยู่บน GitHub ใครก็มาพัฒนาต่อได้</li>
+            <li>ใช้เทคโนโลยีที่แพร่หลาย (React) — หาคนดูแลไม่ยาก</li>
+            <li>ต้นทุนดำเนินงาน = 0 บาท ไม่มีภาระรายเดือน</li>
+            <li>Scale ไปใช้กับหน่วยงานอื่นได้โดยไม่ต้องลงทุนเพิ่ม</li>
+          </ul>
+        </div>
+        <div class="card highlight-card accent">
+          <h3 style="color: var(--accent);">🔄 การถ่ายทอดความรู้</h3>
+          <ul>
+            <li>จัดทำคู่มือการใช้งานสำหรับผู้ใช้</li>
+            <li>จัดอบรมให้ทีมงานที่เกี่ยวข้อง</li>
+            <li>โค้ดมี comment อธิบายเป็นภาษาไทย</li>
+            <li>เผยแพร่เป็น best practice ให้หน่วยงานอื่น</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SLIDE 15: Closing -->
+  <div class="slide closing-slide" data-slide="15">
+    <div style="font-size: 5rem; margin-bottom: 1.5rem;">📦</div>
+    <div class="big-thanks"><span class="gradient-text">ขอบคุณครับ</span></div>
+    <div style="font-size: 1.3rem; color: var(--text-muted); margin-bottom: 2rem; font-weight: 300;">
+      NBC STOCK — ระบบบริหารจัดการคลังพัสดุอัจฉริยะ
+    </div>
+    <div style="display: flex; gap: 2rem; margin-bottom: 3rem;">
+      <div class="card" style="padding: 1.5rem 2rem; text-align: center;">
+        <div style="font-size: 1.5rem; margin-bottom: 0.5rem;">💡</div>
+        <div style="font-weight: 700; font-size: 1rem;">แก้ปัญหาจริง</div>
+        <div style="font-size: 0.8rem; color: var(--text-muted);">จาก Pain Point ของผู้ใช้จริง</div>
+      </div>
+      <div class="card" style="padding: 1.5rem 2rem; text-align: center;">
+        <div style="font-size: 1.5rem; margin-bottom: 0.5rem;">💰</div>
+        <div style="font-weight: 700; font-size: 1rem;">ต้นทุน 0 บาท</div>
+        <div style="font-size: 0.8rem; color: var(--text-muted);">100% Open Source</div>
+      </div>
+      <div class="card" style="padding: 1.5rem 2rem; text-align: center;">
+        <div style="font-size: 1.5rem; margin-bottom: 0.5rem;">🚀</div>
+        <div style="font-weight: 700; font-size: 1rem;">ใช้งานจริงแล้ว</div>
+        <div style="font-size: 0.8rem; color: var(--text-muted);">ไม่ใช่แค่ Prototype</div>
+      </div>
+      <div class="card" style="padding: 1.5rem 2rem; text-align: center;">
+        <div style="font-size: 1.5rem; margin-bottom: 0.5rem;">♻️</div>
+        <div style="font-weight: 700; font-size: 1rem;">ต่อยอดได้</div>
+        <div style="font-size: 0.8rem; color: var(--text-muted);">Roadmap ชัดเจน</div>
+      </div>
+    </div>
+    <div style="font-size: 1.1rem; color: var(--primary); font-weight: 600;">
+      พร้อมรับคำถามจากกรรมการครับ 🙏
+    </div>
+  </div>
+
+</div>
+
+<div class="nav-bar">
+  <button id="prevBtn" onclick="changeSlide(-1)" disabled>◀ ก่อนหน้า</button>
+  <div class="slide-counter">
+    <span id="currentSlide">1</span> / <span id="totalSlides">15</span>
+  </div>
+  <button id="nextBtn" onclick="changeSlide(1)">ถัดไป ▶</button>
+</div>
+
+<script>
+  let currentSlide = 1;
+  const totalSlides = document.querySelectorAll('.slide').length;
+  document.getElementById('totalSlides').textContent = totalSlides;
+  updateProgress();
+
+  function changeSlide(direction) {
+    const newSlide = currentSlide + direction;
+    if (newSlide < 1 || newSlide > totalSlides) return;
+    document.querySelector('.slide[data-slide="' + currentSlide + '"]').classList.remove('active');
+    currentSlide = newSlide;
+    document.querySelector('.slide[data-slide="' + currentSlide + '"]').classList.add('active');
+    document.getElementById('currentSlide').textContent = currentSlide;
+    document.getElementById('prevBtn').disabled = currentSlide === 1;
+    document.getElementById('nextBtn').disabled = currentSlide === totalSlides;
+    updateProgress();
+  }
+
+  function updateProgress() {
+    var progress = (currentSlide / totalSlides) * 100;
+    document.getElementById('progressFill').style.width = progress + '%';
+  }
+
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === ' ') {
+      e.preventDefault();
+      changeSlide(1);
+    } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      changeSlide(-1);
+    }
+  });
+</script>
+
+</body>
+</html>

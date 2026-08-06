@@ -32,7 +32,7 @@ const formatDateToDDMMYYYY = (dateStr) => {
   return `${dd}/${mm}/${yyyy}`;
 };
 
-const Inventory = ({ inventory, setInventory }) => {
+const Inventory = ({ inventory, setInventory, agreements = [] }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [expandedRow, setExpandedRow] = useState(null);
   
@@ -44,6 +44,7 @@ const Inventory = ({ inventory, setInventory }) => {
   const [filterEndDate, setFilterEndDate] = useState('');
   const [filterLocation, setFilterLocation] = useState('All');
   const [filterQtyStatus, setFilterQtyStatus] = useState('All');
+  const [filterAgreement, setFilterAgreement] = useState('All');
   const [sortType, setSortType] = useState('date-desc'); // 'date-desc', 'date-asc', 'name-asc', 'name-desc'
 
   // Delete States
@@ -129,6 +130,8 @@ const Inventory = ({ inventory, setInventory }) => {
   const uniqueItems = Array.from(new Set(inventory.map(i => i.itemName)));
   // Get unique locations for filter dropdown
   const uniqueLocations = Array.from(new Set(inventory.map(i => i.location).filter(Boolean)));
+  // Get unique agreement IDs for filter dropdown
+  const uniqueAgreements = Array.from(new Set(inventory.map(i => i.agreementId).filter(Boolean)));
 
   const handleUpdateStatus = (id) => {
     setInventory(prev => prev.map(item => {
@@ -167,7 +170,8 @@ const Inventory = ({ inventory, setInventory }) => {
   const filteredInventory = inventory.filter(item => {
     const matchesSearch = item.itemName.toLowerCase().includes(searchTerm.toLowerCase()) ||
                         item.supplierLot.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                        item.inhouseLot.toLowerCase().includes(searchTerm.toLowerCase());
+                        item.inhouseLot.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                        (item.agreementId || '').toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesQC = filterQC === 'All' || item.qcStatus === filterQC;
     const matchesAcceptance = filterAcceptance === 'All' || (item.acceptanceStatus || '') === filterAcceptance;
@@ -190,7 +194,9 @@ const Inventory = ({ inventory, setInventory }) => {
       matchesQtyStatus = Number(item.remainingQty) <= 0;
     }
 
-    return matchesSearch && matchesQC && matchesAcceptance && matchesItem && matchesDate && matchesLocation && matchesQtyStatus;
+    const matchesAgreement = filterAgreement === 'All' || (item.agreementId || '') === filterAgreement;
+
+    return matchesSearch && matchesQC && matchesAcceptance && matchesItem && matchesDate && matchesLocation && matchesQtyStatus && matchesAgreement;
   });
 
   const sortedInventory = [...filteredInventory].sort((a, b) => {
@@ -217,6 +223,12 @@ const Inventory = ({ inventory, setInventory }) => {
     }
     if (sortType === 'inhouseLot-desc') {
       return (b.inhouseLot || '').localeCompare(a.inhouseLot || '', 'th');
+    }
+    if (sortType === 'agreement-asc') {
+      return (a.agreementId || '').localeCompare(b.agreementId || '', 'th');
+    }
+    if (sortType === 'agreement-desc') {
+      return (b.agreementId || '').localeCompare(a.agreementId || '', 'th');
     }
     return 0;
   });
@@ -338,11 +350,11 @@ const Inventory = ({ inventory, setInventory }) => {
       // Sheet 2: รายการแยกตาม Lot & ที่เก็บ
       const lotSheet = workbook.addWorksheet('รายการแยกตาม Lot & ที่เก็บ');
       
-      lotSheet.mergeCells('A1:K1');
+      lotSheet.mergeCells('A1:L1');
       lotSheet.getCell('A1').value = 'รายงานสินค้าคงคลังแยกตาม Lot & ที่เก็บ (Inventory Details by Lot & Location)';
       lotSheet.getCell('A1').font = { size: 16, bold: true, color: { argb: 'FF1E293B' } };
       
-      lotSheet.mergeCells('A2:K2');
+      lotSheet.mergeCells('A2:L2');
       lotSheet.getCell('A2').value = `ข้อมูล ณ วันที่: ${todayStr}`;
       lotSheet.getCell('A2').font = { size: 11, italic: true };
       
@@ -350,7 +362,7 @@ const Inventory = ({ inventory, setInventory }) => {
       
       const lotHeaders = [
         'ลำดับ', 'ชื่อพัสดุ', 'Lot ผู้จัดจำหน่าย', 'QC Lot', 
-        'วันที่รับเข้า', 'ที่เก็บ', 'คงเหลือในระบบ', 'หน่วย', 
+        'เลขสัญญา', 'วันที่รับเข้า', 'ที่เก็บ', 'คงเหลือในระบบ', 'หน่วย', 
         'จำนวนที่นับได้จริง', 'สถานะ QC', 'หมายเหตุ'
       ];
       const lotHeaderRow = lotSheet.addRow(lotHeaders);
@@ -376,6 +388,7 @@ const Inventory = ({ inventory, setInventory }) => {
             item.itemName,
             item.supplierLot || '-',
             item.inhouseLot || '-',
+            item.agreementId || '-',
             formatDateToDDMMYYYY(item.date),
             item.location || '-',
             qty,
@@ -389,12 +402,13 @@ const Inventory = ({ inventory, setInventory }) => {
           row.getCell(2).alignment = { horizontal: 'left' };
           row.getCell(3).alignment = { horizontal: 'left' };
           row.getCell(4).alignment = { horizontal: 'left' };
-          row.getCell(5).alignment = { horizontal: 'center' };
+          row.getCell(5).alignment = { horizontal: 'left' };
           row.getCell(6).alignment = { horizontal: 'center' };
-          row.getCell(7).alignment = { horizontal: 'right' };
-          row.getCell(7).numFmt = '#,##0';
-          row.getCell(8).alignment = { horizontal: 'center' };
-          row.getCell(10).alignment = { horizontal: 'center' };
+          row.getCell(7).alignment = { horizontal: 'center' };
+          row.getCell(8).alignment = { horizontal: 'right' };
+          row.getCell(8).numFmt = '#,##0';
+          row.getCell(9).alignment = { horizontal: 'center' };
+          row.getCell(11).alignment = { horizontal: 'center' };
           
           row.eachCell(cell => {
             cell.border = {
@@ -411,13 +425,14 @@ const Inventory = ({ inventory, setInventory }) => {
       lotSheet.getColumn(2).width = 35;
       lotSheet.getColumn(3).width = 20;
       lotSheet.getColumn(4).width = 20;
-      lotSheet.getColumn(5).width = 15;
+      lotSheet.getColumn(5).width = 22;
       lotSheet.getColumn(6).width = 15;
-      lotSheet.getColumn(7).width = 20;
-      lotSheet.getColumn(8).width = 10;
-      lotSheet.getColumn(9).width = 25;
-      lotSheet.getColumn(10).width = 15;
-      lotSheet.getColumn(11).width = 25;
+      lotSheet.getColumn(7).width = 15;
+      lotSheet.getColumn(8).width = 20;
+      lotSheet.getColumn(9).width = 10;
+      lotSheet.getColumn(10).width = 25;
+      lotSheet.getColumn(11).width = 15;
+      lotSheet.getColumn(12).width = 25;
       
       summarySheet.views = [{ showGridLines: true }];
       lotSheet.views = [{ showGridLines: true }];
@@ -647,6 +662,44 @@ const Inventory = ({ inventory, setInventory }) => {
               </th>
               <th style={{ padding: '0.6rem 0.8rem' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', alignItems: 'flex-start' }}>
+                  <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>เลขสัญญา</span>
+                  <select 
+                    value={sortType.startsWith('agreement-') ? sortType : 'none'} 
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setSortType(val === 'none' ? 'date-desc' : val);
+                    }}
+                    style={{ 
+                      width: 'fit-content', 
+                      padding: '0 0.2rem', 
+                      fontSize: '0.65rem', 
+                      height: '20px', 
+                      background: 'var(--input-bg)', 
+                      color: 'var(--accent-color)', 
+                      border: '1px solid var(--glass-border)', 
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      fontWeight: 'bold',
+                      marginTop: '0.1rem'
+                    }}
+                  >
+                    <option value="none">เรียงปกติ ↕️</option>
+                    <option value="agreement-asc">A-Z 🔼</option>
+                    <option value="agreement-desc">Z-A 🔽</option>
+                  </select>
+                  <select 
+                    value={filterAgreement} 
+                    onChange={(e) => setFilterAgreement(e.target.value)}
+                    style={{ padding: '0.2rem', fontSize: '0.7rem', height: '24px', background: 'var(--input-bg)', color: 'var(--text-primary)', border: '1px solid var(--glass-border)', borderRadius: '4px', minWidth: '90px' }}
+                  >
+                    <option value="All">ทั้งหมด</option>
+                    <option value="">ไม่มีสัญญา</option>
+                    {uniqueAgreements.map(ag => <option key={ag} value={ag}>{ag}</option>)}
+                  </select>
+                </div>
+              </th>
+              <th style={{ padding: '0.6rem 0.8rem' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', alignItems: 'flex-start' }}>
                   <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>สถานะ QC</span>
                   <select 
                     value={filterQC} 
@@ -708,7 +761,7 @@ const Inventory = ({ inventory, setInventory }) => {
           </thead>
           <tbody>
             {sortedInventory.length === 0 ? (
-              <tr><td colSpan="10" style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>ไม่มีข้อมูลพัสดุ</td></tr>
+              <tr><td colSpan="11" style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>ไม่มีข้อมูลพัสดุ</td></tr>
             ) : (
               sortedInventory.map((item) => (
                 <React.Fragment key={item.id}>
@@ -728,6 +781,13 @@ const Inventory = ({ inventory, setInventory }) => {
                     </td>
                     <td style={{ padding: '0.6rem 0.8rem' }}>
                       <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{item.inhouseLot}</div>
+                    </td>
+                    <td style={{ padding: '0.6rem 0.8rem' }}>
+                      {item.agreementId ? (
+                        <span style={{ fontSize: '0.8rem', fontWeight: 500, color: 'var(--accent-color)' }}>{item.agreementId}</span>
+                      ) : (
+                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>-</span>
+                      )}
                     </td>
                     <td style={{ padding: '0.6rem 0.8rem' }}>
                       {item.isCancelled ? (
@@ -779,7 +839,7 @@ const Inventory = ({ inventory, setInventory }) => {
                   
                   {expandedRow === item.id && (
                     <tr style={{ background: 'rgba(255,255,255,0.02)' }}>
-                      <td colSpan="10" style={{ padding: '1.5rem' }}>
+                      <td colSpan="11" style={{ padding: '1.5rem' }}>
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr', gap: '2rem' }}>
                           {/* Edit Status Section */}
                           <div className="glass card" style={{ padding: '1.2rem' }}>
