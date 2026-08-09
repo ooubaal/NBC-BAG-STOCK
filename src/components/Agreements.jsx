@@ -534,20 +534,37 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
       ]).map(item => {
         const itemDeliveries = deliveries.filter(lot => lot.itemName === item.itemName);
 
-        const acceptedQty = itemDeliveries
-          .filter(lot => lot.acceptanceStatus === 'Accepted')
-          .reduce((sum, lot) => sum + Number(lot.quantity), 0);
+        const acceptedDeliveries = itemDeliveries.filter(lot => lot.acceptanceStatus === 'Accepted');
+
+        const acceptedQty = acceptedDeliveries
+          .reduce((sum, lot) => sum + Number(lot.quantity || 0), 0);
 
         const pendingQty = itemDeliveries
           .filter(lot => lot.acceptanceStatus === 'Pending')
-          .reduce((sum, lot) => sum + Number(lot.quantity), 0);
+          .reduce((sum, lot) => sum + Number(lot.quantity || 0), 0);
 
         const rejectedQty = itemDeliveries
           .filter(lot => lot.acceptanceStatus === 'Rejected')
-          .reduce((sum, lot) => sum + Number(lot.quantity), 0);
+          .reduce((sum, lot) => sum + Number(lot.quantity || 0), 0);
 
         const totalDelivered = acceptedQty + pendingQty + rejectedQty;
         const outstandingQty = Math.max(0, Number(item.totalQty || 0) - acceptedQty);
+
+        // Calculate Withdrawn (ตัดใช้ไปแล้ว) and Current Stock on Hand (คงเหลือในคลัง)
+        const remainingStockQty = acceptedDeliveries.reduce((sum, lot) => {
+          const rem = lot.remainingQty !== undefined ? Number(lot.remainingQty) : Number(lot.quantity || 0);
+          return sum + Math.max(0, rem);
+        }, 0);
+
+        const withdrawnQty = acceptedDeliveries.reduce((sum, lot) => {
+          const withList = (lot.withdrawals || []).filter(w => !w.isCancelled);
+          if (withList.length > 0) {
+            return sum + withList.reduce((wSum, w) => wSum + Number(w.amount || 0), 0);
+          }
+          const lotQty = Number(lot.quantity || 0);
+          const lotRem = lot.remainingQty !== undefined ? Number(lot.remainingQty) : lotQty;
+          return sum + Math.max(0, lotQty - lotRem);
+        }, 0);
 
         return {
           ...item,
@@ -555,7 +572,9 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
           pendingQty,
           rejectedQty,
           totalDelivered,
-          outstandingQty
+          outstandingQty,
+          withdrawnQty,
+          remainingStockQty
         };
       });
 
@@ -566,6 +585,8 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
       const rejectedQty = itemsListWithStats.reduce((sum, item) => sum + item.rejectedQty, 0);
       const totalDelivered = acceptedQty + pendingQty + rejectedQty;
       const outstandingQty = itemsListWithStats.reduce((sum, item) => sum + item.outstandingQty, 0);
+      const withdrawnQty = itemsListWithStats.reduce((sum, item) => sum + item.withdrawnQty, 0);
+      const remainingStockQty = itemsListWithStats.reduce((sum, item) => sum + item.remainingStockQty, 0);
 
       // Determine dynamic status
       let displayStatus = 'Active';
@@ -584,6 +605,8 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
         rejectedQty,
         totalDelivered,
         outstandingQty,
+        withdrawnQty,
+        remainingStockQty,
         displayStatus,
         deliveries
       };
@@ -1622,33 +1645,50 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
                         <div 
                           key={itemIdx} 
                           style={{ 
-                            background: 'rgba(255, 255, 255, 0.01)', 
-                            border: '1px dashed var(--glass-border)', 
-                            borderRadius: '8px', 
-                            padding: '0.85rem 1.25rem' 
+                            background: 'rgba(255, 255, 255, 0.015)', 
+                            border: '1px solid var(--glass-border)', 
+                            borderRadius: '10px', 
+                            padding: '1rem 1.25rem',
+                            boxShadow: '0 2px 4px rgba(0,0,0,0.02)'
                           }}
                         >
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem', flexWrap: 'wrap', gap: '0.5rem' }}>
-                            <span style={{ fontWeight: 600, fontSize: '0.88rem', color: 'var(--text-primary)' }}>
-                              📦 {item.itemName}
-                            </span>
-                            <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.65rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
+                              <span style={{ fontWeight: 700, fontSize: '0.92rem', color: 'var(--text-primary)' }}>
+                                📦 {item.itemName}
+                              </span>
+                              {item.remainingStockQty > 0 ? (
+                                <span style={{ fontSize: '0.72rem', fontWeight: 600, padding: '0.15rem 0.5rem', borderRadius: '4px', background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
+                                  คงเหลือในคลัง {item.remainingStockQty.toLocaleString()} {item.unit}
+                                </span>
+                              ) : (
+                                <span style={{ fontSize: '0.72rem', fontWeight: 600, padding: '0.15rem 0.5rem', borderRadius: '4px', background: 'rgba(239, 68, 68, 0.12)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.25)' }}>
+                                  {item.acceptedQty > 0 ? 'สต็อกในคลังหมดแล้ว (0)' : 'ยังไม่เคยรับเข้า'}
+                                </span>
+                              )}
+                              {item.withdrawnQty > 0 && (
+                                <span style={{ fontSize: '0.72rem', fontWeight: 600, padding: '0.15rem 0.5rem', borderRadius: '4px', background: 'rgba(245, 158, 11, 0.12)', color: '#f59e0b', border: '1px solid rgba(245, 158, 11, 0.3)' }}>
+                                  ตัดใช้แล้ว {item.withdrawnQty.toLocaleString()} {item.unit}
+                                </span>
+                              )}
+                            </div>
+                            <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
                               ยอดตามสัญญา: <strong style={{ color: 'var(--text-primary)' }}>{Number(item.totalQty).toLocaleString()} {item.unit}</strong>
-                            </span>
+                            </div>
                           </div>
 
                           {/* Tri-Color Progress Bar for this item */}
                           <div style={{ marginBottom: '0.75rem' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', marginBottom: '0.35rem' }}>
-                              <span style={{ color: 'var(--success)', fontWeight: 500 }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', marginBottom: '0.35rem', flexWrap: 'wrap', gap: '0.4rem' }}>
+                              <span style={{ color: 'var(--success)', fontWeight: 600 }}>
                                 ตรวจรับผ่านแล้ว: {item.acceptedQty.toLocaleString()} {item.unit} ({itemAcceptedPct.toFixed(1)}%)
                               </span>
                               {item.pendingQty > 0 && (
-                                <span style={{ color: 'var(--quarantine)', fontWeight: 500 }}>
+                                <span style={{ color: 'var(--quarantine)', fontWeight: 600 }}>
                                   รอตรวจรับ: {item.pendingQty.toLocaleString()} {item.unit}
                                 </span>
                               )}
-                              <span style={{ color: 'var(--text-muted)' }}>
+                              <span style={{ color: item.outstandingQty > 0 ? 'var(--accent-color)' : 'var(--text-muted)', fontWeight: 600 }}>
                                 ค้างรับ: {item.outstandingQty.toLocaleString()} {item.unit}
                               </span>
                             </div>
@@ -1665,23 +1705,59 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
                               <div style={{ width: `${itemPendingPct}%`, height: '100%', background: 'var(--quarantine)' }} title="อยู่ระหว่างรอตรวจรับ" />
                               <div style={{ width: `${itemRemainingPct}%`, height: '100%', background: 'transparent' }} title="ค้างส่งมอบ" />
                             </div>
+
+                            {/* Secondary Stock Status summary line */}
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', marginTop: '0.4rem', color: 'var(--text-secondary)', flexWrap: 'wrap', gap: '0.4rem' }}>
+                              <span>
+                                📤 <strong>ตัดใช้แล้ว:</strong> <span style={{ color: '#f59e0b', fontWeight: 700 }}>{item.withdrawnQty.toLocaleString()} {item.unit}</span>
+                                {item.acceptedQty > 0 && (
+                                  <span style={{ color: 'var(--text-muted)', fontSize: '0.7rem' }}> ({((item.withdrawnQty / item.acceptedQty) * 100).toFixed(1)}% ของยอดรับ)</span>
+                                )}
+                              </span>
+                              <span>
+                                📦 <strong>คงเหลือในคลัง:</strong> <span style={{ color: item.remainingStockQty > 0 ? '#10b981' : 'var(--danger)', fontWeight: 700 }}>{item.remainingStockQty.toLocaleString()} {item.unit}</span>
+                              </span>
+                              <span>
+                                ⏳ <strong>รอส่งมอบอีก:</strong> <span style={{ color: item.outstandingQty > 0 ? 'var(--accent-color)' : 'var(--text-muted)', fontWeight: 700 }}>{item.outstandingQty.toLocaleString()} {item.unit}</span>
+                              </span>
+                            </div>
                           </div>
 
-                          {/* Compact Stats for this item */}
+                          {/* 6-Card Detailed Stats Grid for this item */}
                           <div style={{ 
                             display: 'grid', 
-                            gridTemplateColumns: 'repeat(4, 1fr)', 
+                            gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', 
                             gap: '0.5rem', 
                             fontSize: '0.78rem',
                             color: 'var(--text-secondary)',
-                            borderTop: '1px solid rgba(255, 255, 255, 0.03)',
-                            paddingTop: '0.5rem',
+                            borderTop: '1px solid rgba(255, 255, 255, 0.05)',
+                            paddingTop: '0.65rem',
                             marginTop: '0.5rem'
                           }}>
-                            <div>ยอดตามสัญญา: <strong style={{ color: 'var(--text-primary)' }}>{Number(item.totalQty).toLocaleString()} {item.unit}</strong></div>
-                            <div>มาส่งแล้วทั้งหมด: <strong style={{ color: 'var(--accent-secondary)' }}>{item.totalDelivered.toLocaleString()} {item.unit}</strong></div>
-                            <div>ตรวจรับผ่าน: <strong style={{ color: 'var(--success)' }}>{item.acceptedQty.toLocaleString()} {item.unit}</strong></div>
-                            <div>ยอดค้างส่ง: <strong style={{ color: item.outstandingQty > 0 ? 'var(--accent-color)' : 'var(--text-muted)' }}>{item.outstandingQty.toLocaleString()} {item.unit}</strong></div>
+                            <div style={{ background: 'rgba(255,255,255,0.02)', padding: '0.45rem 0.6rem', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                              <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>ยอดตามสัญญา</div>
+                              <div style={{ fontWeight: 700, color: 'var(--text-primary)', marginTop: '0.15rem' }}>{Number(item.totalQty).toLocaleString()} {item.unit}</div>
+                            </div>
+                            <div style={{ background: 'rgba(255,255,255,0.02)', padding: '0.45rem 0.6rem', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                              <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>มาส่งแล้วทั้งหมด</div>
+                              <div style={{ fontWeight: 700, color: 'var(--accent-secondary)', marginTop: '0.15rem' }}>{item.totalDelivered.toLocaleString()} {item.unit}</div>
+                            </div>
+                            <div style={{ background: 'rgba(16, 185, 129, 0.04)', padding: '0.45rem 0.6rem', borderRadius: '6px', border: '1px solid rgba(16, 185, 129, 0.18)' }}>
+                              <div style={{ fontSize: '0.68rem', color: 'var(--success)' }}>ตรวจรับผ่านแล้ว</div>
+                              <div style={{ fontWeight: 700, color: 'var(--success)', marginTop: '0.15rem' }}>{item.acceptedQty.toLocaleString()} {item.unit}</div>
+                            </div>
+                            <div style={{ background: 'rgba(245, 158, 11, 0.04)', padding: '0.45rem 0.6rem', borderRadius: '6px', border: '1px solid rgba(245, 158, 11, 0.18)' }}>
+                              <div style={{ fontSize: '0.68rem', color: 'var(--accent-color)' }}>ยอดค้างส่งมอบ</div>
+                              <div style={{ fontWeight: 700, color: item.outstandingQty > 0 ? 'var(--accent-color)' : 'var(--text-muted)', marginTop: '0.15rem' }}>{item.outstandingQty.toLocaleString()} {item.unit}</div>
+                            </div>
+                            <div style={{ background: 'rgba(245, 158, 11, 0.08)', padding: '0.45rem 0.6rem', borderRadius: '6px', border: '1px solid rgba(245, 158, 11, 0.28)' }}>
+                              <div style={{ fontSize: '0.68rem', color: '#f59e0b', fontWeight: 600 }}>📤 ตัดใช้ไปแล้ว</div>
+                              <div style={{ fontWeight: 800, color: '#f59e0b', marginTop: '0.15rem' }}>{item.withdrawnQty.toLocaleString()} {item.unit}</div>
+                            </div>
+                            <div style={{ background: item.remainingStockQty > 0 ? 'rgba(16, 185, 129, 0.08)' : 'rgba(239, 68, 68, 0.06)', padding: '0.45rem 0.6rem', borderRadius: '6px', border: item.remainingStockQty > 0 ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid rgba(239, 68, 68, 0.2)' }}>
+                              <div style={{ fontSize: '0.68rem', color: item.remainingStockQty > 0 ? 'var(--success)' : 'var(--danger)', fontWeight: 600 }}>📦 คงเหลือในคลัง</div>
+                              <div style={{ fontWeight: 800, color: item.remainingStockQty > 0 ? 'var(--success)' : 'var(--danger)', marginTop: '0.15rem' }}>{item.remainingStockQty.toLocaleString()} {item.unit}</div>
+                            </div>
                           </div>
                         </div>
                       );
@@ -1786,77 +1862,93 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
                         </p>
                       ) : (
                         <div style={{ overflowX: 'auto' }}>
-                          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem', minWidth: '650px' }}>
+                          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem', minWidth: '850px' }}>
                             <thead>
                               <tr style={{ textAlign: 'left', borderBottom: '1px solid var(--glass-border)', color: 'var(--text-muted)' }}>
-                                <th style={{ padding: '0.5rem' }}>วันที่นำส่ง</th>
-                                <th style={{ padding: '0.5rem' }}>Supplier Lot</th>
-                                <th style={{ padding: '0.5rem' }}>QC Lot</th>
-                                <th style={{ padding: '0.5rem' }}>จำนวนส่ง</th>
-                                <th style={{ padding: '0.5rem' }}>ที่เก็บ</th>
-                                <th style={{ padding: '0.5rem' }}>สถานะจัดซื้อ</th>
-                                <th style={{ padding: '0.5rem', textAlign: 'center' }}>การอนุมัติจัดซื้อ</th>
+                                <th style={{ padding: '0.6rem 0.5rem' }}>วันที่นำส่ง</th>
+                                <th style={{ padding: '0.6rem 0.5rem' }}>รายการพัสดุ / Lot</th>
+                                <th style={{ padding: '0.6rem 0.5rem' }}>QC Lot</th>
+                                <th style={{ padding: '0.6rem 0.5rem', textAlign: 'right' }}>จำนวนส่ง (ตรวจรับ)</th>
+                                <th style={{ padding: '0.6rem 0.5rem', textAlign: 'right', color: '#f59e0b' }}>ตัดใช้แล้ว</th>
+                                <th style={{ padding: '0.6rem 0.5rem', textAlign: 'right', color: '#10b981' }}>คงเหลือในคลัง</th>
+                                <th style={{ padding: '0.6rem 0.5rem' }}>ที่เก็บ</th>
+                                <th style={{ padding: '0.6rem 0.5rem' }}>สถานะจัดซื้อ</th>
+                                <th style={{ padding: '0.6rem 0.5rem', textAlign: 'center' }}>การอนุมัติจัดซื้อ</th>
                               </tr>
                             </thead>
                             <tbody>
-                              {agreement.deliveries.map(del => (
-                                <tr key={del.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
-                                  <td style={{ padding: '0.6rem 0.5rem' }}>{del.date}</td>
-                                  <td style={{ padding: '0.6rem 0.5rem', fontWeight: 600 }}>{del.supplierLot}</td>
-                                  <td style={{ padding: '0.6rem 0.5rem', color: 'var(--text-secondary)' }}>{del.inhouseLot || '-'}</td>
-                                  <td style={{ padding: '0.6rem 0.5rem', fontWeight: 700 }}>
-                                    {del.quantity} {del.unit}
-                                  </td>
-                                  <td style={{ padding: '0.6rem 0.5rem' }}>{del.location || '-'}</td>
-                                  <td style={{ padding: '0.6rem 0.5rem' }}>
-                                    <AcceptanceBadge status={del.acceptanceStatus} />
-                                  </td>
-                                  <td style={{ padding: '0.6rem 0.5rem', textAlign: 'center' }}>
-                                    {del.acceptanceStatus === 'Pending' ? (
-                                      <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'center' }}>
-                                        <button 
-                                          className="btn btn-primary"
-                                          onClick={() => handleAcceptDelivery(del.id)}
-                                          style={{ 
-                                            background: 'var(--success)', 
-                                            color: '#fff', 
-                                            padding: '0.2rem 0.5rem', 
-                                            fontSize: '0.7rem',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: '0.2rem'
-                                          }}
-                                        >
-                                          <Check size={12} /> ตรวจรับผ่าน
-                                        </button>
-                                        <button 
-                                          className="btn"
-                                          onClick={() => handleRejectDelivery(del.id)}
-                                          style={{ 
-                                            background: 'var(--danger)', 
-                                            color: '#fff', 
-                                            padding: '0.2rem 0.5rem', 
-                                            fontSize: '0.7rem',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: '0.2rem'
-                                          }}
-                                        >
-                                          <X size={12} /> ปฏิเสธการรับ
-                                        </button>
-                                      </div>
-                                    ) : del.acceptanceStatus === 'Accepted' ? (
-                                      <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.2rem' }}>
-                                        <UserCheck size={14} color="var(--success)" /> บันทึกสิทธิ์ตรวจรับแล้ว
-                                      </span>
-                                    ) : (
-                                      <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.2rem' }}>
-                                        <AlertTriangle size={14} color="var(--danger)" /> ปฏิเสธตรวจรับเสร็จสิ้น
-                                      </span>
-                                    )}
-                                  </td>
-                                </tr>
-                              ))}
+                              {agreement.deliveries.map(del => {
+                                const lotWithdrawn = (del.withdrawals || []).filter(w => !w.isCancelled).reduce((sum, w) => sum + Number(w.amount || 0), 0) || Math.max(0, Number(del.quantity || 0) - Number(del.remainingQty !== undefined ? del.remainingQty : del.quantity));
+                                const lotRemaining = del.remainingQty !== undefined ? Number(del.remainingQty) : Number(del.quantity || 0);
+
+                                return (
+                                  <tr key={del.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
+                                    <td style={{ padding: '0.6rem 0.5rem' }}>{del.date}</td>
+                                    <td style={{ padding: '0.6rem 0.5rem' }}>
+                                      <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{del.itemName}</div>
+                                      <div style={{ fontSize: '0.72rem', color: 'var(--accent-secondary)' }}>Lot: {del.supplierLot}</div>
+                                    </td>
+                                    <td style={{ padding: '0.6rem 0.5rem', color: 'var(--text-secondary)' }}>{del.inhouseLot || '-'}</td>
+                                    <td style={{ padding: '0.6rem 0.5rem', textAlign: 'right', fontWeight: 700 }}>
+                                      {del.quantity.toLocaleString()} {del.unit}
+                                    </td>
+                                    <td style={{ padding: '0.6rem 0.5rem', textAlign: 'right', fontWeight: 600, color: lotWithdrawn > 0 ? '#f59e0b' : 'var(--text-muted)' }}>
+                                      {lotWithdrawn > 0 ? `-${lotWithdrawn.toLocaleString()} ${del.unit}` : `0 ${del.unit}`}
+                                    </td>
+                                    <td style={{ padding: '0.6rem 0.5rem', textAlign: 'right', fontWeight: 700, color: lotRemaining > 0 ? '#10b981' : 'var(--danger)' }}>
+                                      {lotRemaining.toLocaleString()} {del.unit}
+                                    </td>
+                                    <td style={{ padding: '0.6rem 0.5rem' }}>{del.location || '-'}</td>
+                                    <td style={{ padding: '0.6rem 0.5rem' }}>
+                                      <AcceptanceBadge status={del.acceptanceStatus} />
+                                    </td>
+                                    <td style={{ padding: '0.6rem 0.5rem', textAlign: 'center' }}>
+                                      {del.acceptanceStatus === 'Pending' ? (
+                                        <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'center' }}>
+                                          <button 
+                                            className="btn btn-primary"
+                                            onClick={() => handleAcceptDelivery(del.id)}
+                                            style={{ 
+                                              background: 'var(--success)', 
+                                              color: '#fff', 
+                                              padding: '0.2rem 0.5rem', 
+                                              fontSize: '0.7rem',
+                                              display: 'flex',
+                                              alignItems: 'center',
+                                              gap: '0.2rem'
+                                            }}
+                                          >
+                                            <Check size={12} /> ตรวจรับผ่าน
+                                          </button>
+                                          <button 
+                                            className="btn"
+                                            onClick={() => handleRejectDelivery(del.id)}
+                                            style={{ 
+                                              background: 'var(--danger)', 
+                                              color: '#fff', 
+                                              padding: '0.2rem 0.5rem', 
+                                              fontSize: '0.7rem',
+                                              display: 'flex',
+                                              alignItems: 'center',
+                                              gap: '0.2rem'
+                                            }}
+                                          >
+                                            <X size={12} /> ปฏิเสธการรับ
+                                          </button>
+                                        </div>
+                                      ) : del.acceptanceStatus === 'Accepted' ? (
+                                        <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.2rem' }}>
+                                          <UserCheck size={14} color="var(--success)" /> บันทึกสิทธิ์ตรวจรับแล้ว
+                                        </span>
+                                      ) : (
+                                        <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.2rem' }}>
+                                          <AlertTriangle size={14} color="var(--danger)" /> ปฏิเสธตรวจรับเสร็จสิ้น
+                                        </span>
+                                      )}
+                                    </td>
+                                  </tr>
+                                );
+                              })}
                             </tbody>
                           </table>
                         </div>
