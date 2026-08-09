@@ -1889,7 +1889,7 @@ const Withdrawal = ({ inventory, setInventory, items, agreements = [] }) => {
                         />
                         <div style={{ flex: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                           <div style={{ flex: 1, minWidth: 0, paddingRight: '0.5rem' }}>
-                            <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                            <div style={{ display: 'flex', gap: '0.65rem', alignItems: 'center', flexWrap: 'wrap' }}>
                               <div style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-primary)' }}>
                                 <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginRight: '0.2rem' }}>S/N Lot:</span>
                                 {lot.supplierLot}
@@ -1898,17 +1898,19 @@ const Withdrawal = ({ inventory, setInventory, items, agreements = [] }) => {
                                 <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginRight: '0.2rem' }}>QC Lot:</span>
                                 {lot.inhouseLot || '-'}
                               </div>
-                              <div style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
-                                <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginRight: '0.2rem' }}>สัญญา:</span>
-                                {lot.agreementId ? <span style={{ color: 'var(--accent-color)' }}>{lot.agreementId}</span> : '-'}
-                              </div>
                               <span className={`status-badge status-${(lot.qcStatus || 'Quarantine').toLowerCase()}`} style={{ padding: '0.15rem 0.5rem', fontSize: '0.65rem', borderRadius: '4px', textTransform: 'none', border: '1px solid transparent' }}>
                                 {lot.qcStatus || 'Quarantine'}
                               </span>
-                              <AcceptanceBadge status={lot.acceptanceStatus} />
                             </div>
-                            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '0.15rem', display: 'flex', alignItems: 'center', gap: '0.2rem' }}>
-                              <MapPin size={11} /> {lot.location}
+                            <div style={{ display: 'flex', gap: '0.65rem', alignItems: 'center', flexWrap: 'wrap', marginTop: '0.35rem' }}>
+                              <AcceptanceBadge status={lot.acceptanceStatus} />
+                              <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                                <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginRight: '0.2rem' }}>สัญญา:</span>
+                                {lot.agreementId ? <span style={{ color: 'var(--accent-color)' }}>{lot.agreementId}</span> : '-'}
+                              </div>
+                              <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.2rem' }}>
+                                <MapPin size={11} /> {lot.location || '-'}
+                              </div>
                             </div>
                           </div>
                           <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', justifyContent: 'center', flexShrink: 0 }}>
