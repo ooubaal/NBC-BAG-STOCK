@@ -212,6 +212,14 @@ const Withdrawal = ({ inventory, setInventory, items, agreements = [] }) => {
     return Array.from(set).sort((a, b) => String(a).localeCompare(String(b), 'th'));
   }, [historicalWithdrawals]);
 
+  const uniqueHistoryReasons = useMemo(() => {
+    const set = new Set();
+    (historicalWithdrawals || []).forEach(w => {
+      if (w && w.reason) set.add(w.reason);
+    });
+    return Array.from(set).sort((a, b) => String(a).localeCompare(String(b), 'th'));
+  }, [historicalWithdrawals]);
+
   // Filter historical list based on search term, date range, items, locations, reasons, agreements, and sorting
   const filteredWithdrawals = useMemo(() => {
     let result = (historicalWithdrawals || []).filter(w => {
@@ -293,7 +301,7 @@ const Withdrawal = ({ inventory, setInventory, items, agreements = [] }) => {
     });
 
     return result;
-  }, [historicalWithdrawals, historySearch, historyStartDate, historyEndDate, historySortType, historyFilterItem, historyFilterLocation, historyFilterReason]);
+  }, [historicalWithdrawals, historySearch, historyStartDate, historyEndDate, historySortType, historyFilterItem, historyFilterLocation, historyFilterReason, historyFilterAgreement]);
 
   const handleTotalAmountChange = (val) => {
     const num = Number(val) || 0;
