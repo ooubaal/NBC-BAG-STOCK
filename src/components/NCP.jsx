@@ -1,5 +1,14 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Camera, Plus, Download, Edit2, Trash2, X, Search, Printer } from 'lucide-react';
+import { Camera, Plus, Download, Edit2, Trash2, X, Search, Printer, FileText, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Maximize2, FileCheck, RefreshCw } from 'lucide-react';
+import * as pdfjsLib from 'pdfjs-dist';
+import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.mjs?url';
+
+// Configure pdfjs worker for Vite
+try {
+  pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
+} catch (e) {
+  pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.worker.min.mjs`;
+}
 
 const SearchableSelect = ({ value, onChange, options, placeholder, disabled, style }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -179,6 +188,79 @@ const compressImageFile = (file, maxWidth = 1200, maxHeight = 1200) => {
   });
 };
 
+// Process both Images and PDF files with automatic HD rendering and compression
+const processUploadFile = async (file) => {
+  if (!file) return null;
+  const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+
+  if (isPdf) {
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+      const pdfDoc = await loadingTask.promise;
+      const numPages = pdfDoc.numPages;
+      const pages = [];
+
+      for (let pageNum = 1; pageNum <= numPages; pageNum++) {
+        const page = await pdfDoc.getPage(pageNum);
+        // Scale 1.6 renders at crisp HD resolution for crystal clear text readability
+        const viewport = page.getViewport({ scale: 1.6 });
+
+        const canvas = document.createElement('canvas');
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+        const ctx = canvas.getContext('2d');
+
+        // Draw clean white background for transparency
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        await page.render({
+          canvasContext: ctx,
+          viewport: viewport
+        }).promise;
+
+        // Compress page to high-readability lightweight JPEG (0.65 quality saves 90%+ storage)
+        const compressedPageData = canvas.toDataURL('image/jpeg', 0.65);
+        pages.push(compressedPageData);
+      }
+
+      return {
+        isPdf: true,
+        fileName: file.name,
+        fileSize: file.size,
+        totalPages: numPages,
+        pages: pages,
+        thumbnail: pages[0],
+        uploadedAt: new Date().toISOString()
+      };
+    } catch (err) {
+      console.error("PDF processing error:", err);
+      // Fallback: Read as data URL if pdfjs encounters an issue
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          resolve({
+            isPdf: true,
+            fileName: file.name,
+            fileSize: file.size,
+            totalPages: 1,
+            pages: [e.target.result],
+            thumbnail: e.target.result,
+            isRawPdf: true,
+            uploadedAt: new Date().toISOString()
+          });
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+  } else {
+    // Normal Image File
+    const compressed = await compressImageFile(file);
+    return compressed;
+  }
+};
+
 const modalOverlayStyle = {
   position: 'fixed',
   top: 0,
@@ -224,7 +306,7 @@ const NCP = ({ inventory, items, claims, setClaims }) => {
   // Custom Modals and Confirmations
   const [editingClaim, setEditingClaim] = useState(null);
   const [confirmDeleteClaimId, setConfirmDeleteClaimId] = useState(null);
-  const [activeLightbox, setActiveLightbox] = useState(null); // { image, label }
+  const [activeLightbox, setActiveLightbox] = useState(null); // { item, label, activePage: 0, zoom: 1 }
 
   const initialNewClaim = {
     itemName: (items && items.length > 0) ? items[0].name : '',
@@ -271,13 +353,14 @@ const NCP = ({ inventory, items, claims, setClaims }) => {
       localStorage.setItem('wms_claims', JSON.stringify(claims));
     } catch (e) {
       console.error("Storage quota exceeded:", e);
-      alert("ไม่สามารถบันทึกรูปภาพได้ เนื่องจากพื้นที่จัดเก็บเบราว์เซอร์เต็มแล้ว");
+      alert("ไม่สามารถบันทึกข้อมูลได้ เนื่องจากพื้นที่หน่วยความจำเบราว์เซอร์เต็ม");
     }
   }, [claims]);
 
   const handleImageUpload = (step, file) => {
     if (!file) return;
-    compressImageFile(file).then(compressed => {
+    processUploadFile(file).then(processed => {
+      if (!processed) return;
       setNewClaim(prev => {
         const currentImages = Array.isArray(prev.images?.[step]) 
           ? prev.images[step] 
@@ -286,13 +369,13 @@ const NCP = ({ inventory, items, claims, setClaims }) => {
           ...prev,
           images: {
             ...prev.images,
-            [step]: [...currentImages, compressed]
+            [step]: [...currentImages, processed]
           }
         };
       });
     }).catch(err => {
-      console.error("Error compressing image:", err);
-      alert("เกิดข้อผิดพลาดในการอัปโหลดและบีบอัดรูปภาพ");
+      console.error("Error processing upload file:", err);
+      alert("เกิดข้อผิดพลาดในการอัปโหลดและบีบอัดไฟล์");
     });
   };
 
@@ -370,7 +453,8 @@ const NCP = ({ inventory, items, claims, setClaims }) => {
 
   const handleUpdateImage = (id, step, file) => {
     if (!file) return;
-    compressImageFile(file).then(compressed => {
+    processUploadFile(file).then(processed => {
+      if (!processed) return;
       setClaims(claims.map(c => {
         if (c.id === id) {
           const currentImages = Array.isArray(c.images?.[step]) 
@@ -378,14 +462,14 @@ const NCP = ({ inventory, items, claims, setClaims }) => {
             : (c.images?.[step] ? [c.images[step]] : []);
           return {
             ...c,
-            images: { ...c.images, [step]: [...currentImages, compressed] }
+            images: { ...c.images, [step]: [...currentImages, processed] }
           };
         }
         return c;
       }));
     }).catch(err => {
-      console.error("Error compressing image:", err);
-      alert("เกิดข้อผิดพลาดในการอัปโหลดและบีบอัดรูปภาพ");
+      console.error("Error processing update file:", err);
+      alert("เกิดข้อผิดพลาดในการอัปโหลดและบีบอัดไฟล์");
     });
   };
 
@@ -400,6 +484,7 @@ const NCP = ({ inventory, items, claims, setClaims }) => {
           images: { ...c.images, [step]: currentImages.filter((_, i) => i !== index) }
         };
       }
+      return c;
     }));
   };
 
@@ -434,11 +519,32 @@ const NCP = ({ inventory, items, claims, setClaims }) => {
     const renderPrintImages = (label, imageList) => {
       const images = Array.isArray(imageList) ? imageList : (imageList ? [imageList] : []);
       if (images.length === 0) return '';
+      
+      const cards = images.map((item, idx) => {
+        if (item && typeof item === 'object' && item.isPdf) {
+          return (item.pages || [item.thumbnail]).map((pageImg, pIdx) => `
+            <div class="photo-card" style="position: relative;">
+              <div style="position: absolute; top: 4px; left: 4px; background: rgba(220, 38, 38, 0.9); color: #fff; font-size: 10px; font-weight: bold; padding: 2px 6px; border-radius: 3px; z-index: 10;">
+                PDF: ${escapeHTML(item.fileName || 'เอกสาร')} (น. ${pIdx + 1}/${item.totalPages})
+              </div>
+              <img src="${pageImg}" alt="${label} PDF p.${pIdx + 1}" />
+            </div>
+          `).join('');
+        } else {
+          const src = typeof item === 'string' ? item : (item?.thumbnail || '');
+          return `
+            <div class="photo-card">
+              <img src="${src}" alt="${label} #${idx + 1}" />
+            </div>
+          `;
+        }
+      }).join('');
+
       return `
         <div class="photo-section-block">
           <h3>${label}</h3>
           <div class="photo-grid">
-            ${images.map((img, idx) => `<div class="photo-card"><img src="${img}" alt="${label} #${idx + 1}" /></div>`).join('')}
+            ${cards}
           </div>
         </div>
       `;
@@ -637,8 +743,8 @@ const NCP = ({ inventory, items, claims, setClaims }) => {
           </div>
 
           ${renderPrintImages('1. ภาพพัสดุที่พบปัญหา (Found)', claim.images?.found)}
-          ${renderPrintImages('2. ภาพขั้นตอนการเคลม (Claiming)', claim.images?.claiming)}
-          ${renderPrintImages('3. ภาพการส่งคืนและรับของใหม่ (Returned)', claim.images?.returning)}
+          ${renderPrintImages('2. ภาพขั้นตอนการเคลม (Claiming)', claim.images?.claim)}
+          ${renderPrintImages('3. ภาพการส่งคืนและรับของใหม่ (Returned)', claim.images?.returned)}
 
           <div class="signatures">
             <div class="sig-block">
@@ -668,12 +774,53 @@ const NCP = ({ inventory, items, claims, setClaims }) => {
     printWindow.document.close();
   };
 
+  const printSinglePdfDocument = (pdfItem) => {
+    if (!pdfItem) return;
+    const printWindow = window.open("", "_blank", "width=900,height=800");
+    if (!printWindow) {
+      alert("กรุณาอนุญาตให้เบราว์เซอร์เปิด Pop-up เพื่อเปิดหน้าพิมพ์เอกสาร");
+      return;
+    }
+    const pages = pdfItem.pages || [pdfItem.thumbnail];
+    const htmlContent = `
+      <html>
+        <head>
+          <title>${pdfItem.fileName || 'เอกสารแนบ PDF'}</title>
+          <style>
+            @page { size: auto; margin: 5mm; }
+            body { margin: 0; padding: 10px; background: #fff; text-align: center; }
+            .page-container { page-break-after: always; margin-bottom: 20px; }
+            .page-container:last-child { page-break-after: avoid; }
+            img { max-width: 100%; height: auto; display: block; margin: 0 auto; }
+            .no-print { position: fixed; top: 10px; right: 10px; z-index: 100; }
+            @media print { .no-print { display: none !important; } }
+          </style>
+        </head>
+        <body>
+          <button class="no-print" onclick="window.print()" style="padding: 8px 16px; background: #b91c1c; color: #fff; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">พิมพ์เอกสาร</button>
+          ${pages.map((p, idx) => `
+            <div class="page-container">
+              <img src="${p}" alt="Page ${idx + 1}" />
+            </div>
+          `).join('')}
+          <script>
+            window.onload = function() {
+              setTimeout(function() { window.print(); }, 400);
+            }
+          </script>
+        </body>
+      </html>
+    `;
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
+  };
+
   return (
     <div className="fade-in">
       <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
         <div>
           <h1 className="page-title">NCP Product การเคลมและรับคืน (Mod 4)</h1>
-          <p className="page-subtitle">จัดการสินค้าไม่เป็นไปตามข้อกำหนดและติดตามการเคลม</p>
+          <p className="page-subtitle">จัดการสินค้าไม่เป็นไปตามข้อกำหนดและติดตามการเคลม (รองรับรูปภาพและไฟล์ PDF บีบอัด HD)</p>
         </div>
         <button className="btn btn-primary" onClick={() => setIsAdding(true)}>
           <Plus size={18} /> แจ้งเคสใหม่
@@ -711,7 +858,7 @@ const NCP = ({ inventory, items, claims, setClaims }) => {
                 onChange={(val) => setNewClaim({...newClaim, lotNo: val})}
                 options={availableLots.map(lot => ({
                   value: lot.supplierLot,
-                  label: `Supplier Lot: ${lot.supplierLot} ${lot.inhouseLot ? `(QC: ${lot.inhouseLot})` : ''} - คงเหลือ ${lot.remainingQty} ${lot.unit || 'ชิ้น'} ({lot.location})`
+                  label: `Supplier Lot: ${lot.supplierLot} ${lot.inhouseLot ? `(QC: ${lot.inhouseLot})` : ''} - คงเหลือ ${lot.remainingQty} ${lot.unit || 'ชิ้น'} (${lot.location})`
                 }))}
               />
               {availableLots.length === 0 && (
@@ -749,10 +896,11 @@ const NCP = ({ inventory, items, claims, setClaims }) => {
           
           <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1rem', marginBottom: '1.5rem' }}>
             <ImageUploader 
-              label="รูปภาพ NCP ที่พบ (แนบได้มากกว่า 1 รูป)" 
+              label="📷 / 📄 รูปภาพหรือเอกสาร PDF ที่พบ (แนบได้หลายไฟล์ ระบบบีบอัด HD อัตโนมัติ)" 
               images={newClaim.images.found} 
               onUpload={(file) => handleImageUpload('found', file)} 
               onRemove={(idx) => handleRemoveNewClaimImage('found', idx)}
+              onPreview={(item, idx) => setActiveLightbox({ item: item, label: `เอกสาร/ภาพที่พบ (รายการที่ ${idx + 1})`, activePage: 0, zoom: 1 })}
             />
           </div>
 
@@ -852,7 +1000,7 @@ const NCP = ({ inventory, items, claims, setClaims }) => {
                   <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Lot: {claim.lotNo}</div>
                   {claim.quantity && (
                     <div style={{ fontSize: '0.85rem', color: 'var(--accent-secondary)', fontWeight: 600, marginTop: '0.25rem' }}>
-                      จำนวนเคลม: {claim.quantity} {claim.unit || 'ชิ้น'}
+                      จำนวนเคลม: {Number(claim.quantity).toLocaleString()} {claim.unit || 'ชิ้น'}
                     </div>
                   )}
                   {claim.followUpDate && (
@@ -892,12 +1040,14 @@ const NCP = ({ inventory, items, claims, setClaims }) => {
                     <button 
                       style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '0.2rem', transition: 'var(--transition)' }}
                       onClick={() => setEditingClaim(claim)}
+                      title="แก้ไขข้อมูลเคส"
                     >
                       <Edit2 size={15} />
                     </button>
                     <button 
                       style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', padding: '0.2rem', transition: 'var(--transition)' }}
                       onClick={() => setConfirmDeleteClaimId(claim.id)}
+                      title="ลบเคส"
                     >
                       <Trash2 size={15} />
                     </button>
@@ -915,7 +1065,7 @@ const NCP = ({ inventory, items, claims, setClaims }) => {
                     uniqueId={`thumb-found-${claim.id}`} 
                     onUpdate={(file) => handleUpdateImage(claim.id, 'found', file)} 
                     onRemove={(idx) => handleRemoveImage(claim.id, 'found', idx)}
-                    onClick={(img, idx) => setActiveLightbox({ image: img, label: `1. ภาพพัสดุที่พบปัญหา (รูปที่ ${idx + 1})` })}
+                    onClick={(item, idx) => setActiveLightbox({ item: item, label: `1. ภาพ/เอกสารพัสดุที่พบปัญหา (รายการที่ ${idx + 1})`, activePage: 0, zoom: 1 })}
                   />
                   <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textAlign: 'center', marginTop: '0.25rem' }}>
                     {claim.foundDate || '-'}
@@ -929,7 +1079,7 @@ const NCP = ({ inventory, items, claims, setClaims }) => {
                     uniqueId={`thumb-claim-${claim.id}`} 
                     onUpdate={(file) => handleUpdateImage(claim.id, 'claim', file)} 
                     onRemove={(idx) => handleRemoveImage(claim.id, 'claim', idx)}
-                    onClick={(img, idx) => setActiveLightbox({ image: img, label: `2. ภาพขณะดำเนินการเคลม (รูปที่ ${idx + 1})` })}
+                    onClick={(item, idx) => setActiveLightbox({ item: item, label: `2. ภาพ/เอกสารขณะดำเนินการเคลม (รายการที่ ${idx + 1})`, activePage: 0, zoom: 1 })}
                   />
                   <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textAlign: 'center', marginTop: '0.25rem' }}>
                     {claim.claimingDate || '-'}
@@ -943,7 +1093,7 @@ const NCP = ({ inventory, items, claims, setClaims }) => {
                     uniqueId={`thumb-returned-${claim.id}`} 
                     onUpdate={(file) => handleUpdateImage(claim.id, 'returned', file)} 
                     onRemove={(idx) => handleRemoveImage(claim.id, 'returned', idx)}
-                    onClick={(img, idx) => setActiveLightbox({ image: img, label: `3. ภาพขารับคืนเรียบร้อย (รูปที่ ${idx + 1})` })}
+                    onClick={(item, idx) => setActiveLightbox({ item: item, label: `3. ภาพ/เอกสารขารับคืนเรียบร้อย (รายการที่ ${idx + 1})`, activePage: 0, zoom: 1 })}
                   />
                   <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textAlign: 'center', marginTop: '0.25rem' }}>
                     {claim.returnedDate || '-'}
@@ -960,39 +1110,202 @@ const NCP = ({ inventory, items, claims, setClaims }) => {
         )}
       </div>
 
-      {/* Lightbox / Zoom-in Modal */}
-      {activeLightbox && (
-        <div style={modalOverlayStyle} onClick={() => setActiveLightbox(null)}>
-          <div style={{ ...modalContentStyle, maxWidth: '650px', textAlign: 'center' }} onClick={e => e.stopPropagation()}>
-            <button 
-              style={{ position: 'absolute', right: '1rem', top: '1rem', background: 'none', border: 'none', color: 'var(--text-primary)', cursor: 'pointer' }}
-              onClick={() => setActiveLightbox(null)}
+      {/* Interactive Lightbox / PDF Viewer Modal */}
+      {activeLightbox && (() => {
+        const isPdf = activeLightbox.item && typeof activeLightbox.item === 'object' && activeLightbox.item.isPdf;
+        const pages = isPdf ? (activeLightbox.item.pages || [activeLightbox.item.thumbnail]) : [typeof activeLightbox.item === 'string' ? activeLightbox.item : activeLightbox.item?.thumbnail];
+        const currentPageIndex = activeLightbox.activePage || 0;
+        const currentImageSrc = pages[currentPageIndex] || pages[0];
+        const totalPages = isPdf ? (activeLightbox.item.totalPages || pages.length) : 1;
+        const zoom = activeLightbox.zoom || 1;
+
+        return (
+          <div style={modalOverlayStyle} onClick={() => setActiveLightbox(null)}>
+            <div 
+              style={{ 
+                ...modalContentStyle, 
+                maxWidth: '850px', 
+                width: '95%',
+                textAlign: 'center',
+                padding: '1.5rem',
+                border: isPdf ? '1.5px solid rgba(220, 38, 38, 0.5)' : '1px solid var(--glass-border)'
+              }} 
+              onClick={e => e.stopPropagation()}
             >
-              <X size={24} />
-            </button>
-            <h3 style={{ marginBottom: '1.2rem', color: 'var(--accent-color)' }}>{activeLightbox.label}</h3>
-            <img 
-              src={activeLightbox.image} 
-              alt="full view" 
-              style={{ width: '100%', maxHeight: '60vh', objectFit: 'contain', borderRadius: '8px', border: '1px solid var(--glass-border)', marginBottom: '1.5rem' }} 
-            />
-            <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem' }}>
-              <button 
-                className="btn btn-primary" 
-                onClick={() => {
-                  const link = document.createElement("a");
-                  link.href = activeLightbox.image;
-                  link.download = `Evidence-${activeLightbox.label}.jpg`;
-                  link.click();
-                }}
-              >
-                <Download size={16} /> ดาวน์โหลดภาพหลักฐาน
-              </button>
-              <button className="btn btn-secondary" onClick={() => setActiveLightbox(null)}>ปิด</button>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--glass-border)', paddingBottom: '0.75rem', marginBottom: '1rem' }}>
+                <div style={{ textAlign: 'left' }}>
+                  <h3 style={{ margin: 0, color: isPdf ? '#ef4444' : 'var(--accent-color)', fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                    {isPdf ? <FileText size={20} /> : <Camera size={20} />} {activeLightbox.label}
+                  </h3>
+                  {isPdf && (
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
+                      📄 <strong>{activeLightbox.item.fileName || 'เอกสารแนบ PDF'}</strong> • หน้า {currentPageIndex + 1} จาก {totalPages} (ความละเอียดระดับ HD)
+                    </div>
+                  )}
+                </div>
+                <button 
+                  style={{ background: 'none', border: 'none', color: 'var(--text-primary)', cursor: 'pointer', padding: '0.25rem' }}
+                  onClick={() => setActiveLightbox(null)}
+                >
+                  <X size={24} />
+                </button>
+              </div>
+
+              {/* Viewport Image */}
+              <div style={{ 
+                width: '100%', 
+                height: '58vh', 
+                overflow: 'auto', 
+                borderRadius: '8px', 
+                border: '1px solid var(--glass-border)', 
+                marginBottom: '1rem',
+                background: '#1a1a1a',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '1rem',
+                boxSizing: 'border-box'
+              }}>
+                <img 
+                  src={currentImageSrc} 
+                  alt="full view" 
+                  style={{ 
+                    maxWidth: zoom === 1 ? '100%' : 'none', 
+                    maxHeight: zoom === 1 ? '100%' : 'none', 
+                    width: zoom > 1 ? `${zoom * 100}%` : 'auto',
+                    objectFit: 'contain', 
+                    boxShadow: '0 10px 25px rgba(0,0,0,0.5)',
+                    transition: 'width 0.2s ease, transform 0.2s ease',
+                    transformOrigin: 'center center'
+                  }} 
+                />
+              </div>
+
+              {/* Filmstrip / Page Thumbnails for PDF */}
+              {isPdf && totalPages > 1 && (
+                <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', alignItems: 'center', overflowX: 'auto', padding: '0.5rem 0', marginBottom: '0.75rem' }}>
+                  {pages.map((p, pIdx) => (
+                    <div
+                      key={pIdx}
+                      onClick={() => setActiveLightbox({ ...activeLightbox, activePage: pIdx })}
+                      style={{
+                        width: '45px',
+                        height: '55px',
+                        borderRadius: '4px',
+                        border: pIdx === currentPageIndex ? '2px solid #ef4444' : '1px solid var(--glass-border)',
+                        overflow: 'hidden',
+                        cursor: 'pointer',
+                        background: '#000',
+                        opacity: pIdx === currentPageIndex ? 1 : 0.6,
+                        position: 'relative'
+                      }}
+                      title={`ไปที่หน้า ${pIdx + 1}`}
+                    >
+                      <img src={p} alt={`p${pIdx + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'rgba(0,0,0,0.7)', color: '#fff', fontSize: '0.55rem', textAlign: 'center' }}>
+                        {pIdx + 1}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Controls Toolbar */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem', borderTop: '1px solid var(--glass-border)', paddingTop: '0.75rem' }}>
+                {/* Page Navigation for Multi-page PDF */}
+                {isPdf && totalPages > 1 ? (
+                  <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+                    <button
+                      className="btn btn-secondary"
+                      style={{ padding: '0.35rem 0.7rem', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.2rem' }}
+                      disabled={currentPageIndex === 0}
+                      onClick={() => setActiveLightbox({ ...activeLightbox, activePage: Math.max(0, currentPageIndex - 1) })}
+                    >
+                      <ChevronLeft size={14} /> หน้าก่อน
+                    </button>
+                    <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', minWidth: '70px', textAlign: 'center' }}>
+                      {currentPageIndex + 1} / {totalPages}
+                    </span>
+                    <button
+                      className="btn btn-secondary"
+                      style={{ padding: '0.35rem 0.7rem', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.2rem' }}
+                      disabled={currentPageIndex >= totalPages - 1}
+                      onClick={() => setActiveLightbox({ ...activeLightbox, activePage: Math.min(totalPages - 1, currentPageIndex + 1) })}
+                    >
+                      หน้าถัดไป <ChevronRight size={14} />
+                    </button>
+                  </div>
+                ) : (
+                  <div />
+                )}
+
+                {/* Zoom Controls */}
+                <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+                  <button
+                    className="btn btn-secondary"
+                    style={{ padding: '0.35rem 0.6rem', fontSize: '0.75rem' }}
+                    onClick={() => setActiveLightbox({ ...activeLightbox, zoom: Math.max(0.75, zoom - 0.25) })}
+                    title="ซูมออก"
+                  >
+                    <ZoomOut size={14} />
+                  </button>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', minWidth: '40px' }}>
+                    {Math.round(zoom * 100)}%
+                  </span>
+                  <button
+                    className="btn btn-secondary"
+                    style={{ padding: '0.35rem 0.6rem', fontSize: '0.75rem' }}
+                    onClick={() => setActiveLightbox({ ...activeLightbox, zoom: Math.min(2.5, zoom + 0.25) })}
+                    title="ซูมเข้า"
+                  >
+                    <ZoomIn size={14} />
+                  </button>
+                  {zoom !== 1 && (
+                    <button
+                      className="btn btn-secondary"
+                      style={{ padding: '0.35rem 0.6rem', fontSize: '0.72rem' }}
+                      onClick={() => setActiveLightbox({ ...activeLightbox, zoom: 1 })}
+                    >
+                      100%
+                    </button>
+                  )}
+                </div>
+
+                {/* Actions: Download / Print / Close */}
+                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                  {isPdf && (
+                    <button 
+                      className="btn btn-secondary" 
+                      style={{ padding: '0.4rem 0.8rem', fontSize: '0.78rem', background: 'rgba(220, 38, 38, 0.1)', color: '#ef4444', border: '1px solid rgba(220, 38, 38, 0.3)', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
+                      onClick={() => printSinglePdfDocument(activeLightbox.item)}
+                      title="พิมพ์เอกสาร PDF ทั้งหมด"
+                    >
+                      <Printer size={14} /> พิมพ์เอกสาร
+                    </button>
+                  )}
+                  <button 
+                    className="btn btn-primary" 
+                    style={{ padding: '0.4rem 0.8rem', fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
+                    onClick={() => {
+                      const link = document.createElement("a");
+                      link.href = currentImageSrc;
+                      link.download = isPdf 
+                        ? `${activeLightbox.item.fileName || 'document'}-page-${currentPageIndex + 1}.jpg`
+                        : `Evidence-${activeLightbox.label}.jpg`;
+                      link.click();
+                    }}
+                  >
+                    <Download size={14} /> {isPdf ? 'ดาวน์โหลดหน้านี้' : 'ดาวน์โหลดภาพ'}
+                  </button>
+                  <button className="btn btn-secondary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.78rem' }} onClick={() => setActiveLightbox(null)}>
+                    ปิด
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Edit Case Modal */}
       {editingClaim && (
@@ -1138,66 +1451,113 @@ const StatusBadge = ({ status }) => {
   );
 };
 
-const ImageUploader = ({ label, images, onUpload, onRemove }) => {
+const ImageUploader = ({ label, images, onUpload, onRemove, onPreview }) => {
   const imageList = Array.isArray(images) ? images : (images ? [images] : []);
   return (
     <div style={{ border: '1px dashed var(--glass-border)', borderRadius: '8px', padding: '1rem', background: 'rgba(255,255,255,0.01)' }}>
       <div style={{ fontSize: '0.8rem', marginBottom: '0.5rem', color: 'var(--text-muted)', fontWeight: 600 }}>{label}</div>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.5rem' }}>
-        {imageList.map((img, idx) => (
-          <div key={idx} style={{ position: 'relative', width: '70px', height: '70px', borderRadius: '6px', overflow: 'hidden', border: '1px solid var(--glass-border)' }}>
-            <img src={img} alt="preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-            <button 
-              type="button"
-              onClick={() => onRemove(idx)}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.6rem', marginBottom: '0.5rem', alignItems: 'center' }}>
+        {imageList.map((item, idx) => {
+          const isPdf = item && typeof item === 'object' && item.isPdf;
+          const thumbSrc = isPdf ? item.thumbnail : item;
+          const pageCount = isPdf ? item.totalPages : 1;
+
+          return (
+            <div 
+              key={idx} 
               style={{ 
-                position: 'absolute', 
-                top: '2px', 
-                right: '2px', 
-                background: 'rgba(239, 68, 68, 0.9)', 
-                color: '#fff', 
-                border: 'none', 
-                width: '18px', 
-                height: '18px', 
-                borderRadius: '50%', 
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'center',
-                cursor: 'pointer',
-                fontSize: '0.65rem'
+                position: 'relative', 
+                width: '72px', 
+                height: '72px', 
+                borderRadius: '6px', 
+                overflow: 'hidden', 
+                border: isPdf ? '1.5px solid rgba(239, 68, 68, 0.4)' : '1px solid var(--glass-border)',
+                background: isPdf ? 'rgba(239, 68, 68, 0.08)' : 'rgba(255,255,255,0.03)',
+                cursor: 'pointer'
               }}
-              title="ลบรูป"
+              onClick={() => onPreview && onPreview(item, idx)}
             >
-              <X size={10} />
-            </button>
-          </div>
-        ))}
+              {thumbSrc ? (
+                <img src={thumbSrc} alt="preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              ) : (
+                <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <FileText size={28} color="#ef4444" />
+                </div>
+              )}
+              {isPdf && (
+                <div style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  background: 'linear-gradient(180deg, rgba(220, 38, 38, 0.95) 0%, rgba(185, 28, 28, 0.8) 100%)',
+                  color: '#fff',
+                  fontSize: '0.58rem',
+                  fontWeight: 800,
+                  padding: '2px',
+                  textAlign: 'center'
+                }}>
+                  PDF ({pageCount} หน้า)
+                </div>
+              )}
+              <button 
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onRemove(idx);
+                }}
+                style={{ 
+                  position: 'absolute', 
+                  top: isPdf ? '18px' : '2px', 
+                  right: '2px', 
+                  background: 'rgba(239, 68, 68, 0.9)', 
+                  color: '#fff', 
+                  border: 'none', 
+                  width: '18px', 
+                  height: '18px', 
+                  borderRadius: '50%', 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center', 
+                  cursor: 'pointer', 
+                  fontSize: '0.65rem'
+                }}
+                title="ลบ"
+              >
+                <X size={10} />
+              </button>
+            </div>
+          );
+        })}
         <div style={{ 
-          width: '70px', 
-          height: '70px', 
+          width: '72px', 
+          height: '72px', 
           border: '1.5px dashed var(--glass-border)', 
           borderRadius: '6px', 
           display: 'flex', 
           flexDirection: 'column', 
           alignItems: 'center', 
           justifyContent: 'center', 
-          cursor: 'pointer',
+          cursor: 'pointer', 
           background: 'rgba(255,255,255,0.02)',
           position: 'relative'
         }}>
-          <Camera size={20} color="var(--text-muted)" />
+          <div style={{ display: 'flex', gap: '3px', alignItems: 'center' }}>
+            <Camera size={16} color="var(--text-muted)" />
+            <FileText size={16} color="var(--accent-color)" />
+          </div>
           <input 
             type="file" 
-            accept="image/*" 
+            accept="image/*,application/pdf,.pdf" 
             multiple 
             style={{ 
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              width: '100%',
-              height: '100%',
-              opacity: 0,
-              cursor: 'pointer'
+              position: 'absolute', 
+              top: 0, 
+              left: 0, 
+              width: '100%', 
+              height: '100%', 
+              opacity: 0, 
+              cursor: 'pointer' 
             }} 
             onChange={e => {
               if (e.target.files) {
@@ -1205,7 +1565,7 @@ const ImageUploader = ({ label, images, onUpload, onRemove }) => {
               }
             }} 
           />
-          <span style={{ fontSize: '0.6rem', color: 'var(--accent-color)', marginTop: '2px' }}>แนบรูป</span>
+          <span style={{ fontSize: '0.62rem', color: 'var(--accent-color)', marginTop: '3px', fontWeight: 600 }}>แนบรูป/PDF</span>
         </div>
       </div>
     </div>
@@ -1219,72 +1579,114 @@ const ImageThumb = ({ label, images, onUpdate, onRemove, onClick }) => {
     <div style={{ textAlign: 'center', background: 'rgba(255,255,255,0.02)', borderRadius: '8px', padding: '0.5rem', border: '1px solid var(--glass-border)' }}>
       <div style={{ fontSize: '0.75rem', marginBottom: '0.4rem', color: 'var(--text-secondary)', fontWeight: 600 }}>{label}</div>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', justifyContent: 'center', minHeight: '50px', alignItems: 'center' }}>
-        {imageList.map((img, idx) => (
-          <div 
-            key={idx}
-            style={{ 
-              width: '45px', 
-              height: '45px', 
-              background: 'rgba(255,255,255,0.05)', 
-              borderRadius: '4px', 
-              position: 'relative', 
-              overflow: 'hidden',
-              border: '1px solid var(--glass-border)',
-              cursor: 'zoom-in',
-              transition: 'all 0.2s ease'
-            }}
-            onClick={() => onClick && onClick(img, idx)}
-          >
-            <img src={img} alt="thumb" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-            
-            <button 
-              type="button"
-              onClick={e => {
-                e.stopPropagation();
-                if (window.confirm('คุณต้องการลบรูปภาพนี้ใช่หรือไม่?')) {
-                  onRemove(idx);
-                }
-              }}
+        {imageList.map((item, idx) => {
+          const isPdf = item && typeof item === 'object' && item.isPdf;
+          const thumbSrc = isPdf ? item.thumbnail : item;
+          const pageCount = isPdf ? item.totalPages : 1;
+
+          return (
+            <div 
+              key={idx}
               style={{ 
-                position: 'absolute', 
-                bottom: '1px', 
-                right: '1px', 
-                background: 'rgba(239, 68, 68, 0.95)', 
-                color: '#fff', 
-                border: 'none', 
-                borderRadius: '3px', 
-                width: '14px', 
-                height: '14px', 
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'center', 
+                width: '48px', 
+                height: '48px', 
+                background: isPdf ? 'rgba(239, 68, 68, 0.08)' : 'rgba(255,255,255,0.05)', 
+                borderRadius: '5px', 
+                position: 'relative', 
+                overflow: 'hidden', 
+                border: isPdf ? '1.5px solid rgba(239, 68, 68, 0.4)' : '1px solid var(--glass-border)',
                 cursor: 'pointer',
-                fontSize: '0.55rem',
-                zIndex: 10
+                transition: 'all 0.2s ease',
+                boxShadow: isPdf ? '0 2px 4px rgba(239, 68, 68, 0.15)' : 'none'
               }}
-              title="ลบรูป"
+              onClick={() => onClick && onClick(item, idx)}
+              title={isPdf ? `📄 PDF: ${item.fileName || 'เอกสาร'} (${pageCount} หน้า)` : `ภาพที่ ${idx + 1}`}
             >
-              <X size={8} />
-            </button>
-          </div>
-        ))}
-        
+              {thumbSrc ? (
+                <img src={thumbSrc} alt="thumb" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              ) : (
+                <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <FileText size={20} color="#ef4444" />
+                </div>
+              )}
+              
+              {isPdf && (
+                <div style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  background: 'linear-gradient(180deg, rgba(220, 38, 38, 0.95) 0%, rgba(185, 28, 28, 0.8) 100%)',
+                  color: '#fff',
+                  fontSize: '0.52rem',
+                  fontWeight: 800,
+                  padding: '1px 2px',
+                  textAlign: 'center',
+                  letterSpacing: '0.3px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '2px'
+                }}>
+                  PDF {pageCount > 1 ? `(${pageCount}p)` : ''}
+                </div>
+              )}
+              
+              <button 
+                type="button"
+                onClick={e => {
+                  e.stopPropagation();
+                  if (window.confirm(isPdf ? `คุณต้องการลบไฟล์ PDF นี้ (${item.fileName || 'เอกสาร'}) ใช่หรือไม่?` : 'คุณต้องการลบรูปภาพนี้ใช่หรือไม่?')) {
+                    onRemove(idx);
+                  }
+                }}
+                style={{ 
+                  position: 'absolute', 
+                  bottom: '1px', 
+                  right: '1px', 
+                  background: 'rgba(239, 68, 68, 0.95)', 
+                  color: '#fff', 
+                  border: 'none', 
+                  borderRadius: '3px', 
+                  width: '14px', 
+                  height: '14px', 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center', 
+                  cursor: 'pointer',
+                  fontSize: '0.55rem',
+                  zIndex: 10
+                }}
+                title="ลบ"
+              >
+                <X size={8} />
+              </button>
+            </div>
+          );
+        })}
         <div style={{ 
-          width: '45px', 
-          height: '45px', 
+          width: '48px', 
+          height: '48px', 
           border: '1.5px dashed var(--glass-border)', 
-          borderRadius: '4px', 
+          borderRadius: '5px', 
           display: 'flex', 
+          flexDirection: 'column',
           alignItems: 'center', 
           justifyContent: 'center', 
           cursor: 'pointer',
           background: 'rgba(255,255,255,0.02)',
           position: 'relative'
-        }}>
-          <Camera size={14} color="var(--text-muted)" />
+        }}
+        title="แนบรูปภาพ หรือ ไฟล์ PDF (บีบอัดอัตโนมัติ)"
+        >
+          <div style={{ display: 'flex', gap: '2px', alignItems: 'center' }}>
+            <Camera size={13} color="var(--text-muted)" />
+            <FileText size={13} color="var(--accent-color)" />
+          </div>
+          <span style={{ fontSize: '0.52rem', color: 'var(--text-muted)', marginTop: '2px' }}>รูป/PDF</span>
           <input 
             type="file" 
-            accept="image/*" 
+            accept="image/*,application/pdf,.pdf" 
             multiple 
             style={{ 
               position: 'absolute',
