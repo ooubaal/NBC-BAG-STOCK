@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Plus, Trash2, Save, Printer, Copy, Search, Upload, Download, RotateCcw, RefreshCw, AlertCircle, Calendar, MapPin, Check, FileText, CheckCircle2, PackageCheck, ArrowDownRight, Package, ShieldCheck, HelpCircle, ArrowRight, CornerDownRight } from 'lucide-react';
+import { Plus, Trash2, Save, Printer, Copy, Search, Upload, Download, RotateCcw, RefreshCw, AlertCircle, Calendar, MapPin, Check, FileText, CheckCircle2, PackageCheck, ArrowDownRight, Package, ShieldCheck, HelpCircle, ArrowRight, CornerDownRight, Edit2, X } from 'lucide-react';
 import ExcelJS from 'exceljs';
 
 const SearchableSelect = ({ value, onChange, options, placeholder, disabled }) => {
@@ -144,6 +144,132 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
   const [historyFilterQC, setHistoryFilterQC] = useState('All');
   const [historyFilterLocation, setHistoryFilterLocation] = useState('All');
   const [historyFilterContract, setHistoryFilterContract] = useState('All');
+
+  // Edit Inbound Lot Modal State
+  const [editingInboundLot, setEditingInboundLot] = useState(null);
+  const [editInboundFormData, setEditInboundFormData] = useState({
+    date: '',
+    itemName: '',
+    unit: 'ชิ้น',
+    supplierLot: '',
+    inhouseLot: '',
+    qcStatus: 'Quarantine',
+    packSize: '',
+    quantity: '',
+    location: '',
+    agreementId: '',
+    acceptanceStatus: '',
+    remarks: ''
+  });
+
+  const handleOpenEditInboundModal = (lot) => {
+    if (!lot) return;
+    setEditingInboundLot(lot);
+    const matchedItem = (items || []).find(i => i.name === lot.itemName);
+    setEditInboundFormData({
+      date: lot.date || new Date().toISOString().split('T')[0],
+      itemName: lot.itemName || '',
+      unit: lot.unit || (matchedItem ? matchedItem.unit : 'ชิ้น'),
+      supplierLot: lot.supplierLot || '',
+      inhouseLot: lot.inhouseLot || '',
+      qcStatus: lot.qcStatus || 'Quarantine',
+      packSize: lot.packSize || '',
+      quantity: String(lot.quantity || 0),
+      location: lot.location || '',
+      agreementId: lot.agreementId || '',
+      acceptanceStatus: lot.acceptanceStatus || '',
+      remarks: lot.remarks || ''
+    });
+  };
+
+  const handleSaveEditInbound = (e) => {
+    if (e) e.preventDefault();
+    if (!editingInboundLot) return;
+
+    if (!editInboundFormData.itemName || !editInboundFormData.supplierLot || !editInboundFormData.quantity) {
+      alert("กรุณากรอกข้อมูลที่จำเป็น: รายการสินค้า, Supplier Lot, และจำนวน");
+      return;
+    }
+
+    const newQty = Number(editInboundFormData.quantity);
+    if (isNaN(newQty) || newQty <= 0) {
+      alert("กรุณากรอกจำนวนให้ถูกต้อง (ต้องมากกว่า 0)");
+      return;
+    }
+
+    // Check if new quantity is less than total already withdrawn
+    const existingWithdrawals = (editingInboundLot.withdrawals || []).filter(w => !w.isCancelled);
+    const totalWithdrawn = existingWithdrawals.reduce((sum, w) => sum + Number(w.amount || 0), 0);
+    const existingClaimReturns = editingInboundLot.claimReturns || [];
+    const totalReturned = existingClaimReturns.reduce((sum, cr) => sum + Number(cr.returnedQty || 0), 0);
+
+    if (newQty < totalWithdrawn) {
+      const confirmReduce = window.confirm(
+        `คำเตือน: จำนวนรับเข้าใหม่ (${newQty.toLocaleString()}) น้อยกว่ายอดที่เคยตัดจ่ายไปแล้ว (${totalWithdrawn.toLocaleString()})\n\nคุณแน่ใจหรือไม่ที่จะบันทึกการแก้ไขนี้?`
+      );
+      if (!confirmReduce) return;
+    }
+
+    const newRemainingQty = Math.max(0, newQty - totalWithdrawn + totalReturned);
+
+    setInventory(prev => prev.map(lot => {
+      if (String(lot.id) === String(editingInboundLot.id)) {
+        // Cascade updates to withdrawals
+        const updatedWithdrawals = (lot.withdrawals || []).map(w => ({
+          ...w,
+          itemName: editInboundFormData.itemName,
+          supplierLot: editInboundFormData.supplierLot,
+          inhouseLot: editInboundFormData.inhouseLot,
+          agreementId: editInboundFormData.agreementId,
+          unit: editInboundFormData.unit,
+          packSize: editInboundFormData.packSize
+        }));
+
+        // Cascade updates to claim returns
+        const updatedClaimReturns = (lot.claimReturns || []).map(cr => ({
+          ...cr,
+          itemName: editInboundFormData.itemName,
+          supplierLot: editInboundFormData.supplierLot,
+          inhouseLot: editInboundFormData.inhouseLot,
+          agreementId: editInboundFormData.agreementId,
+          unit: editInboundFormData.unit
+        }));
+
+        return {
+          ...lot,
+          date: editInboundFormData.date,
+          itemName: editInboundFormData.itemName,
+          unit: editInboundFormData.unit,
+          supplierLot: editInboundFormData.supplierLot,
+          inhouseLot: editInboundFormData.inhouseLot,
+          qcStatus: editInboundFormData.qcStatus,
+          packSize: editInboundFormData.packSize,
+          quantity: newQty,
+          remainingQty: newRemainingQty,
+          location: editInboundFormData.location,
+          agreementId: editInboundFormData.agreementId,
+          acceptanceStatus: editInboundFormData.agreementId ? (editInboundFormData.acceptanceStatus || 'Pending') : '',
+          remarks: editInboundFormData.remarks,
+          withdrawals: updatedWithdrawals,
+          claimReturns: updatedClaimReturns,
+          lastEditedAt: new Date().toISOString()
+        };
+      }
+      return lot;
+    }));
+
+    alert(
+      `บันทึกการแก้ไขข้อมูลเรียบร้อยแล้ว!\n\n` +
+      `📦 รายการ: ${editInboundFormData.itemName}\n` +
+      `🏷️ Supplier Lot: ${editInboundFormData.supplierLot}\n` +
+      `🧪 QC Lot: ${editInboundFormData.inhouseLot || '-'}\n` +
+      `📊 จำนวนรับเข้า: ${newQty.toLocaleString()} ${editInboundFormData.unit}\n` +
+      `📄 สัญญา: ${editInboundFormData.agreementId || 'ไม่มีสัญญา'}\n\n` +
+      `ข้อมูลถูกปรับปรุงและเชื่อมโยงไปยังคลังพัสดุ, รายการตัดจ่าย และสัญญาจัดซื้อเรียบร้อยแล้ว`
+    );
+
+    setEditingInboundLot(null);
+  };
 
   // Claim Return & Lot Top-Up states
   const [selectedClaimLotId, setSelectedClaimLotId] = useState('');
@@ -3433,6 +3559,25 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
                           >
                             <Printer size={14} /> พิมพ์ใบพัสดุ (PDF)
                           </button>
+                          {!item.isCancelled && (
+                            <button 
+                              className="btn btn-secondary" 
+                              style={{ 
+                                padding: '0.4rem 0.8rem', 
+                                fontSize: '0.75rem', 
+                                background: 'rgba(245, 158, 11, 0.12)', 
+                                color: '#f59e0b', 
+                                border: '1px solid rgba(245, 158, 11, 0.3)', 
+                                display: 'flex', 
+                                alignItems: 'center', 
+                                gap: '0.3rem' 
+                              }}
+                              onClick={() => handleOpenEditInboundModal(item)}
+                              title="แก้ไขข้อมูลรับเข้าพัสดุนี้ (Lot, QC, สัญญา, จำนวน ฯลฯ)"
+                            >
+                              <Edit2 size={13} /> แก้ไข
+                            </button>
+                          )}
                           {item.isCancelled ? (
                             <span style={{ 
                               fontSize: '0.75rem', 
@@ -3468,6 +3613,248 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
             </table>
           </div>
         </>
+      )}
+
+      {/* Edit Inbound Modal */}
+      {editingInboundLot && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.75)',
+          backdropFilter: 'blur(6px)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 9999,
+          padding: '1rem'
+        }}>
+          <div className="glass card" style={{
+            maxWidth: '680px',
+            width: '100%',
+            padding: '2rem',
+            border: '1.5px solid var(--accent-color)',
+            boxShadow: '0 20px 30px -10px rgba(0,0,0,0.6)',
+            maxHeight: '92vh',
+            overflowY: 'auto'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+              <div>
+                <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--accent-color)', fontSize: '1.2rem' }}>
+                  <Edit2 size={22} /> แก้ไขข้อมูลการรับเข้าพัสดุ
+                </h3>
+                <p style={{ margin: '0.2rem 0 0 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                  การแก้ไขจะอัปเดตและเชื่อมโยงข้อมูลไปยังคลังพัสดุ รายการตัดจ่าย และสัญญาจัดซื้อโดยอัตโนมัติ
+                </p>
+              </div>
+              <button 
+                onClick={() => setEditingInboundLot(null)}
+                style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
+              >
+                <X size={22} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEditInbound} style={{ display: 'flex', flexDirection: 'column', gap: '1.1rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr', gap: '1rem' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.82rem', marginBottom: '0.35rem', color: 'var(--text-secondary)' }}>
+                    📅 วันที่รับเข้า
+                  </label>
+                  <input 
+                    type="date"
+                    value={editInboundFormData.date}
+                    onChange={(e) => setEditInboundFormData({ ...editInboundFormData, date: e.target.value })}
+                    style={{ width: '100%', padding: '0.55rem', borderRadius: '6px', background: 'var(--input-bg)', border: '1px solid var(--glass-border)', color: 'var(--text-primary)' }}
+                    required
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.82rem', marginBottom: '0.35rem', color: 'var(--text-secondary)' }}>
+                    📦 รายการสินค้า
+                  </label>
+                  <select
+                    value={editInboundFormData.itemName}
+                    onChange={(e) => {
+                      const selItem = (items || []).find(i => i.name === e.target.value);
+                      setEditInboundFormData({
+                        ...editInboundFormData,
+                        itemName: e.target.value,
+                        unit: selItem ? selItem.unit : editInboundFormData.unit
+                      });
+                    }}
+                    style={{ width: '100%', padding: '0.55rem', borderRadius: '6px', background: 'var(--input-bg)', border: '1px solid var(--glass-border)', color: 'var(--text-primary)' }}
+                    required
+                  >
+                    {(items || []).map(i => (
+                      <option key={i.name} value={i.name}>{i.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.82rem', marginBottom: '0.35rem', color: 'var(--accent-color)', fontWeight: 700 }}>
+                    🏷️ Supplier Lot (เลข Lot ผู้ผลิต)
+                  </label>
+                  <input 
+                    type="text"
+                    placeholder="เช่น TW-0010"
+                    value={editInboundFormData.supplierLot}
+                    onChange={(e) => setEditInboundFormData({ ...editInboundFormData, supplierLot: e.target.value })}
+                    style={{ width: '100%', padding: '0.55rem', borderRadius: '6px', background: 'var(--input-bg)', border: '1.5px solid var(--accent-color)', color: 'var(--text-primary)', fontWeight: 600 }}
+                    required
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.82rem', marginBottom: '0.35rem', color: 'var(--text-secondary)' }}>
+                    🧪 QC Lot (เลข Lot ภายใน)
+                  </label>
+                  <input 
+                    type="text"
+                    placeholder="เช่น LDWB 09/0669"
+                    value={editInboundFormData.inhouseLot}
+                    onChange={(e) => setEditInboundFormData({ ...editInboundFormData, inhouseLot: e.target.value })}
+                    style={{ width: '100%', padding: '0.55rem', borderRadius: '6px', background: 'var(--input-bg)', border: '1px solid var(--glass-border)', color: 'var(--text-primary)' }}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.82rem', marginBottom: '0.35rem', color: 'var(--text-secondary)' }}>
+                    🚦 สถานะ QC
+                  </label>
+                  <select
+                    value={editInboundFormData.qcStatus}
+                    onChange={(e) => setEditInboundFormData({ ...editInboundFormData, qcStatus: e.target.value })}
+                    style={{ width: '100%', padding: '0.55rem', borderRadius: '6px', background: 'var(--input-bg)', border: '1px solid var(--glass-border)', color: 'var(--text-primary)' }}
+                  >
+                    <option value="Quarantine">Quarantine</option>
+                    <option value="Pass">Pass</option>
+                    <option value="Reject">Reject</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.82rem', marginBottom: '0.35rem', color: 'var(--text-secondary)' }}>
+                    📦 Pack Size
+                  </label>
+                  <input 
+                    type="text"
+                    placeholder="เช่น 100/กล่อง"
+                    value={editInboundFormData.packSize}
+                    onChange={(e) => setEditInboundFormData({ ...editInboundFormData, packSize: e.target.value })}
+                    style={{ width: '100%', padding: '0.55rem', borderRadius: '6px', background: 'var(--input-bg)', border: '1px solid var(--glass-border)', color: 'var(--text-primary)' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.82rem', marginBottom: '0.35rem', color: 'var(--text-secondary)', fontWeight: 700 }}>
+                    📊 จำนวนรับเข้า ({editInboundFormData.unit})
+                  </label>
+                  <input 
+                    type="number"
+                    value={editInboundFormData.quantity}
+                    onChange={(e) => setEditInboundFormData({ ...editInboundFormData, quantity: e.target.value })}
+                    style={{ width: '100%', padding: '0.55rem', borderRadius: '6px', background: 'var(--input-bg)', border: '1.5px solid var(--success)', color: 'var(--text-primary)', fontWeight: 700 }}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '1rem' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.82rem', marginBottom: '0.35rem', color: 'var(--text-secondary)' }}>
+                    📄 สัญญาจัดซื้อ (Purchase Agreement)
+                  </label>
+                  <select
+                    value={editInboundFormData.agreementId}
+                    onChange={(e) => setEditInboundFormData({ ...editInboundFormData, agreementId: e.target.value })}
+                    style={{ width: '100%', padding: '0.55rem', borderRadius: '6px', background: 'var(--input-bg)', border: '1px solid var(--glass-border)', color: 'var(--text-primary)' }}
+                  >
+                    <option value="">-- ไม่มีสัญญา / ไม่ระบุ --</option>
+                    {(agreements || []).map(ag => (
+                      <option key={ag.id} value={ag.id}>
+                        {ag.id} ({ag.supplier || ag.vendorName || ''})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.82rem', marginBottom: '0.35rem', color: 'var(--text-secondary)' }}>
+                    📑 สถานะตรวจรับจัดซื้อ
+                  </label>
+                  <select
+                    value={editInboundFormData.acceptanceStatus}
+                    onChange={(e) => setEditInboundFormData({ ...editInboundFormData, acceptanceStatus: e.target.value })}
+                    disabled={!editInboundFormData.agreementId}
+                    style={{ width: '100%', padding: '0.55rem', borderRadius: '6px', background: 'var(--input-bg)', border: '1px solid var(--glass-border)', color: 'var(--text-primary)', cursor: !editInboundFormData.agreementId ? 'not-allowed' : 'pointer' }}
+                  >
+                    <option value="Pending">รอการตรวจรับ (Pending)</option>
+                    <option value="Accepted">ตรวจรับผ่าน (Accepted)</option>
+                    <option value="Rejected">ปฏิเสธการรับ (Rejected)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.82rem', marginBottom: '0.35rem', color: 'var(--text-secondary)' }}>
+                    📍 สถานที่จัดเก็บ
+                  </label>
+                  <input 
+                    type="text"
+                    placeholder="เช่น ชั้น 5 ตึกบริจาคโลหิต"
+                    value={editInboundFormData.location}
+                    onChange={(e) => setEditInboundFormData({ ...editInboundFormData, location: e.target.value })}
+                    style={{ width: '100%', padding: '0.55rem', borderRadius: '6px', background: 'var(--input-bg)', border: '1px solid var(--glass-border)', color: 'var(--text-primary)' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.82rem', marginBottom: '0.35rem', color: 'var(--text-secondary)' }}>
+                    📝 หมายเหตุ
+                  </label>
+                  <input 
+                    type="text"
+                    placeholder="หมายเหตุเพิ่มเติม"
+                    value={editInboundFormData.remarks}
+                    onChange={(e) => setEditInboundFormData({ ...editInboundFormData, remarks: e.target.value })}
+                    style={{ width: '100%', padding: '0.55rem', borderRadius: '6px', background: 'var(--input-bg)', border: '1px solid var(--glass-border)', color: 'var(--text-primary)' }}
+                  />
+                </div>
+              </div>
+
+              {/* Status summary info */}
+              <div style={{ background: 'rgba(255,255,255,0.03)', padding: '0.85rem', borderRadius: '8px', border: '1px solid var(--glass-border)', fontSize: '0.78rem', display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                <div style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>📊 ข้อมูลการตัดจ่ายปัจจุบันของ Lot นี้:</div>
+                <div style={{ display: 'flex', gap: '1.25rem', flexWrap: 'wrap' }}>
+                  <span>ยอดตัดจ่ายไปแล้ว: <strong>{((editingInboundLot.withdrawals || []).filter(w => !w.isCancelled).reduce((sum, w) => sum + Number(w.amount || 0), 0)).toLocaleString()} {editInboundFormData.unit}</strong></span>
+                  <span>ยอดรับคืนจากเคลม: <strong>{((editingInboundLot.claimReturns || []).reduce((sum, cr) => sum + Number(cr.returnedQty || 0), 0)).toLocaleString()} {editInboundFormData.unit}</strong></span>
+                  <span>คงเหลือคำนวณใหม่: <strong style={{ color: 'var(--success)' }}>{Math.max(0, Number(editInboundFormData.quantity || 0) - ((editingInboundLot.withdrawals || []).filter(w => !w.isCancelled).reduce((sum, w) => sum + Number(w.amount || 0), 0)) + ((editingInboundLot.claimReturns || []).reduce((sum, cr) => sum + Number(cr.returnedQty || 0), 0))).toLocaleString()} {editInboundFormData.unit}</strong></span>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', marginTop: '0.5rem' }}>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setEditingInboundLot(null)}
+                >
+                  ยกเลิก
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  style={{ background: 'var(--accent-color)', color: '#000', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+                >
+                  <Save size={16} /> บันทึกการแก้ไขข้อมูลทั้งหมด
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   );
