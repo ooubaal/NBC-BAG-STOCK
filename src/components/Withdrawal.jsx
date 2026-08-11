@@ -41,9 +41,9 @@ const AcceptanceBadge = ({ status }) => {
   );
 };
 
-const Withdrawal = ({ inventory, setInventory, items, agreements = [] }) => {
+const Withdrawal = ({ inventory = [], setInventory, items = [], agreements = [] }) => {
   const [withdrawalTab, setWithdrawalTab] = useState('new'); // 'new' or 'history'
-  const [selectedItem, setSelectedItem] = useState((items && items.length > 0) ? items[0].name : '');
+  const [selectedItem, setSelectedItem] = useState((items && items.length > 0 && items[0]) ? items[0].name : '');
   const [withdrawalDate, setWithdrawalDate] = useState(new Date().toISOString().split('T')[0]);
   const [selectedLotIds, setSelectedLotIds] = useState([]);
   const [lotWithdrawalAmounts, setLotWithdrawalAmounts] = useState({});
@@ -59,15 +59,18 @@ const Withdrawal = ({ inventory, setInventory, items, agreements = [] }) => {
 
   const recommendedItems = useMemo(() => {
     const activity = {};
-    items.forEach(it => {
-      activity[it.name] = {
-        name: it.name,
-        lastActiveTime: 0,
-        activityCount: 0
-      };
+    (items || []).forEach(it => {
+      if (it && it.name) {
+        activity[it.name] = {
+          name: it.name,
+          lastActiveTime: 0,
+          activityCount: 0
+        };
+      }
     });
     
-    inventory.forEach(invItem => {
+    (inventory || []).forEach(invItem => {
+      if (!invItem || !invItem.itemName) return;
       const name = invItem.itemName;
       if (!activity[name]) {
         activity[name] = { name, lastActiveTime: 0, activityCount: 0 };
@@ -81,6 +84,7 @@ const Withdrawal = ({ inventory, setInventory, items, agreements = [] }) => {
       if (invItem.withdrawals && invItem.withdrawals.length > 0) {
         activity[name].activityCount += invItem.withdrawals.length;
         invItem.withdrawals.forEach(w => {
+          if (!w) return;
           const wTime = w.date ? new Date(w.date).getTime() : 0;
           if (!isNaN(wTime) && wTime > activity[name].lastActiveTime) {
             activity[name].lastActiveTime = wTime;
@@ -99,14 +103,14 @@ const Withdrawal = ({ inventory, setInventory, items, agreements = [] }) => {
       .slice(0, 15);
   }, [inventory, items]);
 
-  const [historySearchQuery, setHistorySearchQuery] = useState('');
+  const [historySearch, setHistorySearch] = useState('');
   const [selectedHistoryIds, setSelectedHistoryIds] = useState([]);
   const [historyStartDate, setHistoryStartDate] = useState('');
   const [historyEndDate, setHistoryEndDate] = useState('');
   const [historyFilterItem, setHistoryFilterItem] = useState('All');
   const [historyFilterQC, setHistoryFilterQC] = useState('All');
   const [historyFilterLocation, setHistoryFilterLocation] = useState('All');
-  const [historyFilterContract, setHistoryFilterContract] = useState('All');
+  const [historyFilterAgreement, setHistoryFilterAgreement] = useState('All');
   const [historyFilterReason, setHistoryFilterReason] = useState('All');
   const [historySortType, setHistorySortType] = useState('date-desc');
 
@@ -2362,7 +2366,7 @@ const Withdrawal = ({ inventory, setInventory, items, agreements = [] }) => {
               />
             </div>
 
-            {(historySearch || historyStartDate || historyEndDate || historyFilterItem !== 'All' || historyFilterLocation !== 'All' || historyFilterReason !== 'All' || historySortType !== 'date-desc') && (
+            {(historySearch || historyStartDate || historyEndDate || historyFilterItem !== 'All' || historyFilterAgreement !== 'All' || historyFilterLocation !== 'All' || historyFilterReason !== 'All' || historySortType !== 'date-desc') && (
               <button 
                 className="btn btn-secondary" 
                 style={{ padding: '0.4rem 0.8rem', fontSize: '0.75rem' }}
@@ -2371,6 +2375,7 @@ const Withdrawal = ({ inventory, setInventory, items, agreements = [] }) => {
                   setHistoryStartDate('');
                   setHistoryEndDate('');
                   setHistoryFilterItem('All');
+                  setHistoryFilterAgreement('All');
                   setHistoryFilterLocation('All');
                   setHistoryFilterReason('All');
                   setHistorySortType('date-desc');
