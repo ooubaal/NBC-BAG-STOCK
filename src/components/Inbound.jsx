@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Plus, Trash2, Save, Printer, Copy, Search, Upload, Download } from 'lucide-react';
+import { Plus, Trash2, Save, Printer, Copy, Search, Upload, Download, RotateCcw, RefreshCw, AlertCircle, Calendar, MapPin, Check, FileText, CheckCircle2, PackageCheck, ArrowDownRight, Package, ShieldCheck, HelpCircle, ArrowRight, CornerDownRight } from 'lucide-react';
 import ExcelJS from 'exceljs';
 
 const SearchableSelect = ({ value, onChange, options, placeholder, disabled }) => {
@@ -134,7 +134,7 @@ const escapeHTML = (str) => {
 };
 
 const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
-  const [inboundTab, setInboundTab] = useState('draft'); // 'draft' or 'history'
+  const [inboundTab, setInboundTab] = useState('draft'); // 'draft', 'claim_return', or 'history'
   const [historySearch, setHistorySearch] = useState('');
   const [selectedHistoryIds, setSelectedHistoryIds] = useState([]);
   const [historyStartDate, setHistoryStartDate] = useState('');
@@ -145,40 +145,290 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
   const [historyFilterLocation, setHistoryFilterLocation] = useState('All');
   const [historyFilterContract, setHistoryFilterContract] = useState('All');
 
-  const uniqueHistoryItems = useMemo(() => {
-    const names = new Set();
-    if (Array.isArray(inventory)) {
-      inventory.forEach(item => {
-        if (item && item.itemName) names.add(item.itemName);
-      });
-    }
-    return Array.from(names).sort((a, b) => String(a).localeCompare(String(b), 'th'));
+  // Claim Return & Lot Top-Up states
+  const [selectedClaimLotId, setSelectedClaimLotId] = useState('');
+  const [claimReturnDate, setClaimReturnDate] = useState(new Date().toISOString().split('T')[0]);
+  const [claimReturnedQty, setClaimReturnedQty] = useState('');
+  const [claimDefectiveQty, setClaimDefectiveQty] = useState('');
+  const [claimLocation, setClaimLocation] = useState('');
+  const [claimOperator, setClaimOperator] = useState('');
+  const [claimNote, setClaimNote] = useState('');
+  const [syncContractAdjustment, setSyncContractAdjustment] = useState(true);
+  const [claimSearchFilter, setClaimSearchFilter] = useState('');
+  const [claimReturnSubTab, setClaimReturnSubTab] = useState('new'); // 'new' or 'history'
+  const [claimHistorySearch, setClaimHistorySearch] = useState('');
+
+  // Lots that can be topped up / returned from claim
+  const claimableLots = useMemo(() => {
+    return (inventory || []).filter(lot => {
+      if (!lot || lot.isCancelled) return false;
+      return true; // Any lot in inventory can receive returns / replenish
+    });
   }, [inventory]);
 
-  const uniqueHistoryLocations = useMemo(() => {
-    const locs = new Set();
-    if (Array.isArray(inventory)) {
-      inventory.forEach(item => {
-        if (item && item.location) locs.add(item.location);
-      });
+  const filteredClaimableLots = useMemo(() => {
+    if (!claimSearchFilter.trim()) return claimableLots;
+    const q = claimSearchFilter.toLowerCase().trim();
+    return claimableLots.filter(l => 
+      (l.itemName && l.itemName.toLowerCase().includes(q)) ||
+      (l.supplierLot && l.supplierLot.toLowerCase().includes(q)) ||
+      (l.inhouseLot && l.inhouseLot.toLowerCase().includes(q)) ||
+      (l.agreementId && l.agreementId.toLowerCase().includes(q)) ||
+      (l.location && l.location.toLowerCase().includes(q))
+    );
+  }, [claimableLots, claimSearchFilter]);
+
+  const selectedLotForClaim = useMemo(() => {
+    if (!selectedClaimLotId) return null;
+    return (inventory || []).find(l => String(l.id) === String(selectedClaimLotId));
+  }, [inventory, selectedClaimLotId]);
+
+  const lotClaimStats = useMemo(() => {
+    if (!selectedLotForClaim) return { totalClaimed: 0, totalWithdrawn: 0, totalPreviouslyReturned: 0, totalDefective: 0, pendingClaimReturn: 0 };
+    const claimWithdrawals = (selectedLotForClaim.withdrawals || []).filter(w => !w.isCancelled && (w.reason || '').includes('เคลม'));
+    const totalClaimed = claimWithdrawals.reduce((sum, w) => sum + Number(w.amount || 0), 0);
+    const allWithdrawals = (selectedLotForClaim.withdrawals || []).filter(w => !w.isCancelled);
+    const totalWithdrawn = allWithdrawals.reduce((sum, w) => sum + Number(w.amount || 0), 0);
+    const prevReturns = (selectedLotForClaim.claimReturns || []);
+    const totalPreviouslyReturned = prevReturns.reduce((sum, cr) => sum + Number(cr.returnedQty || 0), 0);
+    const totalDefective = prevReturns.reduce((sum, cr) => sum + Number(cr.defectiveQty || 0), 0);
+    const baseTarget = totalClaimed > 0 ? totalClaimed : totalWithdrawn;
+    const pendingClaimReturn = Math.max(0, baseTarget - totalPreviouslyReturned - totalDefective);
+    return {
+      totalClaimed,
+      totalWithdrawn,
+      totalPreviouslyReturned,
+      totalDefective,
+      pendingClaimReturn
+    };
+  }, [selectedLotForClaim]);
+
+  // Handle lot selection for claim return
+  const handleSelectLotForClaim = (lotId) => {
+    setSelectedClaimLotId(lotId);
+    const targetLot = (inventory || []).find(l => String(l.id) === String(lotId));
+    if (targetLot) {
+      setClaimLocation(targetLot.location || '');
+      const claimWithdrawals = (targetLot.withdrawals || []).filter(w => !w.isCancelled && (w.reason || '').includes('เคลม'));
+      const totalClaimed = claimWithdrawals.reduce((sum, w) => sum + Number(w.amount || 0), 0);
+      const allWithdrawals = (targetLot.withdrawals || []).filter(w => !w.isCancelled);
+      const totalWithdrawn = allWithdrawals.reduce((sum, w) => sum + Number(w.amount || 0), 0);
+      const prevReturns = (targetLot.claimReturns || []);
+      const totalPrev = prevReturns.reduce((sum, cr) => sum + Number(cr.returnedQty || 0), 0) + prevReturns.reduce((sum, cr) => sum + Number(cr.defectiveQty || 0), 0);
+      const defaultPending = Math.max(0, (totalClaimed > 0 ? totalClaimed : totalWithdrawn) - totalPrev);
+      if (defaultPending > 0) {
+        setClaimReturnedQty(String(defaultPending));
+        setClaimDefectiveQty('0');
+      } else {
+        setClaimReturnedQty('');
+        setClaimDefectiveQty('0');
+      }
     }
-    return Array.from(locs).sort((a, b) => String(a).localeCompare(String(b), 'th'));
+  };
+
+  const handleReturnedQtyChange = (val) => {
+    setClaimReturnedQty(val);
+    const num = Number(val) || 0;
+    if (lotClaimStats.pendingClaimReturn > 0) {
+      const diff = Math.max(0, lotClaimStats.pendingClaimReturn - num);
+      setClaimDefectiveQty(String(diff));
+    }
+  };
+
+  const handleSaveClaimReturn = (e) => {
+    if (e) e.preventDefault();
+    if (!selectedLotForClaim) {
+      alert("กรุณาเลือก Lot ที่ต้องการทำรายการรับคืน");
+      return;
+    }
+    const returnQtyNum = Number(claimReturnedQty) || 0;
+    const defectiveQtyNum = Number(claimDefectiveQty) || 0;
+
+    if (returnQtyNum <= 0 && defectiveQtyNum <= 0) {
+      alert("กรุณาระบุจำนวนของดีที่รับคืน หรือจำนวนของเสียที่ตัดทิ้ง (ต้องมากกว่า 0)");
+      return;
+    }
+
+    const newClaimReturnRecord = {
+      id: `CR-${Date.now().toString().slice(-6)}`,
+      date: claimReturnDate,
+      returnedQty: returnQtyNum,
+      defectiveQty: defectiveQtyNum,
+      location: claimLocation || selectedLotForClaim.location,
+      operator: claimOperator || '',
+      note: claimNote || '',
+      createdAt: new Date().toISOString(),
+      syncContractAdjustment: syncContractAdjustment
+    };
+
+    setInventory(prev => prev.map(lot => {
+      if (String(lot.id) === String(selectedLotForClaim.id)) {
+        const currentRem = Number(lot.remainingQty || 0);
+        const newRem = currentRem + returnQtyNum;
+        const currentReturns = lot.claimReturns || [];
+        return {
+          ...lot,
+          remainingQty: newRem,
+          location: claimLocation ? claimLocation : lot.location,
+          claimReturns: [...currentReturns, newClaimReturnRecord]
+        };
+      }
+      return lot;
+    }));
+
+    alert(`บันทึกการรับคืนพัสดุสำเร็จ!\n- รับของดีเข้าสต็อก: +${returnQtyNum.toLocaleString()} ${selectedLotForClaim.unit || 'ชิ้น'}\n- ปรับตัดของเสีย: ${defectiveQtyNum.toLocaleString()} ${selectedLotForClaim.unit || 'ชิ้น'}${syncContractAdjustment && selectedLotForClaim.agreementId ? `\n- ปรับปรุงยอดสัญญา ${selectedLotForClaim.agreementId} เรียบร้อยแล้ว` : ''}`);
+
+    // Reset inputs
+    setClaimReturnedQty('');
+    setClaimDefectiveQty('');
+    setClaimNote('');
+    setClaimOperator('');
+    setSelectedClaimLotId('');
+    setClaimReturnSubTab('history');
+  };
+
+  const allClaimReturnHistory = useMemo(() => {
+    const list = [];
+    (inventory || []).forEach(lot => {
+      if (lot && lot.claimReturns && lot.claimReturns.length > 0) {
+        lot.claimReturns.forEach(cr => {
+          list.push({
+            ...cr,
+            lotId: lot.id,
+            itemName: lot.itemName,
+            supplierLot: lot.supplierLot,
+            inhouseLot: lot.inhouseLot,
+            unit: lot.unit || 'ชิ้น',
+            agreementId: lot.agreementId || '',
+            originalLotQty: lot.quantity,
+            currentLotRemaining: lot.remainingQty
+          });
+        });
+      }
+    });
+    return list.sort((a, b) => (b.date || '').localeCompare(a.date || '') || String(b.id || '').localeCompare(String(a.id || '')));
   }, [inventory]);
 
-  const uniqueHistoryContracts = useMemo(() => {
-    const contracts = new Set();
-    if (Array.isArray(inventory)) {
-      inventory.forEach(item => {
-        if (item && item.agreementId) {
-          contracts.add(item.agreementId);
-        }
-      });
+  const filteredClaimReturnHistory = useMemo(() => {
+    if (!claimHistorySearch.trim()) return allClaimReturnHistory;
+    const q = claimHistorySearch.toLowerCase().trim();
+    return allClaimReturnHistory.filter(h => 
+      (h.id && h.id.toLowerCase().includes(q)) ||
+      (h.itemName && h.itemName.toLowerCase().includes(q)) ||
+      (h.supplierLot && h.supplierLot.toLowerCase().includes(q)) ||
+      (h.inhouseLot && h.inhouseLot.toLowerCase().includes(q)) ||
+      (h.agreementId && h.agreementId.toLowerCase().includes(q)) ||
+      (h.operator && h.operator.toLowerCase().includes(q)) ||
+      (h.note && h.note.toLowerCase().includes(q))
+    );
+  }, [allClaimReturnHistory, claimHistorySearch]);
+
+  const printClaimReturnSlip = (record) => {
+    const printWindow = window.open('', '_blank', 'width=900,height=700');
+    if (!printWindow) {
+      alert("กรุณาอนุญาตให้เบราว์เซอร์เปิด Pop-up เพื่อพิมพ์เอกสาร");
+      return;
     }
-    return Array.from(contracts).sort((a, b) => String(a).localeCompare(String(b)));
-  }, [inventory]);
+    const html = `
+      <html>
+        <head>
+          <title>ใบรับคืนพัสดุจากการเคลม / เติมสต็อก - NBC Stock</title>
+          <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&display=swap" rel="stylesheet">
+          <style>
+            @page { size: A4; margin: 15mm; }
+            body { font-family: 'Sarabun', sans-serif; padding: 20px; color: #1f2937; line-height: 1.5; font-size: 13px; }
+            .header { display: flex; justify-content: space-between; border-bottom: 2px solid #0284c7; padding-bottom: 10px; margin-bottom: 20px; }
+            .title { font-size: 20px; font-weight: 700; color: #0284c7; }
+            table { width: 100%; border-collapse: collapse; margin-top: 15px; margin-bottom: 25px; }
+            th, td { border: 1px solid #cbd5e1; padding: 10px 12px; text-align: left; }
+            th { background-color: #f8fafc; font-weight: 600; }
+            .highlight { background-color: #f0fdf4; font-weight: 700; color: #15803d; }
+            .danger-text { color: #b91c1c; font-weight: 700; }
+            .signatures { margin-top: 50px; display: flex; justify-content: space-between; }
+            .sig-box { width: 40%; text-align: center; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div>
+              <div class="title">ใบรับคืนพัสดุจากการตัดเคลม (Claim Return Slip)</div>
+              <div style="color: #64748b; font-size: 12px;">ศูนย์บริการโลหิตแห่งชาติ สภากาชาดไทย (NBC Stock)</div>
+            </div>
+            <div style="text-align: right;">
+              <div><strong>เลขที่เอกสาร:</strong> ${record.id}</div>
+              <div><strong>วันที่รับคืน:</strong> ${record.date}</div>
+            </div>
+          </div>
+          
+          <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 12px; margin-bottom: 15px;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+              <div><strong>รายการพัสดุ:</strong> ${escapeHTML(record.itemName)}</div>
+              <div><strong>เลขที่สัญญาจัดซื้อ:</strong> ${escapeHTML(record.agreementId || '-')}</div>
+              <div><strong>Supplier Lot:</strong> ${escapeHTML(record.supplierLot)}</div>
+              <div><strong>QC Lot:</strong> ${escapeHTML(record.inhouseLot || '-')}</div>
+              <div><strong>สถานที่จัดเก็บ:</strong> ${escapeHTML(record.location || '-')}</div>
+              <div><strong>ผู้ตรวจรับ/ผู้บันทึก:</strong> ${escapeHTML(record.operator || '-')}</div>
+            </div>
+          </div>
 
+          <table>
+            <thead>
+              <tr>
+                <th>รายละเอียด</th>
+                <th style="text-align: right; width: 25%;">จำนวน</th>
+                <th style="width: 15%;">หน่วย</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>ยอดรับเข้าคลังครั้งแรกเดิม (Original Inbound Qty)</td>
+                <td style="text-align: right;">${(record.originalLotQty || 0).toLocaleString()}</td>
+                <td>${escapeHTML(record.unit)}</td>
+              </tr>
+              <tr class="highlight">
+                <td><strong>✅ จำนวนของดีที่รับกลับเข้าคลัง (+สต็อกพร้อมใช้)</strong></td>
+                <td style="text-align: right; font-size: 15px;">+${(record.returnedQty || 0).toLocaleString()}</td>
+                <td>${escapeHTML(record.unit)}</td>
+              </tr>
+              <tr>
+                <td><span class="danger-text">❌ จำนวนของเสีย/เคลมทิ้ง ไม่ส่งกลับ (-หักลดยอดตรวจรับสัญญา)</span></td>
+                <td style="text-align: right;" class="danger-text">-${(record.defectiveQty || 0).toLocaleString()}</td>
+                <td>${escapeHTML(record.unit)}</td>
+              </tr>
+              <tr>
+                <td><strong>📦 ยอดคงเหลือพร้อมใช้ในคลังปัจจุบัน (Current Stock on Hand)</strong></td>
+                <td style="text-align: right; font-weight: 700;">${(record.currentLotRemaining || 0).toLocaleString()}</td>
+                <td>${escapeHTML(record.unit)}</td>
+              </tr>
+            </tbody>
+          </table>
 
+          ${record.note ? `<p><strong>หมายเหตุ:</strong> ${escapeHTML(record.note)}</p>` : ''}
 
+          <div class="signatures">
+            <div class="sig-box">
+              <br><br>
+              <p>____________________________________</p>
+              <p><strong>ผู้ส่งมอบ / ตัวแทน Supplier</strong></p>
+              <p>วันที่: ...... / ...... / ......</p>
+            </div>
+            <div class="sig-box">
+              <br><br>
+              <p>____________________________________</p>
+              <p><strong>ผู้รับมอบ / เจ้าหน้าที่คลังพัสดุ</strong></p>
+              <p>วันที่: ...... / ...... / ......</p>
+            </div>
+          </div>
+        </body>
+      </html>
+    `;
+    printWindow.document.write(html);
+    printWindow.document.close();
+    setTimeout(() => {
+      printWindow.focus();
+      printWindow.print();
+    }, 400);
+  };
 
   const getLatestInhouseLot = (itemName) => {
     if (!itemName) return '-';
@@ -2154,7 +2404,24 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
           }}
           onClick={() => setInboundTab('draft')}
         >
-          ทำรายการรับเข้าพัสดุ
+          ทำรายการรับเข้าพัสดุ (Lot ใหม่)
+        </button>
+        <button 
+          className="btn" 
+          style={{ 
+            background: inboundTab === 'claim_return' ? 'var(--success)' : 'transparent', 
+            color: inboundTab === 'claim_return' ? '#fff' : 'var(--text-secondary)',
+            fontSize: '0.85rem',
+            padding: '0.5rem 1rem',
+            borderRadius: '6px',
+            fontWeight: 700,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.35rem'
+          }}
+          onClick={() => setInboundTab('claim_return')}
+        >
+          <RotateCcw size={15} /> รับคืนจากการเคลม / เติม Lot เดิม
         </button>
         <button 
           className="btn" 
@@ -2438,6 +2705,404 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
             </table>
           </div>
         </>
+      ) : inboundTab === 'claim_return' ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+          <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: '1rem' }}>
+            <div>
+              <h1 className="page-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <RotateCcw size={26} color="var(--success)" /> รับคืนจากการตัดเคลม / เติมสต็อก Lot เดิม
+              </h1>
+              <p className="page-subtitle">บันทึกรับของดีที่ Supplier ส่งกลับคืนจากการเคลม NCP พร้อมปรับปรุงยอดคงเหลือและสัญญาจัดซื้ออัตโนมัติ</p>
+            </div>
+            <div style={{ display: 'flex', gap: '0.5rem', background: 'rgba(255,255,255,0.03)', padding: '0.35rem', borderRadius: '8px', border: '1px solid var(--glass-border)' }}>
+              <button
+                className="btn"
+                style={{
+                  background: claimReturnSubTab === 'new' ? 'var(--success)' : 'transparent',
+                  color: claimReturnSubTab === 'new' ? '#fff' : 'var(--text-secondary)',
+                  fontSize: '0.8rem',
+                  padding: '0.4rem 0.8rem',
+                  borderRadius: '6px',
+                  fontWeight: 700
+                }}
+                onClick={() => setClaimReturnSubTab('new')}
+              >
+                ➕ บันทึกรับคืนใหม่
+              </button>
+              <button
+                className="btn"
+                style={{
+                  background: claimReturnSubTab === 'history' ? 'var(--accent-secondary)' : 'transparent',
+                  color: claimReturnSubTab === 'history' ? '#fff' : 'var(--text-secondary)',
+                  fontSize: '0.8rem',
+                  padding: '0.4rem 0.8rem',
+                  borderRadius: '6px',
+                  fontWeight: 700
+                }}
+                onClick={() => setClaimReturnSubTab('history')}
+              >
+                📋 ประวัติการรับคืน ({allClaimReturnHistory.length})
+              </button>
+            </div>
+          </div>
+
+          {claimReturnSubTab === 'new' ? (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
+              {/* Step 1: Selection */}
+              <div className="glass card">
+                <h3 style={{ marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <Search size={20} color="var(--accent-color)" /> 1. เลือก Lot ที่ตัดเคลม / ต้องการเติมสต็อก
+                </h3>
+                
+                <div style={{ marginBottom: '1rem' }}>
+                  <input 
+                    type="text"
+                    placeholder="🔍 ค้นหาตามชื่อสินค้า, Supplier Lot, QC Lot, เลขสัญญา..."
+                    value={claimSearchFilter}
+                    onChange={(e) => setClaimSearchFilter(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '0.55rem 0.75rem',
+                      fontSize: '0.85rem',
+                      background: 'var(--glass-bg)',
+                      border: '1px solid var(--glass-border)',
+                      borderRadius: '8px',
+                      color: 'var(--text-primary)',
+                      outline: 'none'
+                    }}
+                  />
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', maxHeight: '550px', overflowY: 'auto', paddingRight: '0.25rem' }}>
+                  {filteredClaimableLots.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                      <Package size={36} style={{ opacity: 0.3, marginBottom: '0.5rem' }} />
+                      <p>ไม่พบรายการ Lot ในคลัง</p>
+                    </div>
+                  ) : (
+                    filteredClaimableLots.map(lot => {
+                      const isSelected = String(lot.id) === String(selectedClaimLotId);
+                      const claimWithdrawals = (lot.withdrawals || []).filter(w => !w.isCancelled && (w.reason || '').includes('เคลม'));
+                      const lotClaimedQty = claimWithdrawals.reduce((sum, w) => sum + Number(w.amount || 0), 0);
+                      const hasClaim = lotClaimedQty > 0;
+
+                      return (
+                        <div
+                          key={lot.id}
+                          onClick={() => handleSelectLotForClaim(lot.id)}
+                          style={{
+                            padding: '0.85rem 1rem',
+                            background: isSelected ? 'rgba(16, 185, 129, 0.12)' : 'rgba(255, 255, 255, 0.02)',
+                            border: isSelected ? '1.5px solid var(--success)' : '1px solid var(--glass-border)',
+                            borderRadius: '8px',
+                            cursor: 'pointer',
+                            transition: 'all 0.15s ease',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            gap: '0.75rem'
+                          }}
+                        >
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontWeight: 700, fontSize: '0.88rem', color: 'var(--text-primary)', marginBottom: '0.2rem' }}>
+                              📦 {lot.itemName}
+                            </div>
+                            <div style={{ display: 'flex', gap: '0.6rem', fontSize: '0.75rem', color: 'var(--text-secondary)', flexWrap: 'wrap' }}>
+                              <span><strong>Lot:</strong> {lot.supplierLot}</span>
+                              <span><strong>QC:</strong> {lot.inhouseLot || '-'}</span>
+                              {lot.agreementId && (
+                                <span style={{ color: 'var(--accent-color)' }}><strong>สัญญา:</strong> {lot.agreementId}</span>
+                              )}
+                            </div>
+                            <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.35rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                              {hasClaim ? (
+                                <span style={{ fontSize: '0.68rem', fontWeight: 700, padding: '0.1rem 0.45rem', borderRadius: '4px', background: 'rgba(239, 68, 68, 0.15)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.3)' }}>
+                                  ⚠️ ตัดเคลมไป {lotClaimedQty.toLocaleString()} {lot.unit || 'ชิ้น'}
+                                </span>
+                              ) : null}
+                              <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
+                                📍 {lot.location || '-'}
+                              </span>
+                            </div>
+                          </div>
+                          <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>คงเหลือปัจจุบัน</div>
+                            <div style={{ fontSize: '1rem', fontWeight: 800, color: Number(lot.remainingQty) > 0 ? 'var(--success)' : 'var(--text-muted)' }}>
+                              {Number(lot.remainingQty || 0).toLocaleString()}
+                            </div>
+                            <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>{lot.unit || 'ชิ้น'}</div>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+
+              {/* Step 2: Return Details Form */}
+              <div className="glass card">
+                <h3 style={{ marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <RotateCcw size={20} color="var(--success)" /> 2. รายละเอียดการรับคืนและปรับปรุงสต็อก
+                </h3>
+
+                {selectedLotForClaim ? (
+                  <form onSubmit={handleSaveClaimReturn} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                    {/* Lot Summary Box */}
+                    <div style={{ background: 'rgba(16, 185, 129, 0.05)', border: '1px solid rgba(16, 185, 129, 0.2)', borderRadius: '8px', padding: '1rem' }}>
+                      <div style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '0.5rem' }}>
+                        📦 {selectedLotForClaim.itemName}
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.5rem', fontSize: '0.78rem' }}>
+                        <div>
+                          <span style={{ color: 'var(--text-muted)' }}>Supplier Lot:</span>
+                          <div style={{ fontWeight: 700 }}>{selectedLotForClaim.supplierLot}</div>
+                        </div>
+                        <div>
+                          <span style={{ color: 'var(--text-muted)' }}>QC Lot:</span>
+                          <div style={{ fontWeight: 700 }}>{selectedLotForClaim.inhouseLot || '-'}</div>
+                        </div>
+                        <div>
+                          <span style={{ color: 'var(--text-muted)' }}>เลขสัญญา:</span>
+                          <div style={{ fontWeight: 700, color: 'var(--accent-color)' }}>{selectedLotForClaim.agreementId || '-'}</div>
+                        </div>
+                        <div>
+                          <span style={{ color: 'var(--text-muted)' }}>ยอดรับเข้าเดิม:</span>
+                          <div style={{ fontWeight: 700 }}>{Number(selectedLotForClaim.quantity || 0).toLocaleString()} {selectedLotForClaim.unit}</div>
+                        </div>
+                        <div>
+                          <span style={{ color: '#ef4444' }}>ยอดตัดเคลมไป:</span>
+                          <div style={{ fontWeight: 700, color: '#ef4444' }}>{lotClaimStats.totalClaimed.toLocaleString()} {selectedLotForClaim.unit}</div>
+                        </div>
+                        <div>
+                          <span style={{ color: 'var(--success)' }}>คงเหลือในคลังตอนนี้:</span>
+                          <div style={{ fontWeight: 700, color: 'var(--success)' }}>{Number(selectedLotForClaim.remainingQty || 0).toLocaleString()} {selectedLotForClaim.unit}</div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Form Inputs */}
+                    <div>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.85rem', marginBottom: '0.4rem', color: 'var(--text-secondary)' }}>
+                        <Calendar size={14} /> วันที่รับคืนสินค้าเข้าคลัง
+                      </label>
+                      <input 
+                        type="date"
+                        value={claimReturnDate}
+                        onChange={(e) => setClaimReturnDate(e.target.value)}
+                        style={{ width: '100%', padding: '0.55rem', borderRadius: '6px', background: 'var(--input-bg)', border: '1px solid var(--glass-border)', color: 'var(--text-primary)' }}
+                      />
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '0.4rem', color: 'var(--success)', fontWeight: 700 }}>
+                          ✅ จำนวนของดีที่รับคืน (+เข้าคลัง)
+                        </label>
+                        <div style={{ position: 'relative' }}>
+                          <input 
+                            type="number"
+                            placeholder="0"
+                            value={claimReturnedQty}
+                            onChange={(e) => handleReturnedQtyChange(e.target.value)}
+                            style={{ width: '100%', padding: '0.65rem', paddingRight: '3.5rem', borderRadius: '6px', background: 'var(--input-bg)', border: '1.5px solid var(--success)', color: 'var(--text-primary)', fontSize: '1.05rem', fontWeight: 700 }}
+                          />
+                          <div style={{ position: 'absolute', right: '0.75rem', top: '50%', transform: 'translateY(-50%)', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                            {selectedLotForClaim.unit || 'ชิ้น'}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '0.4rem', color: 'var(--danger)', fontWeight: 700 }}>
+                          ❌ จำนวนของเสีย/เคลมทิ้ง (-สัญญา)
+                        </label>
+                        <div style={{ position: 'relative' }}>
+                          <input 
+                            type="number"
+                            placeholder="0"
+                            value={claimDefectiveQty}
+                            onChange={(e) => setClaimDefectiveQty(e.target.value)}
+                            style={{ width: '100%', padding: '0.65rem', paddingRight: '3.5rem', borderRadius: '6px', background: 'var(--input-bg)', border: '1px solid var(--danger)', color: 'var(--danger)', fontSize: '1.05rem', fontWeight: 700 }}
+                          />
+                          <div style={{ position: 'absolute', right: '0.75rem', top: '50%', transform: 'translateY(-50%)', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                            {selectedLotForClaim.unit || 'ชิ้น'}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '0.4rem', color: 'var(--text-secondary)' }}>
+                          📍 สถานที่จัดเก็บ
+                        </label>
+                        <input 
+                          type="text"
+                          placeholder="เช่น ชั้น 5 ตึกบริจาคโลหิต"
+                          value={claimLocation}
+                          onChange={(e) => setClaimLocation(e.target.value)}
+                          style={{ width: '100%', padding: '0.55rem', borderRadius: '6px', background: 'var(--input-bg)', border: '1px solid var(--glass-border)', color: 'var(--text-primary)' }}
+                        />
+                      </div>
+
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '0.4rem', color: 'var(--text-secondary)' }}>
+                          👤 ผู้รับของ / ผู้บันทึก
+                        </label>
+                        <input 
+                          type="text"
+                          placeholder="ชื่อผู้รับของหรือเจ้าหน้าที่"
+                          value={claimOperator}
+                          onChange={(e) => setClaimOperator(e.target.value)}
+                          style={{ width: '100%', padding: '0.55rem', borderRadius: '6px', background: 'var(--input-bg)', border: '1px solid var(--glass-border)', color: 'var(--text-primary)' }}
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '0.4rem', color: 'var(--text-secondary)' }}>
+                        📝 หมายเหตุ / สาเหตุการคัดคืน
+                      </label>
+                      <textarea 
+                        rows="2"
+                        placeholder="เช่น Supplier นำไปคัดแยก พบว่าชำรุด 40,000 ชิ้น จึงนำส่งของดีคืน 60,000 ชิ้น"
+                        value={claimNote}
+                        onChange={(e) => setClaimNote(e.target.value)}
+                        style={{ width: '100%', padding: '0.55rem', borderRadius: '6px', background: 'var(--input-bg)', border: '1px solid var(--glass-border)', color: 'var(--text-primary)', outline: 'none' }}
+                      />
+                    </div>
+
+                    {selectedLotForClaim.agreementId && (
+                      <div style={{ background: 'rgba(245, 158, 11, 0.08)', border: '1px solid rgba(245, 158, 11, 0.25)', borderRadius: '8px', padding: '0.85rem', display: 'flex', alignItems: 'flex-start', gap: '0.6rem' }}>
+                        <input 
+                          type="checkbox"
+                          id="syncContractCheckbox"
+                          checked={syncContractAdjustment}
+                          onChange={(e) => setSyncContractAdjustment(e.target.checked)}
+                          style={{ marginTop: '0.2rem', cursor: 'pointer' }}
+                        />
+                        <label htmlFor="syncContractCheckbox" style={{ fontSize: '0.8rem', color: 'var(--text-primary)', cursor: 'pointer', lineHeight: '1.4' }}>
+                          <strong>ปรับปรุงยอดสัญญาจัดซื้ออัตโนมัติ:</strong> ปรับลดยอดตรวจรับในสัญญา <strong>{selectedLotForClaim.agreementId}</strong> ตามจำนวนของเสียที่คัดทิ้ง (-{Number(claimDefectiveQty || 0).toLocaleString()} {selectedLotForClaim.unit}) เพื่อให้ยอดค้างส่งในสัญญาเพิ่มขึ้น รอ Supplier ส่งของดีมาชดเชยให้ครบ
+                        </label>
+                      </div>
+                    )}
+
+                    <button
+                      type="submit"
+                      className="btn btn-primary"
+                      style={{
+                        background: 'var(--success)',
+                        color: '#fff',
+                        padding: '0.85rem',
+                        fontSize: '0.95rem',
+                        fontWeight: 700,
+                        justifyContent: 'center',
+                        borderRadius: '8px',
+                        border: 'none',
+                        cursor: 'pointer',
+                        marginTop: '0.5rem'
+                      }}
+                    >
+                      <CheckCircle2 size={18} /> ยืนยันบันทึกรับคืนเข้าคลังและปรับปรุงยอด
+                    </button>
+                  </form>
+                ) : (
+                  <div style={{ height: '100%', minHeight: '350px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>
+                    <AlertCircle size={48} style={{ opacity: 0.2, marginBottom: '1rem' }} />
+                    <p>กรุณาเลือก Lot จากรายการด้านซ้ายเพื่อทำรายการรับคืน</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : (
+            /* Claim Return History Sub-tab */
+            <div className="glass card">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '1rem' }}>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700 }}>ประวัติการรับคืนสินค้าจากการตัดเคลม</h3>
+                  <p style={{ margin: '0.2rem 0 0 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>รายการรับคืนและปรับปรุงสต็อกจากการเคลมทั้งหมดในระบบ</p>
+                </div>
+                <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+                  <div style={{ position: 'relative', width: '280px' }}>
+                    <Search size={16} color="var(--text-muted)" style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)' }} />
+                    <input 
+                      type="text"
+                      placeholder="ค้นหาประวัติรับคืน..."
+                      value={claimHistorySearch}
+                      onChange={(e) => setClaimHistorySearch(e.target.value)}
+                      style={{ width: '100%', padding: '0.45rem 0.5rem 0.45rem 2rem', fontSize: '0.8rem', background: 'var(--input-bg)', border: '1px solid var(--glass-border)', borderRadius: '6px', color: 'var(--text-primary)' }}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem', minWidth: '850px' }}>
+                  <thead>
+                    <tr style={{ textAlign: 'left', borderBottom: '1px solid var(--glass-border)', color: 'var(--text-muted)' }}>
+                      <th style={{ padding: '0.75rem 0.5rem' }}>เลขที่เอกสาร</th>
+                      <th style={{ padding: '0.75rem 0.5rem' }}>วันที่รับคืน</th>
+                      <th style={{ padding: '0.75rem 0.5rem' }}>รายการพัสดุ</th>
+                      <th style={{ padding: '0.75rem 0.5rem' }}>S/N Lot / QC Lot</th>
+                      <th style={{ padding: '0.75rem 0.5rem' }}>เลขสัญญา</th>
+                      <th style={{ padding: '0.75rem 0.5rem', textAlign: 'right', color: 'var(--success)' }}>รับคืน (+เข้าคลัง)</th>
+                      <th style={{ padding: '0.75rem 0.5rem', textAlign: 'right', color: 'var(--danger)' }}>ของเสีย (-สัญญา)</th>
+                      <th style={{ padding: '0.75rem 0.5rem' }}>ที่เก็บ / ผู้บันทึก</th>
+                      <th style={{ padding: '0.75rem 0.5rem', textAlign: 'center' }}>จัดการ</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredClaimReturnHistory.length === 0 ? (
+                      <tr>
+                        <td colSpan="9" style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
+                          ยังไม่มีประวัติการรับคืนพัสดุจากการตัดเคลม
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredClaimReturnHistory.map(h => (
+                        <tr key={h.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
+                          <td style={{ padding: '0.65rem 0.5rem', fontWeight: 600, color: 'var(--accent-secondary)' }}>{h.id}</td>
+                          <td style={{ padding: '0.65rem 0.5rem' }}>{h.date}</td>
+                          <td style={{ padding: '0.65rem 0.5rem', fontWeight: 600 }}>{h.itemName}</td>
+                          <td style={{ padding: '0.65rem 0.5rem' }}>
+                            <div>{h.supplierLot}</div>
+                            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{h.inhouseLot || '-'}</div>
+                          </td>
+                          <td style={{ padding: '0.65rem 0.5rem' }}>
+                            {h.agreementId ? (
+                              <span style={{ color: 'var(--accent-color)', fontWeight: 600 }}>{h.agreementId}</span>
+                            ) : (
+                              <span style={{ color: 'var(--text-muted)' }}>-</span>
+                            )}
+                          </td>
+                          <td style={{ padding: '0.65rem 0.5rem', textAlign: 'right', fontWeight: 800, color: 'var(--success)' }}>
+                            +{Number(h.returnedQty || 0).toLocaleString()} <span style={{ fontSize: '0.72rem', fontWeight: 400 }}>{h.unit}</span>
+                          </td>
+                          <td style={{ padding: '0.65rem 0.5rem', textAlign: 'right', fontWeight: 700, color: Number(h.defectiveQty || 0) > 0 ? 'var(--danger)' : 'var(--text-muted)' }}>
+                            {Number(h.defectiveQty || 0) > 0 ? `-${Number(h.defectiveQty).toLocaleString()}` : '0'} <span style={{ fontSize: '0.72rem', fontWeight: 400 }}>{h.unit}</span>
+                          </td>
+                          <td style={{ padding: '0.65rem 0.5rem' }}>
+                            <div>{h.location || '-'}</div>
+                            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{h.operator || '-'}</div>
+                          </td>
+                          <td style={{ padding: '0.65rem 0.5rem', textAlign: 'center' }}>
+                            <button 
+                              className="btn btn-secondary"
+                              onClick={() => printClaimReturnSlip(h)}
+                              style={{ padding: '0.35rem 0.65rem', fontSize: '0.75rem', background: 'rgba(16, 185, 129, 0.1)', color: '#10b981', border: '1px solid rgba(16, 185, 129, 0.25)' }}
+                            >
+                              <Printer size={13} /> พิมพ์ใบรับคืน (PDF)
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
       ) : (
         <>
           <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>

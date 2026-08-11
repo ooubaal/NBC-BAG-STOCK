@@ -88,7 +88,7 @@ const Withdrawal = ({ inventory, setInventory, items, agreements = [] }) => {
         });
       }
     });
-    
+
     return Object.values(activity)
       .sort((a, b) => {
         if (b.lastActiveTime !== a.lastActiveTime) {
@@ -98,19 +98,85 @@ const Withdrawal = ({ inventory, setInventory, items, agreements = [] }) => {
       })
       .slice(0, 15);
   }, [inventory, items]);
-  
-  // History search and selection states
-  const [historySearch, setHistorySearch] = useState('');
+
+  const [historySearchQuery, setHistorySearchQuery] = useState('');
   const [selectedHistoryIds, setSelectedHistoryIds] = useState([]);
   const [historyStartDate, setHistoryStartDate] = useState('');
   const [historyEndDate, setHistoryEndDate] = useState('');
-  const [historySortType, setHistorySortType] = useState('date-desc');
   const [historyFilterItem, setHistoryFilterItem] = useState('All');
+  const [historyFilterQC, setHistoryFilterQC] = useState('All');
   const [historyFilterLocation, setHistoryFilterLocation] = useState('All');
+  const [historyFilterContract, setHistoryFilterContract] = useState('All');
   const [historyFilterReason, setHistoryFilterReason] = useState('All');
-  const [historyFilterAgreement, setHistoryFilterAgreement] = useState('All');
+  const [historySortType, setHistorySortType] = useState('date-desc');
 
+  // Quick claim return modal state in Withdrawal
+  const [claimReturnModalItem, setClaimReturnModalItem] = useState(null);
+  const [claimModalReturnedQty, setClaimModalReturnedQty] = useState('');
+  const [claimModalDefectiveQty, setClaimModalDefectiveQty] = useState('');
+  const [claimModalDate, setClaimModalDate] = useState(new Date().toISOString().split('T')[0]);
+  const [claimModalLocation, setClaimModalLocation] = useState('');
+  const [claimModalOperator, setClaimModalOperator] = useState('');
+  const [claimModalNote, setClaimModalNote] = useState('');
+  const [claimModalSyncContract, setClaimModalSyncContract] = useState(true);
 
+  const handleOpenClaimReturnModal = (withdrawalRecord) => {
+    setClaimReturnModalItem(withdrawalRecord);
+    setClaimModalReturnedQty(String(withdrawalRecord.amount || ''));
+    setClaimModalDefectiveQty('0');
+    setClaimModalDate(new Date().toISOString().split('T')[0]);
+    setClaimModalLocation(withdrawalRecord.location || '');
+    setClaimModalOperator('');
+    setClaimModalNote(`รับคืนจากการตัดเคลม ${withdrawalRecord.amount} ${withdrawalRecord.unit || 'ชิ้น'}`);
+    setClaimModalSyncContract(true);
+  };
+
+  const handleSaveModalClaimReturn = (e) => {
+    if (e) e.preventDefault();
+    if (!claimReturnModalItem) return;
+
+    const returnQtyNum = Number(claimModalReturnedQty) || 0;
+    const defectiveQtyNum = Number(claimModalDefectiveQty) || 0;
+
+    if (returnQtyNum <= 0 && defectiveQtyNum <= 0) {
+      alert("กรุณาระบุจำนวนของดีที่รับคืน หรือจำนวนของเสียที่ตัดทิ้ง (ต้องมากกว่า 0)");
+      return;
+    }
+
+    const newClaimReturnRecord = {
+      id: `CR-${Date.now().toString().slice(-6)}`,
+      withdrawalId: claimReturnModalItem.id,
+      date: claimModalDate,
+      returnedQty: returnQtyNum,
+      defectiveQty: defectiveQtyNum,
+      location: claimModalLocation || claimReturnModalItem.location,
+      operator: claimModalOperator || '',
+      note: claimModalNote || '',
+      createdAt: new Date().toISOString(),
+      syncContractAdjustment: claimModalSyncContract
+    };
+
+    setInventory(prev => prev.map(lot => {
+      const hasThisWithdrawal = (lot.withdrawals || []).some(w => String(w.id) === String(claimReturnModalItem.id));
+      const matchesLot = String(lot.id) === String(claimReturnModalItem.lotId) || hasThisWithdrawal;
+      if (matchesLot) {
+        const currentRem = Number(lot.remainingQty || 0);
+        const newRem = currentRem + returnQtyNum;
+        const currentReturns = lot.claimReturns || [];
+        return {
+          ...lot,
+          remainingQty: newRem,
+          location: claimModalLocation ? claimModalLocation : lot.location,
+          claimReturns: [...currentReturns, newClaimReturnRecord]
+        };
+      }
+      return lot;
+    }));
+
+    alert(`บันทึกการรับคืนพัสดุสำเร็จ!\n- รับของดีเข้าสต็อก: +${returnQtyNum.toLocaleString()} ${claimReturnModalItem.unit || 'ชิ้น'}\n- ปรับตัดของเสีย: ${defectiveQtyNum.toLocaleString()} ${claimReturnModalItem.unit || 'ชิ้น'}${claimModalSyncContract && claimReturnModalItem.agreementId ? `\n- ปรับปรุงยอดสัญญา ${claimReturnModalItem.agreementId} เรียบร้อยแล้ว` : ''}`);
+
+    setClaimReturnModalItem(null);
+  };
 
   useEffect(() => {
     setLotWithdrawalAmounts(prev => {
@@ -139,6 +205,7 @@ const Withdrawal = ({ inventory, setInventory, items, agreements = [] }) => {
           if (w) {
             list.push({
               id: w.id,
+              lotId: item.id,
               date: w.date,
               amount: w.amount,
               reason: w.reason,
@@ -2517,6 +2584,16 @@ const Withdrawal = ({ inventory, setInventory, items, agreements = [] }) => {
                           >
                             <Printer size={14} /> พิมพ์ใบตัดจ่าย (PDF)
                           </button>
+                          {!w.isCancelled && (w.reason || '').includes('เคลม') && (
+                            <button 
+                              className="btn btn-secondary"
+                              style={{ padding: '0.4rem 0.8rem', fontSize: '0.75rem', background: 'rgba(16, 185, 129, 0.12)', color: '#10b981', border: '1px solid rgba(16, 185, 129, 0.3)', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
+                              onClick={() => handleOpenClaimReturnModal(w)}
+                              title="บันทึกรับของดีคืนเข้าคลังจากการตัดเคลมนี้"
+                            >
+                              <RotateCcw size={13} /> รับคืนจากการเคลม
+                            </button>
+                          )}
                           {w.isCancelled ? (
                             <span style={{ 
                               fontSize: '0.75rem', 
@@ -2552,6 +2629,169 @@ const Withdrawal = ({ inventory, setInventory, items, agreements = [] }) => {
             </table>
           </div>
         </>
+      )}
+
+      {/* Quick Claim Return Modal */}
+      {claimReturnModalItem && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.7)',
+          backdropFilter: 'blur(5px)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 9999,
+          padding: '1rem'
+        }}>
+          <div className="glass card" style={{
+            maxWidth: '550px',
+            width: '100%',
+            padding: '2rem',
+            border: '1px solid var(--success)',
+            boxShadow: '0 20px 25px -5px rgba(0,0,0,0.5)',
+            maxHeight: '90vh',
+            overflowY: 'auto'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+              <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--success)' }}>
+                <RotateCcw size={22} /> บันทึกรับคืนจากการตัดเคลม
+              </h3>
+              <button 
+                onClick={() => setClaimReturnModalItem(null)}
+                style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div style={{ background: 'rgba(16, 185, 129, 0.08)', padding: '0.85rem', borderRadius: '8px', marginBottom: '1.25rem', fontSize: '0.82rem' }}>
+              <div><strong>สินค้า:</strong> {claimReturnModalItem.itemName}</div>
+              <div><strong>Lot:</strong> {claimReturnModalItem.supplierLot} | <strong>QC Lot:</strong> {claimReturnModalItem.inhouseLot || '-'}</div>
+              <div><strong>สัญญาจัดซื้อ:</strong> {claimReturnModalItem.agreementId || '-'}</div>
+              <div><strong>ยอดที่ตัดเคลมไป:</strong> <span style={{ color: 'var(--danger)', fontWeight: 700 }}>{Number(claimReturnModalItem.amount).toLocaleString()} {claimReturnModalItem.unit}</span></div>
+            </div>
+
+            <form onSubmit={handleSaveModalClaimReturn} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.82rem', marginBottom: '0.3rem', color: 'var(--text-secondary)' }}>
+                  วันที่รับคืนสินค้าเข้าคลัง
+                </label>
+                <input 
+                  type="date"
+                  value={claimModalDate}
+                  onChange={(e) => setClaimModalDate(e.target.value)}
+                  style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', background: 'var(--input-bg)', border: '1px solid var(--glass-border)', color: 'var(--text-primary)' }}
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.82rem', marginBottom: '0.3rem', color: 'var(--success)', fontWeight: 700 }}>
+                    ✅ จำนวนของดีที่รับคืน (+เข้าคลัง)
+                  </label>
+                  <input 
+                    type="number"
+                    value={claimModalReturnedQty}
+                    onChange={(e) => {
+                      setClaimModalReturnedQty(e.target.value);
+                      const num = Number(e.target.value) || 0;
+                      const orig = Number(claimReturnModalItem.amount) || 0;
+                      setClaimModalDefectiveQty(String(Math.max(0, orig - num)));
+                    }}
+                    style={{ width: '100%', padding: '0.6rem', borderRadius: '6px', background: 'var(--input-bg)', border: '1.5px solid var(--success)', color: 'var(--text-primary)', fontSize: '1rem', fontWeight: 700 }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.82rem', marginBottom: '0.3rem', color: 'var(--danger)', fontWeight: 700 }}>
+                    ❌ จำนวนของเสีย/เคลมทิ้ง (-สัญญา)
+                  </label>
+                  <input 
+                    type="number"
+                    value={claimModalDefectiveQty}
+                    onChange={(e) => setClaimModalDefectiveQty(e.target.value)}
+                    style={{ width: '100%', padding: '0.6rem', borderRadius: '6px', background: 'var(--input-bg)', border: '1px solid var(--danger)', color: 'var(--danger)', fontSize: '1rem', fontWeight: 700 }}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.82rem', marginBottom: '0.3rem', color: 'var(--text-secondary)' }}>
+                    สถานที่จัดเก็บ
+                  </label>
+                  <input 
+                    type="text"
+                    value={claimModalLocation}
+                    onChange={(e) => setClaimModalLocation(e.target.value)}
+                    placeholder="เช่น ชั้น 5 ตึกบริจาคโลหิต"
+                    style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', background: 'var(--input-bg)', border: '1px solid var(--glass-border)', color: 'var(--text-primary)' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.82rem', marginBottom: '0.3rem', color: 'var(--text-secondary)' }}>
+                    ผู้รับของ / เจ้าหน้าที่
+                  </label>
+                  <input 
+                    type="text"
+                    value={claimModalOperator}
+                    onChange={(e) => setClaimModalOperator(e.target.value)}
+                    placeholder="ชื่อผู้รับของ"
+                    style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', background: 'var(--input-bg)', border: '1px solid var(--glass-border)', color: 'var(--text-primary)' }}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.82rem', marginBottom: '0.3rem', color: 'var(--text-secondary)' }}>
+                  หมายเหตุ / รายละเอียด
+                </label>
+                <textarea 
+                  rows="2"
+                  value={claimModalNote}
+                  onChange={(e) => setClaimModalNote(e.target.value)}
+                  style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', background: 'var(--input-bg)', border: '1px solid var(--glass-border)', color: 'var(--text-primary)', outline: 'none' }}
+                />
+              </div>
+
+              {claimReturnModalItem.agreementId && (
+                <div style={{ background: 'rgba(245, 158, 11, 0.08)', border: '1px solid rgba(245, 158, 11, 0.25)', borderRadius: '6px', padding: '0.75rem', display: 'flex', gap: '0.5rem', alignItems: 'flex-start' }}>
+                  <input 
+                    type="checkbox"
+                    id="modalSyncContract"
+                    checked={claimModalSyncContract}
+                    onChange={(e) => setClaimModalSyncContract(e.target.checked)}
+                    style={{ marginTop: '0.2rem', cursor: 'pointer' }}
+                  />
+                  <label htmlFor="modalSyncContract" style={{ fontSize: '0.78rem', color: 'var(--text-primary)', cursor: 'pointer' }}>
+                    <strong>ปรับปรุงยอดสัญญา {claimReturnModalItem.agreementId}:</strong> ปรับลดยอดตรวจรับในสัญญาตามจำนวนของเสีย (-{Number(claimModalDefectiveQty || 0).toLocaleString()} {claimReturnModalItem.unit}) เพื่อให้ยอดค้างส่งเพิ่มขึ้นรอ Supplier ส่งชดเชย
+                  </label>
+                </div>
+              )}
+
+              <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', marginTop: '0.5rem' }}>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setClaimReturnModalItem(null)}
+                >
+                  ยกเลิก
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  style={{ background: 'var(--success)', color: '#fff', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+                >
+                  <CheckCircle2 size={16} /> ยืนยันรับคืนเข้าคลัง
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   );

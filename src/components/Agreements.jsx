@@ -537,7 +537,11 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
         const acceptedDeliveries = itemDeliveries.filter(lot => lot.acceptanceStatus === 'Accepted');
 
         const acceptedQty = acceptedDeliveries
-          .reduce((sum, lot) => sum + Number(lot.quantity || 0), 0);
+          .reduce((sum, lot) => {
+            const origQty = Number(lot.quantity || 0);
+            const totalDefective = (lot.claimReturns || []).reduce((cSum, cr) => cSum + (cr.syncContractAdjustment !== false ? Number(cr.defectiveQty || 0) : 0), 0);
+            return sum + Math.max(0, origQty - totalDefective);
+          }, 0);
 
         const pendingQty = itemDeliveries
           .filter(lot => lot.acceptanceStatus === 'Pending')
@@ -547,7 +551,7 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
           .filter(lot => lot.acceptanceStatus === 'Rejected')
           .reduce((sum, lot) => sum + Number(lot.quantity || 0), 0);
 
-        const totalDelivered = acceptedQty + pendingQty + rejectedQty;
+        const totalDelivered = acceptedDeliveries.reduce((sum, lot) => sum + Number(lot.quantity || 0), 0) + pendingQty + rejectedQty;
         const outstandingQty = Math.max(0, Number(item.totalQty || 0) - acceptedQty);
 
         // Calculate Withdrawn (ตัดใช้ไปแล้ว) and Current Stock on Hand (คงเหลือในคลัง)
@@ -557,13 +561,16 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
         }, 0);
 
         const withdrawnQty = acceptedDeliveries.reduce((sum, lot) => {
+          const totalReturned = (lot.claimReturns || []).reduce((cSum, cr) => cSum + Number(cr.returnedQty || 0), 0);
+          const totalDefective = (lot.claimReturns || []).reduce((cSum, cr) => cSum + Number(cr.defectiveQty || 0), 0);
           const withList = (lot.withdrawals || []).filter(w => !w.isCancelled);
           if (withList.length > 0) {
-            return sum + withList.reduce((wSum, w) => wSum + Number(w.amount || 0), 0);
+            const rawWithdrawn = withList.reduce((wSum, w) => wSum + Number(w.amount || 0), 0);
+            return sum + Math.max(0, rawWithdrawn - totalReturned - totalDefective);
           }
           const lotQty = Number(lot.quantity || 0);
           const lotRem = lot.remainingQty !== undefined ? Number(lot.remainingQty) : lotQty;
-          return sum + Math.max(0, lotQty - lotRem);
+          return sum + Math.max(0, lotQty - totalDefective - lotRem);
         }, 0);
 
         return {
@@ -1878,8 +1885,12 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
                             </thead>
                             <tbody>
                               {agreement.deliveries.map(del => {
-                                const lotWithdrawn = (del.withdrawals || []).filter(w => !w.isCancelled).reduce((sum, w) => sum + Number(w.amount || 0), 0) || Math.max(0, Number(del.quantity || 0) - Number(del.remainingQty !== undefined ? del.remainingQty : del.quantity));
+                                const totalDefective = (del.claimReturns || []).reduce((cSum, cr) => cSum + (cr.syncContractAdjustment !== false ? Number(cr.defectiveQty || 0) : 0), 0);
+                                const totalReturned = (del.claimReturns || []).reduce((cSum, cr) => cSum + Number(cr.returnedQty || 0), 0);
+                                const rawWithdrawn = (del.withdrawals || []).filter(w => !w.isCancelled).reduce((sum, w) => sum + Number(w.amount || 0), 0);
+                                const lotWithdrawn = rawWithdrawn > 0 ? Math.max(0, rawWithdrawn - totalReturned - totalDefective) : Math.max(0, Number(del.quantity || 0) - totalDefective - Number(del.remainingQty !== undefined ? del.remainingQty : del.quantity));
                                 const lotRemaining = del.remainingQty !== undefined ? Number(del.remainingQty) : Number(del.quantity || 0);
+                                const netDeliveredQty = Math.max(0, Number(del.quantity || 0) - totalDefective);
 
                                 return (
                                   <tr key={del.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
@@ -1889,8 +1900,13 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
                                       <div style={{ fontSize: '0.72rem', color: 'var(--accent-secondary)' }}>Lot: {del.supplierLot}</div>
                                     </td>
                                     <td style={{ padding: '0.6rem 0.5rem', color: 'var(--text-secondary)' }}>{del.inhouseLot || '-'}</td>
-                                    <td style={{ padding: '0.6rem 0.5rem', textAlign: 'right', fontWeight: 700 }}>
-                                      {del.quantity.toLocaleString()} {del.unit}
+                                    <td style={{ padding: '0.6rem 0.5rem', textAlign: 'right' }}>
+                                      <div style={{ fontWeight: 700 }}>{netDeliveredQty.toLocaleString()} {del.unit}</div>
+                                      {totalDefective > 0 && (
+                                        <div style={{ fontSize: '0.68rem', color: 'var(--danger)', marginTop: '0.1rem' }}>
+                                          (รับเดิม {del.quantity.toLocaleString()} / เคลมชำรุด -{totalDefective.toLocaleString()})
+                                        </div>
+                                      )}
                                     </td>
                                     <td style={{ padding: '0.6rem 0.5rem', textAlign: 'right', fontWeight: 600, color: lotWithdrawn > 0 ? '#f59e0b' : 'var(--text-muted)' }}>
                                       {lotWithdrawn > 0 ? `-${lotWithdrawn.toLocaleString()} ${del.unit}` : `0 ${del.unit}`}
