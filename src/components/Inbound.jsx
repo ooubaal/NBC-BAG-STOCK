@@ -1500,6 +1500,30 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
     printWindow.document.close();
   };
 
+  const uniqueHistoryItems = useMemo(() => {
+    const names = new Set();
+    (inventory || []).forEach(item => {
+      if (item && item.itemName) names.add(item.itemName);
+    });
+    return Array.from(names).sort((a, b) => String(a).localeCompare(String(b), 'th'));
+  }, [inventory]);
+
+  const uniqueHistoryContracts = useMemo(() => {
+    const contracts = new Set();
+    (inventory || []).forEach(item => {
+      if (item && item.agreementId) contracts.add(String(item.agreementId));
+    });
+    return Array.from(contracts).sort((a, b) => String(a).localeCompare(String(b), 'th'));
+  }, [inventory]);
+
+  const uniqueHistoryLocations = useMemo(() => {
+    const locs = new Set();
+    (inventory || []).forEach(item => {
+      if (item && item.location) locs.add(item.location);
+    });
+    return Array.from(locs).sort((a, b) => String(a).localeCompare(String(b), 'th'));
+  }, [inventory]);
+
   const filteredHistory = useMemo(() => {
     if (!Array.isArray(inventory)) return [];
     let result = inventory.filter(item => {
