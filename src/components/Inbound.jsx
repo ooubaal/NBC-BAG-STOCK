@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { Plus, Trash2, Save, Printer, Copy, Search, Upload, Download, RotateCcw, RefreshCw, AlertCircle, Calendar, MapPin, Check, FileText, CheckCircle2, PackageCheck, ArrowDownRight, Package, ShieldCheck, HelpCircle, ArrowRight, CornerDownRight, Edit2, X } from 'lucide-react';
 import ExcelJS from 'exceljs';
 
@@ -3640,29 +3641,40 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
       )}
 
       {/* Edit Inbound Modal */}
-      {editingInboundLot && (
+      {editingInboundLot && typeof document !== 'undefined' && createPortal(
         <div style={{
           position: 'fixed',
           top: 0,
           left: 0,
           right: 0,
           bottom: 0,
-          backgroundColor: 'rgba(0,0,0,0.75)',
-          backdropFilter: 'blur(6px)',
+          width: '100vw',
+          height: '100vh',
+          backgroundColor: 'rgba(15, 23, 42, 0.75)',
+          backdropFilter: 'blur(8px)',
+          WebkitBackdropFilter: 'blur(8px)',
           display: 'flex',
           justifyContent: 'center',
           alignItems: 'center',
-          zIndex: 9999,
-          padding: '1rem'
-        }}>
-          <div className="glass card" style={{
+          zIndex: 99999,
+          padding: '1rem',
+          boxSizing: 'border-box'
+        }}
+        onClick={(e) => {
+          if (e.target === e.currentTarget) setEditingInboundLot(null);
+        }}
+        >
+          <div className="card" style={{
             maxWidth: '680px',
             width: '100%',
             padding: '2rem',
-            border: '1.5px solid var(--accent-color)',
-            boxShadow: '0 20px 30px -10px rgba(0,0,0,0.6)',
-            maxHeight: '92vh',
-            overflowY: 'auto'
+            border: '2px solid var(--accent-color)',
+            borderRadius: '16px',
+            background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 250, 252, 0.98) 100%)',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(0, 0, 0, 0.05)',
+            maxHeight: '90vh',
+            overflowY: 'auto',
+            position: 'relative'
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
               <div>
@@ -3674,10 +3686,24 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
                 </p>
               </div>
               <button 
+                type="button"
                 onClick={() => setEditingInboundLot(null)}
-                style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
+                style={{ 
+                  background: 'rgba(0,0,0,0.05)', 
+                  border: 'none', 
+                  color: 'var(--text-secondary)', 
+                  cursor: 'pointer',
+                  borderRadius: '50%',
+                  width: '32px',
+                  height: '32px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  transition: 'all 0.2s ease'
+                }}
+                title="ปิดหน้าต่าง"
               >
-                <X size={22} />
+                <X size={20} />
               </button>
             </div>
 
@@ -3851,7 +3877,7 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
               </div>
 
               {/* Status summary info */}
-              <div style={{ background: 'rgba(255,255,255,0.03)', padding: '0.85rem', borderRadius: '8px', border: '1px solid var(--glass-border)', fontSize: '0.78rem', display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+              <div style={{ background: 'rgba(0,0,0,0.03)', padding: '0.85rem', borderRadius: '8px', border: '1px solid var(--glass-border)', fontSize: '0.78rem', display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
                 <div style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>📊 ข้อมูลการตัดจ่ายปัจจุบันของ Lot นี้:</div>
                 <div style={{ display: 'flex', gap: '1.25rem', flexWrap: 'wrap' }}>
                   <span>ยอดตัดจ่ายไปแล้ว: <strong>{((editingInboundLot.withdrawals || []).filter(w => !w.isCancelled).reduce((sum, w) => sum + Number(w.amount || 0), 0)).toLocaleString()} {editInboundFormData.unit}</strong></span>
@@ -3878,7 +3904,8 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
