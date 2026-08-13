@@ -207,7 +207,7 @@ const compressImageFile = (file, maxWidth = 1200, maxHeight = 1200) => {
       let width = img.width;
       let height = img.height;
 
-      // HD resolution but compressed: max 1200px (still readable text/details)
+      // HD resolution but compressed: max 1200px (still crystal-clear text/details)
       if (width > height) {
         if (width > maxWidth) {
           height = Math.round((height * maxWidth) / width);
@@ -225,10 +225,18 @@ const compressImageFile = (file, maxWidth = 1200, maxHeight = 1200) => {
       canvas.height = height;
 
       const ctx = canvas.getContext('2d');
+      // Draw white background for transparent images
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, width, height);
       ctx.drawImage(img, 0, 0, width, height);
 
-      // Compress to JPEG with 0.65 quality (excellent text readability, very small size)
-      const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.65);
+      // Compress to JPEG with 0.68 quality (sharp text, light file size)
+      let compressedDataUrl = canvas.toDataURL('image/jpeg', 0.68);
+      
+      // Secondary pass if still large (> 500 KB)
+      if (compressedDataUrl.length * 0.75 > 500 * 1024) {
+        compressedDataUrl = canvas.toDataURL('image/jpeg', 0.55);
+      }
       
       URL.revokeObjectURL(objectUrl);
       resolve(compressedDataUrl);

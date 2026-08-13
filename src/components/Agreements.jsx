@@ -1,6 +1,7 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Plus, Check, X, FileText, ShieldAlert, PackageOpen, ChevronDown, ChevronUp, UserCheck, AlertTriangle, Search, Edit2, Trash2, Paperclip, Eye } from 'lucide-react';
+import { Plus, Check, X, FileText, ShieldAlert, PackageOpen, ChevronDown, ChevronUp, UserCheck, AlertTriangle, Search, Edit2, Trash2, Paperclip, Eye, Loader2, Sparkles, Image as ImageIcon } from 'lucide-react';
+import { smartCompressUploadFile, formatFileSize } from '../utils/fileCompressor';
 
 const escapeHTML = (str) => {
   if (!str) return '';
@@ -200,6 +201,10 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
   const [formSearchQuery, setFormSearchQuery] = useState('');
   const [isFormDropdownOpen, setIsFormDropdownOpen] = useState(false);
 
+  // File upload & smart compression status
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState('');
+
   // Editing state
   const [editingAgreementId, setEditingAgreementId] = useState(null);
   const [editForm, setEditForm] = useState(null);
@@ -276,118 +281,117 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
     alert("แก้ไขข้อมูลสัญญาจัดซื้อเรียบร้อยแล้ว!");
   };
 
-  // Helper to compress images (resizes to maximum 1200px width/height and quality 0.7)
-  const compressImage = (file, callback) => {
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = (event) => {
-      const img = new Image();
-      img.src = event.target.result;
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        const MAX_WIDTH = 1200;
-        const MAX_HEIGHT = 1200;
-        let width = img.width;
-        let height = img.height;
-
-        if (width > height) {
-          if (width > MAX_WIDTH) {
-            height *= MAX_WIDTH / width;
-            width = MAX_WIDTH;
-          }
-        } else {
-          if (height > MAX_HEIGHT) {
-            width *= MAX_HEIGHT / height;
-            height = MAX_HEIGHT;
-          }
-        }
-
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0, width, height);
-
-        // Convert to base64 with 0.7 quality jpeg
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
-        callback(dataUrl);
-      };
-    };
-  };
-
-  // Handle file attachment upload
-  const handleFileChange = (e, isEdit = false) => {
-    const files = Array.from(e.target.files);
+  // Smart file attachment upload with automatic real-time compression (PDF & Images)
+  const handleFileChange = async (e, isEdit = false) => {
+    const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
 
-    files.forEach(file => {
-      const isImage = file.type.startsWith('image/');
-      const isPdf = file.type === 'application/pdf';
+    setIsUploading(true);
+    setUploadStatus(`กำลังลดขนาดไฟล์ (0/${files.length})...`);
 
-      if (!isImage && !isPdf) {
-        alert(`ไฟล์ ${file.name} ไม่ได้รับการรองรับ กรุณาแนบเฉพาะไฟล์ PDF หรือรูปภาพ (JPEG/PNG) เท่านั้น`);
-        return;
-      }
+    const newAttachments = [];
+    let count = 0;
 
-      if (isPdf) {
-        // PDF size check (must be < 800 KB)
-        if (file.size > 800 * 1024) {
-          alert(`ไฟล์ PDF "${file.name}" มีขนาดใหญ่เกินไป (${(file.size / 1024 / 1024).toFixed(2)} MB)\nกรุณาแนบไฟล์ขนาดไม่เกิน 800 KB เท่านั้น (แนะนำให้ลดขนาดไฟล์ PDF ออนไลน์ก่อนนำมาแนบ)`);
-          return;
+    for (const file of files) {
+      try {
+        count++;
+        setUploadStatus(`กำลังบีบอัดลดขนาด "${file.name}" (${count}/${files.length})...`);
+        const compressed = await smartCompressUploadFile(file);
+        if (compressed) {
+          newAttachments.push(compressed);
         }
-
-        const reader = new FileReader();
-        reader.readAsDataURL(file);
-        reader.onload = () => {
-          const newAttach = {
-            name: file.name,
-            type: 'pdf',
-            data: reader.result
-          };
-          if (isEdit) {
-            setEditForm(prev => ({
-              ...prev,
-              attachments: [...(prev.attachments || []), newAttach]
-            }));
-          } else {
-            setNewAgreement(prev => ({
-              ...prev,
-              attachments: [...(prev.attachments || []), newAttach]
-            }));
-          }
-        };
-      } else if (isImage) {
-        // For images, we can compress them first
-        compressImage(file, (base64Data) => {
-          // Check compressed size (rough estimate of base64 size)
-          const approxSize = base64Data.length * 0.75;
-          if (approxSize > 800 * 1024) {
-            alert(`ภาพ "${file.name}" มีขนาดใหญ่เกินไปหลังการบีบอัด กรุณาแนบรูปภาพที่มีความละเอียดต่ำกว่านี้ หรือขนาดไฟล์ต่ำกว่า 800 KB`);
-            return;
-          }
-
-          const newAttach = {
-            name: file.name,
-            type: 'image',
-            data: base64Data
-          };
-
-          if (isEdit) {
-            setEditForm(prev => ({
-              ...prev,
-              attachments: [...(prev.attachments || []), newAttach]
-            }));
-          } else {
-            setNewAgreement(prev => ({
-              ...prev,
-              attachments: [...(prev.attachments || []), newAttach]
-            }));
-          }
-        });
+      } catch (err) {
+        console.error("File compression error:", err);
+        alert(err.message || `เกิดข้อผิดพลาดในการประมวลผลไฟล์ "${file.name}"`);
       }
-    });
+    }
 
-    // Reset the input value so user can upload the same file again if needed
-    e.target.value = '';
+    if (newAttachments.length > 0) {
+      if (isEdit) {
+        setEditForm(prev => ({
+          ...prev,
+          attachments: [...(prev.attachments || []), ...newAttachments]
+        }));
+      } else {
+        setNewAgreement(prev => ({
+          ...prev,
+          attachments: [...(prev.attachments || []), ...newAttachments]
+        }));
+      }
+    }
+
+    setIsUploading(false);
+    setUploadStatus('');
+    if (e.target) e.target.value = '';
+  };
+
+  // High-clarity multi-page attachment viewer with zoom and print
+  const openAttachmentViewer = (file) => {
+    const newWindow = window.open();
+    if (!newWindow) {
+      alert("กรุณาอนุญาตให้เบราว์เซอร์เปิด Pop-up เพื่อดูเอกสารแนบ");
+      return;
+    }
+
+    if (file.pages && file.pages.length > 0) {
+      const pagesHtml = file.pages.map((pageSrc, pIdx) => `
+        <div style="margin-bottom: 24px; text-align: center;">
+          <div style="font-size: 13px; color: #94a3b8; margin-bottom: 8px; font-weight: 500;">— หน้า ${pIdx + 1} จาก ${file.pages.length} —</div>
+          <img src="${pageSrc}" alt="Page ${pIdx + 1}" style="max-width: 95%; max-height: 90vh; box-shadow: 0 15px 35px rgba(0,0,0,0.5); border-radius: 8px; background: #fff;" />
+        </div>
+      `).join('');
+
+      newWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <title>${escapeHTML(file.name)}</title>
+            <meta charset="utf-8">
+            <style>
+              body { margin: 0; padding: 24px; background: #0f172a; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; flex-direction: column; align-items: center; }
+              .toolbar { position: sticky; top: 12px; background: rgba(30, 41, 59, 0.95); backdrop-filter: blur(10px); padding: 10px 24px; border-radius: 30px; box-shadow: 0 8px 30px rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.1); display: flex; gap: 16px; align-items: center; z-index: 100; margin-bottom: 24px; color: #f8fafc; }
+              button { background: #0284c7; color: white; border: none; padding: 7px 16px; border-radius: 20px; cursor: pointer; font-size: 13px; font-weight: bold; transition: background 0.2s; }
+              button:hover { background: #0369a1; }
+              @media print {
+                .toolbar { display: none; }
+                body { background: white; padding: 0; }
+                img { max-width: 100% !important; max-height: none !important; box-shadow: none !important; }
+              }
+            </style>
+          </head>
+          <body>
+            <div class="toolbar">
+              <span style="font-weight: 600; font-size: 14px;">📄 ${escapeHTML(file.name)}</span>
+              <span style="font-size: 12px; color: #94a3b8; background: rgba(255,255,255,0.08); padding: 2px 8px; border-radius: 12px;">${file.pages.length} หน้า</span>
+              <button onclick="window.print()">🖨️ พิมพ์ / บันทึก PDF</button>
+            </div>
+            ${pagesHtml}
+          </body>
+        </html>
+      `);
+      newWindow.document.close();
+    } else if (file.type === 'pdf') {
+      newWindow.document.write(`<iframe src="${file.data}" frameborder="0" style="border:0; top:0px; left:0px; bottom:0px; right:0px; width:100%; height:100%; position:fixed;" allowfullscreen></iframe>`);
+      newWindow.document.title = file.name;
+      newWindow.document.close();
+    } else {
+      newWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <title>${escapeHTML(file.name)}</title>
+            <style>
+              body { margin: 0; background: #0f172a; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+              img { max-width: 95%; max-height: 95vh; object-fit: contain; box-shadow: 0 15px 35px rgba(0,0,0,0.6); border-radius: 8px; }
+            </style>
+          </head>
+          <body>
+            <img src="${file.data}" alt="${escapeHTML(file.name)}" />
+          </body>
+        </html>
+      `);
+      newWindow.document.close();
+    }
   };
 
   const removeAttachment = (index, isEdit = false) => {
@@ -1293,24 +1297,30 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
             </div>
 
             <div>
-              <label style={{ display: 'block', marginBottom: '0.4rem', fontSize: '0.85rem', fontWeight: 600 }}>แนบเอกสารสัญญา (PDF หรือ รูปภาพ) <span style={{ fontWeight: 'normal', color: 'var(--text-muted)' }}>(จำกัดขนาดไฟล์ไม่เกิน 800 KB ต่อไฟล์)</span></label>
+              <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.4rem', fontSize: '0.85rem', fontWeight: 600 }}>
+                <span>แนบเอกสารสัญญา (PDF หรือ รูปภาพ)</span>
+                <span style={{ fontSize: '0.75rem', fontWeight: 500, color: 'var(--success, #10b981)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                  <Sparkles size={13} /> ระบบย่อและบีบอัดไฟล์อัตโนมัติ
+                </span>
+              </label>
               <div style={{
                 border: '2px dashed var(--glass-border)',
-                borderRadius: '8px',
+                borderRadius: '10px',
                 padding: '1.25rem',
                 textAlign: 'center',
-                background: 'rgba(255,255,255,0.02)',
-                cursor: 'pointer',
+                background: isUploading ? 'rgba(2, 132, 199, 0.06)' : 'rgba(255,255,255,0.02)',
+                cursor: isUploading ? 'wait' : 'pointer',
                 position: 'relative',
-                transition: 'border-color 0.2s'
+                transition: 'all 0.2s ease'
               }}
-              onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--accent-secondary)'}
-              onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--glass-border)'}
+              onMouseEnter={e => { if (!isUploading) e.currentTarget.style.borderColor = 'var(--accent-secondary)'; }}
+              onMouseLeave={e => { if (!isUploading) e.currentTarget.style.borderColor = 'var(--glass-border)'; }}
               >
                 <input 
                   type="file" 
                   accept="application/pdf,image/*" 
                   multiple 
+                  disabled={isUploading}
                   onChange={(e) => handleFileChange(e, false)} 
                   style={{
                     position: 'absolute',
@@ -1319,17 +1329,28 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
                     width: '100%',
                     height: '100%',
                     opacity: 0,
-                    cursor: 'pointer',
+                    cursor: isUploading ? 'wait' : 'pointer',
                     zIndex: 2
                   }}
                 />
-                <Paperclip size={24} style={{ color: 'var(--text-muted)', marginBottom: '0.5rem' }} />
-                <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                  คลิกเพื่อเลือกไฟล์ หรือลากไฟล์มาวางที่นี่
-                </p>
-                <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.75rem', color: 'var(--danger)', fontWeight: 600 }}>
-                  ⚠️ จำกัดขนาดไฟล์ PDF หรือรูปภาพไม่เกิน 800 KB (สำหรับรูปภาพ ระบบจะทำการบีบอัดให้โดยอัตโนมัติ)
-                </p>
+                {isUploading ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.4rem' }}>
+                    <Loader2 size={26} className="spin" style={{ color: 'var(--accent-secondary)' }} />
+                    <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--accent-secondary)', fontWeight: 600 }}>
+                      {uploadStatus || 'กำลังประมวลผลและลดขนาดไฟล์...'}
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    <Paperclip size={24} style={{ color: 'var(--accent-secondary)', marginBottom: '0.4rem' }} />
+                    <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 500 }}>
+                      คลิกเพื่อเลือกไฟล์ หรือลากไฟล์มาวางที่นี่
+                    </p>
+                    <p style={{ margin: '0.3rem 0 0 0', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                      ⚡ รองรับทั้งไฟล์ PDF และรูปภาพ ระบบจะทำการปรับขนาดและบีบอัดความละเอียดให้คมชัดในขนาดไฟล์ที่กะทัดรัดโดยอัตโนมัติ
+                    </p>
+                  </>
+                )}
               </div>
 
               {/* Show attached files list */}
@@ -1340,32 +1361,79 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'space-between',
-                      background: 'rgba(255,255,255,0.05)',
-                      padding: '0.5rem 0.75rem',
-                      borderRadius: '6px',
+                      background: 'rgba(255,255,255,0.06)',
+                      padding: '0.55rem 0.85rem',
+                      borderRadius: '8px',
                       border: '1px solid var(--glass-border)',
-                      fontSize: '0.8rem'
+                      fontSize: '0.82rem'
                     }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', overflow: 'hidden' }}>
-                        <FileText size={16} style={{ color: file.type === 'pdf' ? '#ef4444' : '#10b981', flexShrink: 0 }} />
-                        <span style={{ textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', color: 'var(--text-primary)' }}>{file.name}</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', overflow: 'hidden' }}>
+                        <FileText size={18} style={{ color: file.type === 'pdf' ? '#ef4444' : '#10b981', flexShrink: 0 }} />
+                        <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                          <span style={{ textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', color: 'var(--text-primary)', fontWeight: 600 }}>
+                            {file.name}
+                          </span>
+                          <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                            {file.compressedSizeFormatted ? (
+                              <>
+                                <span>{file.compressedSizeFormatted}</span>
+                                {file.savingsPercent > 0 && (
+                                  <span style={{ color: 'var(--success, #10b981)', fontWeight: 600, background: 'rgba(16, 185, 129, 0.1)', padding: '0.1rem 0.35rem', borderRadius: '4px' }}>
+                                    ลดขนาด {file.savingsPercent}% (จาก {file.originalSizeFormatted})
+                                  </span>
+                                )}
+                                {file.totalPages > 1 && (
+                                  <span style={{ background: 'rgba(2, 132, 199, 0.1)', color: 'var(--accent-secondary)', padding: '0.1rem 0.35rem', borderRadius: '4px', fontWeight: 600 }}>
+                                    {file.totalPages} หน้า
+                                  </span>
+                                )}
+                              </>
+                            ) : (
+                              <span>{file.type.toUpperCase()}</span>
+                            )}
+                          </div>
+                        </div>
                       </div>
-                      <button 
-                        type="button" 
-                        onClick={() => removeAttachment(idx, false)}
-                        style={{
-                          background: 'transparent',
-                          border: 'none',
-                          color: 'var(--danger)',
-                          cursor: 'pointer',
-                          padding: '0.2rem',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center'
-                        }}
-                      >
-                        <X size={16} />
-                      </button>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                        <button 
+                          type="button"
+                          onClick={() => openAttachmentViewer(file)}
+                          style={{
+                            background: 'rgba(2, 132, 199, 0.1)',
+                            border: 'none',
+                            color: 'var(--accent-secondary)',
+                            cursor: 'pointer',
+                            padding: '0.35rem 0.55rem',
+                            borderRadius: '6px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.25rem',
+                            fontSize: '0.75rem',
+                            fontWeight: 600
+                          }}
+                          title="ดูตัวอย่างเอกสาร"
+                        >
+                          <Eye size={13} /> ดูเอกสาร
+                        </button>
+                        <button 
+                          type="button" 
+                          onClick={() => removeAttachment(idx, false)}
+                          style={{
+                            background: 'rgba(239, 68, 68, 0.1)',
+                            border: 'none',
+                            color: 'var(--danger)',
+                            cursor: 'pointer',
+                            padding: '0.35rem',
+                            borderRadius: '6px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                          }}
+                          title="ลบไฟล์แนบนี้"
+                        >
+                          <X size={15} />
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -1547,24 +1615,30 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
                       </div>
 
                       <div>
-                        <label style={{ display: 'block', marginBottom: '0.4rem', fontSize: '0.85rem', fontWeight: 600 }}>แนบเอกสารสัญญาเพิ่มเติม (PDF หรือ รูปภาพ) <span style={{ fontWeight: 'normal', color: 'var(--text-muted)' }}>(จำกัดขนาดไฟล์ไม่เกิน 800 KB ต่อไฟล์)</span></label>
+                        <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.4rem', fontSize: '0.85rem', fontWeight: 600 }}>
+                          <span>แนบเอกสารสัญญาเพิ่มเติม (PDF หรือ รูปภาพ)</span>
+                          <span style={{ fontSize: '0.75rem', fontWeight: 500, color: 'var(--success, #10b981)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                            <Sparkles size={13} /> ระบบย่อและบีบอัดไฟล์อัตโนมัติ
+                          </span>
+                        </label>
                         <div style={{
                           border: '2px dashed var(--glass-border)',
-                          borderRadius: '8px',
+                          borderRadius: '10px',
                           padding: '1.25rem',
                           textAlign: 'center',
-                          background: 'rgba(255,255,255,0.02)',
-                          cursor: 'pointer',
+                          background: isUploading ? 'rgba(2, 132, 199, 0.06)' : 'rgba(255,255,255,0.02)',
+                          cursor: isUploading ? 'wait' : 'pointer',
                           position: 'relative',
-                          transition: 'border-color 0.2s'
+                          transition: 'all 0.2s ease'
                         }}
-                        onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--accent-secondary)'}
-                        onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--glass-border)'}
+                        onMouseEnter={e => { if (!isUploading) e.currentTarget.style.borderColor = 'var(--accent-secondary)'; }}
+                        onMouseLeave={e => { if (!isUploading) e.currentTarget.style.borderColor = 'var(--glass-border)'; }}
                         >
                           <input 
                             type="file" 
                             accept="application/pdf,image/*" 
                             multiple 
+                            disabled={isUploading}
                             onChange={(e) => handleFileChange(e, true)} 
                             style={{
                               position: 'absolute',
@@ -1573,17 +1647,28 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
                               width: '100%',
                               height: '100%',
                               opacity: 0,
-                              cursor: 'pointer',
+                              cursor: isUploading ? 'wait' : 'pointer',
                               zIndex: 2
                             }}
                           />
-                          <Paperclip size={24} style={{ color: 'var(--text-muted)', marginBottom: '0.5rem' }} />
-                          <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                            คลิกเพื่อเลือกไฟล์ หรือลากไฟล์มาวางที่นี่
-                          </p>
-                          <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.75rem', color: 'var(--danger)', fontWeight: 600 }}>
-                            ⚠️ จำกัดขนาดไฟล์ PDF หรือรูปภาพไม่เกิน 800 KB (สำหรับรูปภาพ ระบบจะทำการบีบอัดให้โดยอัตโนมัติ)
-                          </p>
+                          {isUploading ? (
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.4rem' }}>
+                              <Loader2 size={26} className="spin" style={{ color: 'var(--accent-secondary)' }} />
+                              <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--accent-secondary)', fontWeight: 600 }}>
+                                {uploadStatus || 'กำลังประมวลผลและลดขนาดไฟล์...'}
+                              </p>
+                            </div>
+                          ) : (
+                            <>
+                              <Paperclip size={24} style={{ color: 'var(--accent-secondary)', marginBottom: '0.4rem' }} />
+                              <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 500 }}>
+                                คลิกเพื่อเลือกไฟล์ หรือลากไฟล์มาวางที่นี่
+                              </p>
+                              <p style={{ margin: '0.3rem 0 0 0', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                                ⚡ รองรับทั้งไฟล์ PDF และรูปภาพ ระบบจะทำการปรับขนาดและบีบอัดความละเอียดให้คมชัดในขนาดไฟล์ที่กะทัดรัดโดยอัตโนมัติ
+                              </p>
+                            </>
+                          )}
                         </div>
 
                         {/* Show editForm attachments list */}
@@ -1594,32 +1679,79 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'space-between',
-                                background: 'rgba(255,255,255,0.05)',
-                                padding: '0.5rem 0.75rem',
-                                borderRadius: '6px',
+                                background: 'rgba(255,255,255,0.06)',
+                                padding: '0.55rem 0.85rem',
+                                borderRadius: '8px',
                                 border: '1px solid var(--glass-border)',
-                                fontSize: '0.8rem'
+                                fontSize: '0.82rem'
                               }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', overflow: 'hidden' }}>
-                                  <FileText size={16} style={{ color: file.type === 'pdf' ? '#ef4444' : '#10b981', flexShrink: 0 }} />
-                                  <span style={{ textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', color: 'var(--text-primary)' }}>{file.name}</span>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', overflow: 'hidden' }}>
+                                  <FileText size={18} style={{ color: file.type === 'pdf' ? '#ef4444' : '#10b981', flexShrink: 0 }} />
+                                  <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                                    <span style={{ textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', color: 'var(--text-primary)', fontWeight: 600 }}>
+                                      {file.name}
+                                    </span>
+                                    <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                                      {file.compressedSizeFormatted ? (
+                                        <>
+                                          <span>{file.compressedSizeFormatted}</span>
+                                          {file.savingsPercent > 0 && (
+                                            <span style={{ color: 'var(--success, #10b981)', fontWeight: 600, background: 'rgba(16, 185, 129, 0.1)', padding: '0.1rem 0.35rem', borderRadius: '4px' }}>
+                                              ลดขนาด {file.savingsPercent}% (จาก {file.originalSizeFormatted})
+                                            </span>
+                                          )}
+                                          {file.totalPages > 1 && (
+                                            <span style={{ background: 'rgba(2, 132, 199, 0.1)', color: 'var(--accent-secondary)', padding: '0.1rem 0.35rem', borderRadius: '4px', fontWeight: 600 }}>
+                                              {file.totalPages} หน้า
+                                            </span>
+                                          )}
+                                        </>
+                                      ) : (
+                                        <span>{file.type.toUpperCase()}</span>
+                                      )}
+                                    </div>
+                                  </div>
                                 </div>
-                                <button 
-                                  type="button" 
-                                  onClick={() => removeAttachment(idx, true)}
-                                  style={{
-                                    background: 'transparent',
-                                    border: 'none',
-                                    color: 'var(--danger)',
-                                    cursor: 'pointer',
-                                    padding: '0.2rem',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center'
-                                  }}
-                                >
-                                  <X size={16} />
-                                </button>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                  <button 
+                                    type="button"
+                                    onClick={() => openAttachmentViewer(file)}
+                                    style={{
+                                      background: 'rgba(2, 132, 199, 0.1)',
+                                      border: 'none',
+                                      color: 'var(--accent-secondary)',
+                                      cursor: 'pointer',
+                                      padding: '0.35rem 0.55rem',
+                                      borderRadius: '6px',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      gap: '0.25rem',
+                                      fontSize: '0.75rem',
+                                      fontWeight: 600
+                                    }}
+                                    title="ดูตัวอย่างเอกสาร"
+                                  >
+                                    <Eye size={13} /> ดูเอกสาร
+                                  </button>
+                                  <button 
+                                    type="button" 
+                                    onClick={() => removeAttachment(idx, true)}
+                                    style={{
+                                      background: 'rgba(239, 68, 68, 0.1)',
+                                      border: 'none',
+                                      color: 'var(--danger)',
+                                      cursor: 'pointer',
+                                      padding: '0.35rem',
+                                      borderRadius: '6px',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center'
+                                    }}
+                                    title="ลบไฟล์แนบนี้"
+                                  >
+                                    <X size={15} />
+                                  </button>
+                                </div>
                               </div>
                             ))}
                           </div>
@@ -1838,40 +1970,15 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
                         {agreement.attachments.map((file, idx) => (
                           <div 
                             key={idx} 
-                            onClick={() => {
-                              const newWindow = window.open();
-                              if (newWindow) {
-                                if (file.type === 'pdf') {
-                                  newWindow.document.write(`<iframe src="${file.data}" frameborder="0" style="border:0; top:0px; left:0px; bottom:0px; right:0px; width:100%; height:100%; position:fixed;" allowfullscreen></iframe>`);
-                                  newWindow.document.title = file.name;
-                                } else {
-                                  newWindow.document.write(`
-                                    <html>
-                                      <head>
-                                        <title>${escapeHTML(file.name)}</title>
-                                        <style>
-                                          body { margin: 0; background: #0f172a; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
-                                          img { max-width: 100%; max-height: 100vh; object-fit: contain; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
-                                        </style>
-                                      </head>
-                                      <body>
-                                        <img src="${file.data}" alt="${escapeHTML(file.name)}" />
-                                      </body>
-                                    </html>
-                                  `);
-                                }
-                              } else {
-                                alert("กรุณาอนุญาตให้เบราว์เซอร์เปิด Pop-up เพื่อดูเอกสารแนบ");
-                              }
-                            }}
+                            onClick={() => openAttachmentViewer(file)}
                             style={{
                               display: 'flex',
                               alignItems: 'center',
-                              gap: '0.4rem',
+                              gap: '0.45rem',
                               background: 'rgba(255,255,255,0.05)',
                               border: '1px solid var(--glass-border)',
                               borderRadius: '6px',
-                              padding: '0.35rem 0.6rem',
+                              padding: '0.35rem 0.65rem',
                               fontSize: '0.75rem',
                               cursor: 'pointer',
                               color: 'var(--text-primary)',
@@ -1879,10 +1986,14 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
                             }}
                             onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; e.currentTarget.style.borderColor = 'var(--accent-secondary)'; }}
                             onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.borderColor = 'var(--glass-border)'; }}
+                            title={file.compressedSizeFormatted ? `${file.name} (${file.compressedSizeFormatted}${file.savingsPercent > 0 ? `, ลด ${file.savingsPercent}%` : ''})` : file.name}
                           >
-                            <FileText size={14} style={{ color: file.type === 'pdf' ? '#ef4444' : '#10b981' }} />
-                            <span style={{ maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.name}</span>
-                            <Eye size={12} style={{ color: 'var(--text-muted)' }} />
+                            <FileText size={14} style={{ color: file.type === 'pdf' ? '#ef4444' : '#10b981', flexShrink: 0 }} />
+                            <span style={{ maxWidth: '160px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.name}</span>
+                            {file.compressedSizeFormatted && (
+                              <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>({file.compressedSizeFormatted})</span>
+                            )}
+                            <Eye size={12} style={{ color: 'var(--accent-secondary)', marginLeft: '0.15rem' }} />
                           </div>
                         ))}
                       </div>
