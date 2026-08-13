@@ -1,4 +1,5 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Tag, Printer, Eye } from 'lucide-react';
 
 const escapeHTML = (str) => {
@@ -11,31 +12,70 @@ const escapeHTML = (str) => {
     .replace(/'/g, '&#039;');
 };
 
-const SearchableSelect = ({ value, onChange, options, placeholder }) => {
+const SearchableSelect = ({ value, onChange, options = [], placeholder, disabled }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState('');
+  const [coords, setCoords] = useState({ top: 0, left: 0, width: 0, showAbove: false });
+  const containerRef = useRef(null);
 
-  const filtered = options.filter(opt => 
-    String(opt.label || '').toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = useMemo(() => {
+    return options.filter(opt => 
+      String(opt.label || '').toLowerCase().includes(search.toLowerCase())
+    );
+  }, [options, search]);
 
   const selectedOption = options.find(opt => opt.value === value);
   const displayLabel = selectedOption ? selectedOption.label : (value || '');
 
+  const updatePosition = () => {
+    if (containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const showAbove = spaceBelow < 200 && rect.top > 200;
+      setCoords({
+        top: showAbove ? rect.top : (rect.bottom + 4),
+        left: rect.left,
+        width: rect.width,
+        showAbove
+      });
+    }
+  };
+
+  useEffect(() => {
+    if (isOpen) {
+      updatePosition();
+      const handleScrollOrResize = () => {
+        updatePosition();
+      };
+      window.addEventListener('scroll', handleScrollOrResize, true);
+      window.addEventListener('resize', handleScrollOrResize);
+      return () => {
+        window.removeEventListener('scroll', handleScrollOrResize, true);
+        window.removeEventListener('resize', handleScrollOrResize);
+      };
+    }
+  }, [isOpen]);
+
+  const handleOpen = () => {
+    if (disabled) return;
+    updatePosition();
+    setIsOpen(true);
+    setSearch('');
+  };
+
   return (
-    <div style={{ position: 'relative', width: '100%' }}>
+    <div ref={containerRef} style={{ position: 'relative', width: '100%' }}>
       <input 
         type="text"
         placeholder={placeholder}
         value={isOpen ? search : displayLabel}
         onChange={(e) => {
-          if (!isOpen) setIsOpen(true);
+          if (!isOpen) handleOpen();
           setSearch(e.target.value);
+          updatePosition();
         }}
-        onClick={() => {
-          setIsOpen(true);
-          setSearch('');
-        }}
+        onClick={handleOpen}
+        disabled={disabled}
         style={{
           width: '100%',
           fontSize: '0.82rem',
@@ -44,12 +84,12 @@ const SearchableSelect = ({ value, onChange, options, placeholder }) => {
           color: 'var(--text-primary)',
           border: '1px solid var(--glass-border)',
           borderRadius: '6px',
-          cursor: 'pointer',
+          cursor: disabled ? 'not-allowed' : 'pointer',
           outline: 'none',
           boxSizing: 'border-box'
         }}
       />
-      {isOpen && (
+      {isOpen && !disabled && typeof document !== 'undefined' && createPortal(
         <>
           <div 
             onClick={() => {
@@ -62,31 +102,38 @@ const SearchableSelect = ({ value, onChange, options, placeholder }) => {
               left: 0,
               right: 0,
               bottom: 0,
-              zIndex: 999
+              zIndex: 99998,
+              background: 'transparent'
             }}
           />
-          <div style={{
-            position: 'absolute',
-            top: '105%',
-            left: 0,
-            right: 0,
-            maxHeight: '180px',
-            overflowY: 'auto',
-            background: '#ffffff',
-            border: '1px solid var(--glass-border)',
-            borderRadius: '6px',
-            boxShadow: '0 10px 15px -3px rgba(0,0,0,0.15)',
-            zIndex: 1000
-          }}>
+          <div 
+            style={{
+              position: 'fixed',
+              top: coords.showAbove ? 'auto' : `${coords.top}px`,
+              bottom: coords.showAbove ? `${window.innerHeight - coords.top + 4}px` : 'auto',
+              left: `${coords.left}px`,
+              width: `${coords.width}px`,
+              maxHeight: '200px',
+              overflowY: 'auto',
+              background: '#ffffff',
+              border: '1.5px solid var(--accent-secondary, #0284c7)',
+              borderRadius: '6px',
+              boxShadow: '0 15px 25px -5px rgba(0,0,0,0.2), 0 8px 10px -6px rgba(0,0,0,0.1)',
+              zIndex: 99999,
+              padding: '0.2rem 0',
+              boxSizing: 'border-box'
+            }}
+          >
             {filtered.length === 0 ? (
-              <div style={{ padding: '0.5rem', color: 'var(--text-muted)', fontSize: '0.75rem', textAlign: 'center' }}>
+              <div style={{ padding: '0.5rem', color: 'var(--text-muted, #64748b)', fontSize: '0.75rem', textAlign: 'center' }}>
                 ไม่พบข้อมูล
               </div>
             ) : (
               filtered.map((opt) => (
                 <div 
                   key={opt.value}
-                  onClick={() => {
+                  onMouseDown={(e) => {
+                    e.preventDefault();
                     onChange(opt.value);
                     setIsOpen(false);
                     setSearch('');
@@ -94,25 +141,31 @@ const SearchableSelect = ({ value, onChange, options, placeholder }) => {
                   style={{
                     padding: '0.5rem 0.6rem',
                     fontSize: '0.82rem',
-                    color: 'var(--text-primary)',
-                    background: opt.value === value ? 'rgba(14, 165, 233, 0.15)' : 'transparent',
+                    color: opt.value === value ? 'var(--accent-secondary, #0284c7)' : 'var(--text-primary, #0f172a)',
+                    background: opt.value === value ? 'rgba(2, 132, 199, 0.12)' : 'transparent',
                     cursor: 'pointer',
-                    transition: 'background 0.15s ease',
-                    textAlign: 'left'
+                    transition: 'background 0.12s ease',
+                    textAlign: 'left',
+                    fontWeight: opt.value === value ? '600' : 'normal',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between'
                   }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.background = 'rgba(15, 23, 42, 0.05)';
+                    e.currentTarget.style.background = opt.value === value ? 'rgba(2, 132, 199, 0.18)' : '#f1f5f9';
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.background = opt.value === value ? 'rgba(14, 165, 233, 0.15)' : 'transparent';
+                    e.currentTarget.style.background = opt.value === value ? 'rgba(2, 132, 199, 0.12)' : 'transparent';
                   }}
                 >
-                  {opt.label}
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{opt.label}</span>
+                  {opt.value === value && <span style={{ fontSize: '0.75rem', color: 'var(--accent-secondary, #0284c7)', fontWeight: 'bold' }}>✓</span>}
                 </div>
               ))
             )}
           </div>
-        </>
+        </>,
+        document.body
       )}
     </div>
   );

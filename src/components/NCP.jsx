@@ -1,4 +1,5 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Camera, Plus, Download, Edit2, Trash2, X, Search, Printer, FileText, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Maximize2, FileCheck, RefreshCw } from 'lucide-react';
 import * as pdfjsLib from 'pdfjs-dist';
 import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.mjs?url';
@@ -10,19 +11,59 @@ try {
   pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.worker.min.mjs`;
 }
 
-const SearchableSelect = ({ value, onChange, options, placeholder, disabled, style }) => {
+const SearchableSelect = ({ value, onChange, options = [], placeholder, disabled, style }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState('');
+  const [coords, setCoords] = useState({ top: 0, left: 0, width: 0, showAbove: false });
+  const containerRef = useRef(null);
 
-  const filtered = options.filter(opt => 
-    String(opt.label || '').toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = useMemo(() => {
+    return options.filter(opt => 
+      String(opt.label || '').toLowerCase().includes(search.toLowerCase())
+    );
+  }, [options, search]);
 
   const selectedOption = options.find(opt => opt.value === value);
   const displayLabel = selectedOption ? selectedOption.label : (value || '');
 
+  const updatePosition = () => {
+    if (containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const showAbove = spaceBelow < 220 && rect.top > 220;
+      setCoords({
+        top: showAbove ? rect.top : (rect.bottom + 4),
+        left: rect.left,
+        width: rect.width,
+        showAbove
+      });
+    }
+  };
+
+  useEffect(() => {
+    if (isOpen) {
+      updatePosition();
+      const handleScrollOrResize = () => {
+        updatePosition();
+      };
+      window.addEventListener('scroll', handleScrollOrResize, true);
+      window.addEventListener('resize', handleScrollOrResize);
+      return () => {
+        window.removeEventListener('scroll', handleScrollOrResize, true);
+        window.removeEventListener('resize', handleScrollOrResize);
+      };
+    }
+  }, [isOpen]);
+
+  const handleOpen = () => {
+    if (disabled) return;
+    updatePosition();
+    setIsOpen(true);
+    setSearch('');
+  };
+
   return (
-    <div style={{ position: 'relative', width: '100%' }}>
+    <div ref={containerRef} style={{ position: 'relative', width: '100%' }}>
       <div style={{ position: 'relative' }}>
         <input 
           type="text"
@@ -30,13 +71,11 @@ const SearchableSelect = ({ value, onChange, options, placeholder, disabled, sty
           value={isOpen ? search : displayLabel}
           title={displayLabel}
           onChange={(e) => {
-            if (!isOpen) setIsOpen(true);
+            if (!isOpen) handleOpen();
             setSearch(e.target.value);
+            updatePosition();
           }}
-          onClick={() => {
-            setIsOpen(true);
-            setSearch('');
-          }}
+          onClick={handleOpen}
           disabled={disabled}
           style={{
             width: '100%',
@@ -70,7 +109,8 @@ const SearchableSelect = ({ value, onChange, options, placeholder, disabled, sty
           {isOpen ? '▲' : '▼'}
         </div>
       </div>
-      {isOpen && !disabled && (
+
+      {isOpen && !disabled && typeof document !== 'undefined' && createPortal(
         <>
           <div 
             onClick={() => {
@@ -83,58 +123,70 @@ const SearchableSelect = ({ value, onChange, options, placeholder, disabled, sty
               left: 0,
               right: 0,
               bottom: 0,
-              zIndex: 9999
+              zIndex: 99998,
+              background: 'transparent'
             }}
           />
-          <div style={{
-            position: 'absolute',
-            top: '105%',
-            left: 0,
-            right: 0,
-            maxHeight: '220px',
-            overflowY: 'auto',
-            background: '#ffffff',
-            border: '1px solid var(--glass-border)',
-            borderRadius: '6px',
-            boxShadow: '0 10px 25px -5px rgba(0,0,0,0.15), 0 8px 10px -6px rgba(0,0,0,0.1)',
-            zIndex: 10000
-          }}>
+          <div 
+            style={{
+              position: 'fixed',
+              top: coords.showAbove ? 'auto' : `${coords.top}px`,
+              bottom: coords.showAbove ? `${window.innerHeight - coords.top + 4}px` : 'auto',
+              left: `${coords.left}px`,
+              width: `${coords.width}px`,
+              maxHeight: '230px',
+              overflowY: 'auto',
+              background: '#ffffff',
+              border: '1.5px solid var(--accent-secondary, #0284c7)',
+              borderRadius: '8px',
+              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.25), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
+              zIndex: 99999,
+              padding: '0.25rem 0',
+              boxSizing: 'border-box'
+            }}
+          >
             {filtered.length === 0 ? (
-              <div style={{ padding: '0.75rem', color: 'var(--text-muted)', fontSize: '0.8rem', textAlign: 'center' }}>
-                ไม่พบข้อมูล
+              <div style={{ padding: '0.75rem', color: 'var(--text-muted, #64748b)', fontSize: '0.82rem', textAlign: 'center' }}>
+                ไม่พบข้อมูลที่ตรงกับคำค้นหา
               </div>
             ) : (
               filtered.map((opt) => (
                 <div 
                   key={opt.value}
-                  onClick={() => {
+                  onMouseDown={(e) => {
+                    e.preventDefault();
                     onChange(opt.value);
                     setIsOpen(false);
                     setSearch('');
                   }}
                   style={{
-                    padding: '0.6rem 0.75rem',
-                    fontSize: '0.8rem',
-                    color: 'var(--text-primary)',
-                    background: opt.value === value ? 'rgba(14, 165, 233, 0.15)' : 'transparent',
+                    padding: '0.6rem 0.85rem',
+                    fontSize: '0.82rem',
+                    color: opt.value === value ? 'var(--accent-secondary, #0284c7)' : 'var(--text-primary, #0f172a)',
+                    background: opt.value === value ? 'rgba(2, 132, 199, 0.12)' : 'transparent',
                     cursor: 'pointer',
-                    transition: 'background 0.15s ease',
+                    transition: 'background 0.12s ease',
                     textAlign: 'left',
-                    fontWeight: opt.value === value ? '600' : 'normal'
+                    fontWeight: opt.value === value ? '700' : 'normal',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between'
                   }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.background = 'rgba(15, 23, 42, 0.05)';
+                    e.currentTarget.style.background = opt.value === value ? 'rgba(2, 132, 199, 0.18)' : '#f1f5f9';
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.background = opt.value === value ? 'rgba(14, 165, 233, 0.15)' : 'transparent';
+                    e.currentTarget.style.background = opt.value === value ? 'rgba(2, 132, 199, 0.12)' : 'transparent';
                   }}
                 >
-                  {opt.label}
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{opt.label}</span>
+                  {opt.value === value && <span style={{ fontSize: '0.8rem', color: 'var(--accent-secondary, #0284c7)', fontWeight: 'bold', marginLeft: '0.5rem' }}>✓</span>}
                 </div>
               ))
             )}
           </div>
-        </>
+        </>,
+        document.body
       )}
     </div>
   );
