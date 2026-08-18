@@ -1327,6 +1327,7 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
                   <label><input type="checkbox" id="col-item" checked onchange="updateTable()"> รายการสินค้า</label>
                   <label><input type="checkbox" id="col-supplier" checked onchange="updateTable()"> Supplier Lot</label>
                   <label><input type="checkbox" id="col-inhouse" checked onchange="updateTable()"> QC Lot</label>
+                  <label><input type="checkbox" id="col-agreement" checked onchange="updateTable()"> เลขที่สัญญา</label>
                   <label><input type="checkbox" id="col-qc" checked onchange="updateTable()"> สถานะ QC</label>
                   <label><input type="checkbox" id="col-packsize" checked onchange="updateTable()"> Pack Size</label>
                   <label><input type="checkbox" id="col-qty" checked onchange="updateTable()"> จำนวนรับ</label>
@@ -1376,14 +1377,15 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
             <thead>
               <tr>
                 <th id="th-date" class="col-date" style="width: 10%;">วันที่รับ</th>
-                <th id="th-item" class="col-item" style="width: 20%;">รายการสินค้า</th>
-                <th id="th-supplier" class="col-supplier" style="width: 11%;">Supplier Lot</th>
-                <th id="th-inhouse" class="col-inhouse" style="width: 11%;">QC Lot</th>
-                <th id="th-qc" class="col-qc" style="width: 10%;">สถานะ QC</th>
-                <th id="th-packsize" class="col-packsize" style="width: 11%;">Pack Size</th>
-                <th id="th-qty" class="col-qty" style="width: 10%; text-align: right;">จำนวนรับ</th>
-                <th id="th-unit" class="col-unit" style="width: 7%;">หน่วย</th>
-                <th id="th-location" class="col-location" style="width: 10%;">ที่เก็บ</th>
+                <th id="th-item" class="col-item" style="width: 18%;">รายการสินค้า</th>
+                <th id="th-supplier" class="col-supplier" style="width: 10%;">Supplier Lot</th>
+                <th id="th-inhouse" class="col-inhouse" style="width: 10%;">QC Lot</th>
+                <th id="th-agreement" class="col-agreement" style="width: 10%;">เลขที่สัญญา</th>
+                <th id="th-qc" class="col-qc" style="width: 9%;">สถานะ QC</th>
+                <th id="th-packsize" class="col-packsize" style="width: 9%;">Pack Size</th>
+                <th id="th-qty" class="col-qty" style="width: 9%; text-align: right;">จำนวนรับ</th>
+                <th id="th-unit" class="col-unit" style="width: 6%;">หน่วย</th>
+                <th id="th-location" class="col-location" style="width: 9%;">ที่เก็บ</th>
               </tr>
             </thead>
             <tbody>
@@ -1393,6 +1395,7 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
                   <td class="col-item" style="font-weight: 600;">${escapeHTML(e.itemName) || "-"}</td>
                   <td class="col-supplier">${escapeHTML(e.supplierLot) || "-"}</td>
                   <td class="col-inhouse">${escapeHTML(e.inhouseLot) || "-"}</td>
+                  <td class="col-agreement" style="color: #0284c7; font-weight: 500;">${escapeHTML(e.agreementId) || "-"}</td>
                   <td class="col-qc">
                     <span class="status-badge ${
                       e.qcStatus === 'Pass' ? 'status-pass' :
@@ -1408,7 +1411,7 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
                 </tr>
               `).join("")}
               <tr id="total-row" class="total-row">
-                <td id="total-label-cell" colspan="6" style="text-align: right;">รวมจำนวนรับเข้าทั้งสิ้น:</td>
+                <td id="total-label-cell" colspan="7" style="text-align: right;">รวมจำนวนรับเข้าทั้งสิ้น:</td>
                 <td id="total-val-cell" class="col-qty" style="text-align: right; font-size: 1.05rem;">
                   ${entries.reduce((sum, e) => sum + Number(e.quantity || 0), 0)}
                 </td>
@@ -1438,6 +1441,7 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
               item: 'รายการสินค้า',
               supplier: 'Supplier Lot',
               inhouse: 'QC Lot',
+              agreement: 'เลขที่สัญญา',
               qc: 'สถานะ QC',
               packsize: 'Pack Size',
               qty: 'จำนวนรับ',
@@ -1447,14 +1451,15 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
             
             const colWidths = {
               date: 10,
-              item: 20,
-              supplier: 11,
-              inhouse: 11,
-              qc: 10,
-              packsize: 11,
-              qty: 10,
-              unit: 7,
-              location: 10
+              item: 18,
+              supplier: 10,
+              inhouse: 10,
+              agreement: 10,
+              qc: 9,
+              packsize: 9,
+              qty: 9,
+              unit: 6,
+              location: 9
             };
 
             function renderWidthInputs() {
@@ -1490,7 +1495,7 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
             }
 
             function updateTable() {
-              const cols = ['date', 'item', 'supplier', 'inhouse', 'qc', 'packsize', 'qty', 'unit', 'location'];
+              const cols = ['date', 'item', 'supplier', 'inhouse', 'agreement', 'qc', 'packsize', 'qty', 'unit', 'location'];
               cols.forEach(col => {
                 const checked = document.getElementById('col-' + col).checked;
                 const elements = document.querySelectorAll('.col-' + col);
@@ -1509,7 +1514,7 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
                 totalRow.style.display = 'none';
               } else {
                 totalRow.style.display = '';
-                const columnsBeforeQty = ['date', 'item', 'supplier', 'inhouse', 'qc', 'packsize'];
+                const columnsBeforeQty = ['date', 'item', 'supplier', 'inhouse', 'agreement', 'qc', 'packsize'];
                 let visibleCountBeforeQty = 0;
                 columnsBeforeQty.forEach(col => {
                   if (document.getElementById('col-' + col).checked) {
@@ -1916,6 +1921,7 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
                   <label><input type="checkbox" id="col-item" checked onchange="updateTable()"> รายการสินค้า</label>
                   <label><input type="checkbox" id="col-supplier" checked onchange="updateTable()"> Supplier Lot</label>
                   <label><input type="checkbox" id="col-inhouse" checked onchange="updateTable()"> QC Lot</label>
+                  <label><input type="checkbox" id="col-agreement" checked onchange="updateTable()"> เลขที่สัญญา</label>
                   <label><input type="checkbox" id="col-qc" checked onchange="updateTable()"> สถานะ QC</label>
                   <label><input type="checkbox" id="col-packsize" checked onchange="updateTable()"> Pack Size</label>
                   <label><input type="checkbox" id="col-qty" checked onchange="updateTable()"> จำนวนรับ</label>
@@ -1965,14 +1971,15 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
             <thead>
               <tr>
                 <th id="th-date" class="col-date" style="width: 10%;">วันที่รับ</th>
-                <th id="th-item" class="col-item" style="width: 20%;">รายการสินค้า</th>
-                <th id="th-supplier" class="col-supplier" style="width: 11%;">Supplier Lot</th>
-                <th id="th-inhouse" class="col-inhouse" style="width: 11%;">QC Lot</th>
-                <th id="th-qc" class="col-qc" style="width: 10%;">สถานะ QC</th>
-                <th id="th-packsize" class="col-packsize" style="width: 11%;">Pack Size</th>
-                <th id="th-qty" class="col-qty" style="width: 10%; text-align: right;">จำนวนรับ</th>
-                <th id="th-unit" class="col-unit" style="width: 7%;">หน่วย</th>
-                <th id="th-location" class="col-location" style="width: 10%;">ที่เก็บ</th>
+                <th id="th-item" class="col-item" style="width: 18%;">รายการสินค้า</th>
+                <th id="th-supplier" class="col-supplier" style="width: 10%;">Supplier Lot</th>
+                <th id="th-inhouse" class="col-inhouse" style="width: 10%;">QC Lot</th>
+                <th id="th-agreement" class="col-agreement" style="width: 10%;">เลขที่สัญญา</th>
+                <th id="th-qc" class="col-qc" style="width: 9%;">สถานะ QC</th>
+                <th id="th-packsize" class="col-packsize" style="width: 9%;">Pack Size</th>
+                <th id="th-qty" class="col-qty" style="width: 9%; text-align: right;">จำนวนรับ</th>
+                <th id="th-unit" class="col-unit" style="width: 6%;">หน่วย</th>
+                <th id="th-location" class="col-location" style="width: 9%;">ที่เก็บ</th>
               </tr>
             </thead>
             <tbody>
@@ -1982,6 +1989,7 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
                   <td class="col-item" style="font-weight: 600;">${escapeHTML(e.itemName) || "-"}</td>
                   <td class="col-supplier">${escapeHTML(e.supplierLot) || "-"}</td>
                   <td class="col-inhouse">${escapeHTML(e.inhouseLot) || "-"}</td>
+                  <td class="col-agreement" style="color: #0284c7; font-weight: 500;">${escapeHTML(e.agreementId) || "-"}</td>
                   <td class="col-qc">
                     ${e.isCancelled ? '<span style="color: #ef4444; font-weight: bold;">ยกเลิกแล้ว</span>' : `
                     <span class="status-badge ${
@@ -1998,7 +2006,7 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
                 </tr>
               `).join("")}
               <tr id="total-row" class="total-row">
-                <td id="total-label-cell" colspan="6" style="text-align: right;">รวมจำนวนรับเข้าทั้งสิ้น:</td>
+                <td id="total-label-cell" colspan="7" style="text-align: right;">รวมจำนวนรับเข้าทั้งสิ้น:</td>
                 <td id="total-val-cell" class="col-qty" style="text-align: right; font-size: 1.05rem;">
                   ${itemsToPrint.reduce((sum, e) => sum + (e.isCancelled ? 0 : Number(e.quantity || 0)), 0)}
                 </td>
@@ -2028,6 +2036,7 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
               item: 'รายการสินค้า',
               supplier: 'Supplier Lot',
               inhouse: 'QC Lot',
+              agreement: 'เลขที่สัญญา',
               qc: 'สถานะ QC',
               packsize: 'Pack Size',
               qty: 'จำนวนรับ',
@@ -2037,14 +2046,15 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
             
             const colWidths = {
               date: 10,
-              item: 20,
-              supplier: 11,
-              inhouse: 11,
-              qc: 10,
-              packsize: 11,
-              qty: 10,
-              unit: 7,
-              location: 10
+              item: 18,
+              supplier: 10,
+              inhouse: 10,
+              agreement: 10,
+              qc: 9,
+              packsize: 9,
+              qty: 9,
+              unit: 6,
+              location: 9
             };
 
             function renderWidthInputs() {
@@ -2080,7 +2090,7 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
             }
 
             function updateTable() {
-              const cols = ['date', 'item', 'supplier', 'inhouse', 'qc', 'packsize', 'qty', 'unit', 'location'];
+              const cols = ['date', 'item', 'supplier', 'inhouse', 'agreement', 'qc', 'packsize', 'qty', 'unit', 'location'];
               cols.forEach(col => {
                 const checked = document.getElementById('col-' + col).checked;
                 const elements = document.querySelectorAll('.col-' + col);
@@ -2099,7 +2109,7 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
                 totalRow.style.display = 'none';
               } else {
                 totalRow.style.display = '';
-                const columnsBeforeQty = ['date', 'item', 'supplier', 'inhouse', 'qc', 'packsize'];
+                const columnsBeforeQty = ['date', 'item', 'supplier', 'inhouse', 'agreement', 'qc', 'packsize'];
                 let visibleCountBeforeQty = 0;
                 columnsBeforeQty.forEach(col => {
                   if (document.getElementById('col-' + col).checked) {
@@ -2376,6 +2386,7 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
                   <label><input type="checkbox" id="col-item" checked onchange="updateTable()"> รายการสินค้า</label>
                   <label><input type="checkbox" id="col-supplier" checked onchange="updateTable()"> Supplier Lot</label>
                   <label><input type="checkbox" id="col-inhouse" checked onchange="updateTable()"> QC Lot</label>
+                  <label><input type="checkbox" id="col-agreement" checked onchange="updateTable()"> เลขที่สัญญา</label>
                   <label><input type="checkbox" id="col-qc" checked onchange="updateTable()"> สถานะ QC</label>
                   <label><input type="checkbox" id="col-location" checked onchange="updateTable()"> ที่เก็บ</label>
                   <label><input type="checkbox" id="col-qty" checked onchange="updateTable()"> จำนวนรับ</label>
@@ -2424,14 +2435,15 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
           <table id="report-table">
             <thead>
               <tr>
-                <th id="th-date" class="col-date" style="width: 12%;">วันที่รับเข้า</th>
-                <th id="th-item" class="col-item" style="width: 30%;">รายการสินค้า</th>
-                <th id="th-supplier" class="col-supplier" style="width: 12%;">Supplier Lot</th>
-                <th id="th-inhouse" class="col-inhouse" style="width: 12%;">QC Lot</th>
-                <th id="th-qc" class="col-qc" style="width: 10%;">สถานะ QC</th>
-                <th id="th-location" class="col-location" style="width: 10%;">ที่เก็บ</th>
-                <th id="th-qty" class="col-qty" style="width: 10%; text-align: right;">จำนวนรับ</th>
-                <th id="th-unit" class="col-unit" style="width: 4%;">หน่วย</th>
+                <th id="th-date" class="col-date" style="width: 10%;">วันที่รับเข้า</th>
+                <th id="th-item" class="col-item" style="width: 25%;">รายการสินค้า</th>
+                <th id="th-supplier" class="col-supplier" style="width: 11%;">Supplier Lot</th>
+                <th id="th-inhouse" class="col-inhouse" style="width: 11%;">QC Lot</th>
+                <th id="th-agreement" class="col-agreement" style="width: 11%;">เลขที่สัญญา</th>
+                <th id="th-qc" class="col-qc" style="width: 9%;">สถานะ QC</th>
+                <th id="th-location" class="col-location" style="width: 9%;">ที่เก็บ</th>
+                <th id="th-qty" class="col-qty" style="width: 9%; text-align: right;">จำนวนรับ</th>
+                <th id="th-unit" class="col-unit" style="width: 5%;">หน่วย</th>
               </tr>
             </thead>
             <tbody>
@@ -2441,6 +2453,7 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
                   <td class="col-item" style="font-weight: 600;">${escapeHTML(item.itemName)}</td>
                   <td class="col-supplier">${escapeHTML(item.supplierLot) || '-'}</td>
                   <td class="col-inhouse">${escapeHTML(item.inhouseLot) || '-'}</td>
+                  <td class="col-agreement" style="color: #0284c7; font-weight: 500;">${escapeHTML(item.agreementId) || '-'}</td>
                   <td class="col-qc">
                     ${item.isCancelled ? '<span style="color: #ef4444; font-weight: bold;">ยกเลิกแล้ว</span>' : `
                     <span class="status-badge ${
@@ -2456,7 +2469,7 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
                 </tr>
               `).join('')}
               <tr id="total-row" class="total-row">
-                <td id="total-label-cell" colspan="6" style="text-align: right;">รวมจำนวนรับเข้าทั้งสิ้น:</td>
+                <td id="total-label-cell" colspan="7" style="text-align: right;">รวมจำนวนรับเข้าทั้งสิ้น:</td>
                 <td id="total-val-cell" class="col-qty" style="color: #003366; text-align: right;">${reportList.reduce((sum, item) => sum + (item.isCancelled ? 0 : Number(item.quantity)), 0).toLocaleString()}</td>
                 <td id="total-unit-cell" class="col-unit">หน่วยตามรายการ</td>
               </tr>
@@ -2482,6 +2495,7 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
               item: 'รายการสินค้า',
               supplier: 'Supplier Lot',
               inhouse: 'QC Lot',
+              agreement: 'เลขที่สัญญา',
               qc: 'สถานะ QC',
               location: 'ที่เก็บ',
               qty: 'จำนวนรับ',
@@ -2489,14 +2503,15 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
             };
             
             const colWidths = {
-              date: 12,
-              item: 30,
-              supplier: 12,
-              inhouse: 12,
-              qc: 10,
-              location: 10,
-              qty: 10,
-              unit: 4
+              date: 10,
+              item: 25,
+              supplier: 11,
+              inhouse: 11,
+              agreement: 11,
+              qc: 9,
+              location: 9,
+              qty: 9,
+              unit: 5
             };
 
             function renderWidthInputs() {
@@ -2532,7 +2547,7 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
             }
 
             function updateTable() {
-              const cols = ['date', 'item', 'supplier', 'inhouse', 'qc', 'location', 'qty', 'unit'];
+              const cols = ['date', 'item', 'supplier', 'inhouse', 'agreement', 'qc', 'location', 'qty', 'unit'];
               cols.forEach(col => {
                 const checked = document.getElementById('col-' + col).checked;
                 const elements = document.querySelectorAll('.col-' + col);
@@ -2549,7 +2564,7 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
                 totalRow.style.display = 'none';
               } else {
                 totalRow.style.display = '';
-                const columnsBeforeQty = ['date', 'item', 'supplier', 'inhouse', 'qc', 'location'];
+                const columnsBeforeQty = ['date', 'item', 'supplier', 'inhouse', 'agreement', 'qc', 'location'];
                 let visibleCountBeforeQty = 0;
                 columnsBeforeQty.forEach(col => {
                   if (document.getElementById('col-' + col).checked) {

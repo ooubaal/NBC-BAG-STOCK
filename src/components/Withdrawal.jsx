@@ -752,6 +752,7 @@ const Withdrawal = ({ inventory = [], setInventory, items = [], agreements = [] 
                   <label><input type="checkbox" id="col-item" checked onchange="updateTable()"> รายการสินค้า</label>
                   <label><input type="checkbox" id="col-supplier" checked onchange="updateTable()"> Supplier Lot</label>
                   <label><input type="checkbox" id="col-inhouse" checked onchange="updateTable()"> QC Lot</label>
+                  <label><input type="checkbox" id="col-agreement" checked onchange="updateTable()"> เลขที่สัญญา</label>
                   <label><input type="checkbox" id="col-qty" checked onchange="updateTable()"> จำนวนตัดจ่าย</label>
                   <label><input type="checkbox" id="col-unit" checked onchange="updateTable()"> หน่วย</label>
                   <label><input type="checkbox" id="col-location" checked onchange="updateTable()"> ที่เก็บเดิม</label>
@@ -800,14 +801,14 @@ const Withdrawal = ({ inventory = [], setInventory, items = [], agreements = [] 
             <thead>
               <tr>
                 <th id="th-date" class="col-date" style="width: 10%;">วันที่ตัดจ่าย</th>
-                <th id="th-item" class="col-item" style="width: 21%;">รายการสินค้า</th>
+                <th id="th-item" class="col-item" style="width: 20%;">รายการสินค้า</th>
                 <th id="th-supplier" class="col-supplier" style="width: 11%;">Supplier Lot</th>
                 <th id="th-inhouse" class="col-inhouse" style="width: 11%;">QC Lot</th>
-                <th id="th-agreement" class="col-agreement" style="width: 11%;">เลขสัญญา</th>
+                <th id="th-agreement" class="col-agreement" style="width: 11%;">เลขที่สัญญา</th>
                 <th id="th-qty" class="col-qty" style="width: 9%; text-align: right;">จำนวนตัดจ่าย</th>
                 <th id="th-unit" class="col-unit" style="width: 6%;">หน่วย</th>
                 <th id="th-location" class="col-location" style="width: 7%;">ที่เก็บเดิม</th>
-                <th id="th-reason" class="col-reason" style="width: 14%;">เหตุผล / หมายเหตุ</th>
+                <th id="th-reason" class="col-reason" style="width: 15%;">เหตุผล / หมายเหตุ</th>
               </tr>
             </thead>
             <tbody>
@@ -853,6 +854,7 @@ const Withdrawal = ({ inventory = [], setInventory, items = [], agreements = [] 
               item: 'รายการสินค้า',
               supplier: 'Supplier Lot',
               inhouse: 'QC Lot',
+              agreement: 'เลขที่สัญญา',
               qty: 'จำนวนตัดจ่าย',
               unit: 'หน่วย',
               location: 'ที่เก็บเดิม',
@@ -861,13 +863,14 @@ const Withdrawal = ({ inventory = [], setInventory, items = [], agreements = [] 
             
             const colWidths = {
               date: 10,
-              item: 25,
-              supplier: 12,
-              inhouse: 12,
-              qty: 10,
-              unit: 7,
-              location: 8,
-              reason: 16
+              item: 20,
+              supplier: 11,
+              inhouse: 11,
+              agreement: 11,
+              qty: 9,
+              unit: 6,
+              location: 7,
+              reason: 15
             };
 
             function renderWidthInputs() {
@@ -903,7 +906,7 @@ const Withdrawal = ({ inventory = [], setInventory, items = [], agreements = [] 
             }
 
             function updateTable() {
-              const cols = ['date', 'item', 'supplier', 'inhouse', 'qty', 'unit', 'location', 'reason'];
+              const cols = ['date', 'item', 'supplier', 'inhouse', 'agreement', 'qty', 'unit', 'location', 'reason'];
               cols.forEach(col => {
                 const checked = document.getElementById('col-' + col).checked;
                 const elements = document.querySelectorAll('.col-' + col);
@@ -923,7 +926,7 @@ const Withdrawal = ({ inventory = [], setInventory, items = [], agreements = [] 
                 totalRow.style.display = 'none';
               } else {
                 totalRow.style.display = '';
-                const columnsBeforeQty = ['date', 'item', 'supplier', 'inhouse'];
+                const columnsBeforeQty = ['date', 'item', 'supplier', 'inhouse', 'agreement'];
                 let visibleCountBeforeQty = 0;
                 columnsBeforeQty.forEach(col => {
                   if (document.getElementById('col-' + col).checked) {
@@ -1169,6 +1172,7 @@ const Withdrawal = ({ inventory = [], setInventory, items = [], agreements = [] 
                   <label><input type="checkbox" id="col-item" checked onchange="updateTable()"> รายการสินค้า</label>
                   <label><input type="checkbox" id="col-supplier" checked onchange="updateTable()"> Supplier Lot</label>
                   <label><input type="checkbox" id="col-inhouse" checked onchange="updateTable()"> QC Lot</label>
+                  <label><input type="checkbox" id="col-agreement" checked onchange="updateTable()"> เลขที่สัญญา</label>
                   <label><input type="checkbox" id="col-qty" checked onchange="updateTable()"> จำนวนตัดจ่าย</label>
                   <label><input type="checkbox" id="col-unit" checked onchange="updateTable()"> หน่วย</label>
                   <label><input type="checkbox" id="col-location" checked onchange="updateTable()"> ที่เก็บเดิม</label>
@@ -1218,13 +1222,14 @@ const Withdrawal = ({ inventory = [], setInventory, items = [], agreements = [] 
             <thead>
               <tr>
                 <th id="th-date" class="col-date" style="width: 10%;">วันที่ตัดจ่าย</th>
-                <th id="th-item" class="col-item" style="width: 25%;">รายการสินค้า</th>
-                <th id="th-supplier" class="col-supplier" style="width: 12%;">Supplier Lot</th>
-                <th id="th-inhouse" class="col-inhouse" style="width: 12%;">QC Lot</th>
-                <th id="th-qty" class="col-qty" style="width: 10%; text-align: right;">จำนวนตัดจ่าย</th>
-                <th id="th-unit" class="col-unit" style="width: 7%;">หน่วย</th>
-                <th id="th-location" class="col-location" style="width: 8%;">ที่เก็บเดิม</th>
-                <th id="th-reason" class="col-reason" style="width: 16%;">เหตุผล / หมายเหตุ</th>
+                <th id="th-item" class="col-item" style="width: 20%;">รายการสินค้า</th>
+                <th id="th-supplier" class="col-supplier" style="width: 11%;">Supplier Lot</th>
+                <th id="th-inhouse" class="col-inhouse" style="width: 11%;">QC Lot</th>
+                <th id="th-agreement" class="col-agreement" style="width: 11%;">เลขที่สัญญา</th>
+                <th id="th-qty" class="col-qty" style="width: 9%; text-align: right;">จำนวนตัดจ่าย</th>
+                <th id="th-unit" class="col-unit" style="width: 6%;">หน่วย</th>
+                <th id="th-location" class="col-location" style="width: 7%;">ที่เก็บเดิม</th>
+                <th id="th-reason" class="col-reason" style="width: 15%;">เหตุผล / หมายเหตุ</th>
               </tr>
             </thead>
             <tbody>
@@ -1234,6 +1239,7 @@ const Withdrawal = ({ inventory = [], setInventory, items = [], agreements = [] 
                   <td class="col-item" style="font-weight: 600;">${escapeHTML(w.itemName)}</td>
                   <td class="col-supplier">${escapeHTML(w.supplierLot) || '-'}</td>
                   <td class="col-inhouse">${escapeHTML(w.inhouseLot) || '-'}</td>
+                  <td class="col-agreement" style="color: #0284c7; font-weight: 500;">${escapeHTML(w.agreementId) || '-'}</td>
                   <td class="col-qty" style="font-weight: 700; color: #dc2626; text-align: right;">
                     ${w.isCancelled ? `<s>-${w.amount.toLocaleString()}</s> <span style="font-size: 10px; color: #ef4444; display: block;">(ยกเลิกแล้ว)</span>` : `-${w.amount.toLocaleString()}`}
                   </td>
@@ -1243,9 +1249,9 @@ const Withdrawal = ({ inventory = [], setInventory, items = [], agreements = [] 
                 </tr>
               `).join('')}
               <tr id="total-row" class="total-row">
-                <td id="total-label-cell" colspan="4" style="text-align: right;">รวมจำนวนตัดจ่ายทั้งสิ้น:</td>
+                <td id="total-label-cell" colspan="5" style="text-align: right;">รวมจำนวนตัดจ่ายทั้งสิ้น:</td>
                 <td id="total-val-cell" class="col-qty" style="color: #dc2626; text-align: right;">-${reportList.reduce((sum, w) => sum + (w.isCancelled ? 0 : w.amount), 0).toLocaleString()}</td>
-                <td id="total-unit-cell" class="col-unit" colspan="3">หน่วยตามรายการ</td>
+                <td id="total-unit-cell" class="col-unit" colspan="4">หน่วยตามรายการ</td>
               </tr>
             </tbody>
           </table>
@@ -1269,6 +1275,7 @@ const Withdrawal = ({ inventory = [], setInventory, items = [], agreements = [] 
               item: 'รายการสินค้า',
               supplier: 'Supplier Lot',
               inhouse: 'QC Lot',
+              agreement: 'เลขที่สัญญา',
               qty: 'จำนวนตัดจ่าย',
               unit: 'หน่วย',
               location: 'ที่เก็บเดิม',
@@ -1277,13 +1284,14 @@ const Withdrawal = ({ inventory = [], setInventory, items = [], agreements = [] 
             
             const colWidths = {
               date: 10,
-              item: 25,
-              supplier: 12,
-              inhouse: 12,
-              qty: 10,
-              unit: 7,
-              location: 8,
-              reason: 16
+              item: 20,
+              supplier: 11,
+              inhouse: 11,
+              agreement: 11,
+              qty: 9,
+              unit: 6,
+              location: 7,
+              reason: 15
             };
 
             function renderWidthInputs() {
@@ -1319,7 +1327,7 @@ const Withdrawal = ({ inventory = [], setInventory, items = [], agreements = [] 
             }
 
             function updateTable() {
-              const cols = ['date', 'item', 'supplier', 'inhouse', 'qty', 'unit', 'location', 'reason'];
+              const cols = ['date', 'item', 'supplier', 'inhouse', 'agreement', 'qty', 'unit', 'location', 'reason'];
               cols.forEach(col => {
                 const checked = document.getElementById('col-' + col).checked;
                 const elements = document.querySelectorAll('.col-' + col);
@@ -1339,7 +1347,7 @@ const Withdrawal = ({ inventory = [], setInventory, items = [], agreements = [] 
                 totalRow.style.display = 'none';
               } else {
                 totalRow.style.display = '';
-                const columnsBeforeQty = ['date', 'item', 'supplier', 'inhouse'];
+                const columnsBeforeQty = ['date', 'item', 'supplier', 'inhouse', 'agreement'];
                 let visibleCountBeforeQty = 0;
                 columnsBeforeQty.forEach(col => {
                   if (document.getElementById('col-' + col).checked) {
@@ -1428,7 +1436,7 @@ const Withdrawal = ({ inventory = [], setInventory, items = [], agreements = [] 
         const item = activeList[i];
         rows.push({
           no: i + 1,
-          itemName: `${item.itemName} (QC Lot: ${item.inhouseLot || '-'}, Supplier Lot: ${item.supplierLot || '-'})`,
+          itemName: `${item.itemName} (QC Lot: ${item.inhouseLot || '-'}, Supplier Lot: ${item.supplierLot || '-'}${item.agreementId ? `, สัญญา: ${item.agreementId}` : ''})`,
           unitPack: formatPackSizeWithUnit(item.packSize, item.unit, item.location),
           amountReq: formatQtyWithUnit(item.amount, item.unit),
           amountIssued: formatQtyWithUnit(item.amount, item.unit),
