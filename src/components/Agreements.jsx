@@ -190,143 +190,6 @@ const SearchableSelect = ({ value, onChange, options = [], placeholder, disabled
         </>,
         document.body
       )}
-      {/* Auto Split Schedule Modal */}
-      {autoSplitConfig !== null && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(0,0,0,0.7)',
-          backdropFilter: 'blur(5px)',
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          zIndex: 99999
-        }}>
-          <div className="glass card" style={{
-            maxWidth: '500px',
-            width: '90%',
-            padding: '2rem',
-            border: '1px solid var(--accent-secondary)',
-            boxShadow: '0 20px 25px -5px rgba(0,0,0,0.5)'
-          }}>
-            <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--accent-secondary)', marginBottom: '1.25rem' }}>
-              <Sparkles size={20} /> ตัวช่วยแบ่งงวดส่งมอบอัตโนมัติ (Auto-Split)
-            </h3>
-            
-            {(() => {
-              const formTarget = autoSplitConfig.isEdit ? editForm : newAgreement;
-              const targetItems = formTarget ? (formTarget.itemsList || []) : [];
-              const selectedItem = targetItems[autoSplitConfig.selectedItemIndex || 0] || targetItems[0] || { itemName: '-', totalQty: 0, unit: 'ชิ้น' };
-              const totalQty = Number(selectedItem.totalQty || 0);
-              const rounds = Math.max(1, Number(autoSplitConfig.roundsCount) || 3);
-              const base = Math.floor(totalQty / rounds);
-              const rem = totalQty - (base * rounds);
-
-              return (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.1rem' }}>
-                  {targetItems.length > 1 && (
-                    <div>
-                      <label style={{ display: 'block', marginBottom: '0.4rem', fontSize: '0.85rem', fontWeight: 600 }}>เลือกสินค้าที่ต้องการแบ่งงวด:</label>
-                      <select
-                        value={autoSplitConfig.selectedItemIndex || 0}
-                        onChange={(e) => setAutoSplitConfig({ ...autoSplitConfig, selectedItemIndex: Number(e.target.value) })}
-                        style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', background: 'var(--input-bg)', border: '1px solid var(--glass-border)', color: 'var(--text-primary)' }}
-                      >
-                        {targetItems.map((item, idx) => (
-                          <option key={idx} value={idx}>{item.itemName} (ยอด {Number(item.totalQty || 0).toLocaleString()} {item.unit})</option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
-
-                  <div style={{ background: 'rgba(255,255,255,0.03)', padding: '0.75rem', borderRadius: '6px', border: '1px solid var(--glass-border)', fontSize: '0.85rem' }}>
-                    <div>รายการสินค้า: <strong>{selectedItem.itemName || '-'}</strong></div>
-                    <div>ยอดจัดซื้อตามสัญญา: <strong style={{ color: 'var(--accent-secondary)' }}>{totalQty.toLocaleString()} {selectedItem.unit}</strong></div>
-                  </div>
-
-                  <div>
-                    <label style={{ display: 'block', marginBottom: '0.4rem', fontSize: '0.85rem', fontWeight: 600 }}>จำนวนรอบที่ต้องการแบ่งส่ง (รอบ):</label>
-                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                      <input
-                        type="number"
-                        min="1"
-                        max="36"
-                        value={autoSplitConfig.roundsCount}
-                        onChange={(e) => setAutoSplitConfig({ ...autoSplitConfig, roundsCount: Math.max(1, parseInt(e.target.value, 10) || 1) })}
-                        style={{ width: '80px', padding: '0.45rem', fontSize: '0.9rem', textAlign: 'center' }}
-                      />
-                      <div style={{ display: 'flex', gap: '0.25rem', flexWrap: 'wrap' }}>
-                        {[2, 3, 4, 6, 12].map(r => (
-                          <button
-                            key={r}
-                            type="button"
-                            onClick={() => setAutoSplitConfig({ ...autoSplitConfig, roundsCount: r })}
-                            style={{
-                              padding: '0.35rem 0.6rem',
-                              fontSize: '0.78rem',
-                              borderRadius: '4px',
-                              background: autoSplitConfig.roundsCount === r ? 'var(--accent-secondary)' : 'rgba(255,255,255,0.05)',
-                              color: autoSplitConfig.roundsCount === r ? '#fff' : 'var(--text-secondary)',
-                              border: '1px solid var(--glass-border)',
-                              cursor: 'pointer'
-                            }}
-                          >
-                            {r} รอบ
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label style={{ display: 'block', marginBottom: '0.4rem', fontSize: '0.85rem', fontWeight: 600 }}>ระยะห่างระหว่างงวด:</label>
-                    <select
-                      value={autoSplitConfig.intervalType}
-                      onChange={(e) => setAutoSplitConfig({ ...autoSplitConfig, intervalType: e.target.value })}
-                      style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', background: 'var(--input-bg)', border: '1px solid var(--glass-border)', color: 'var(--text-primary)' }}
-                    >
-                      <option value="monthly">รายเดือน (ทุก 1 เดือน)</option>
-                      <option value="biweekly">ทุก 15 วัน (Bi-weekly)</option>
-                      <option value="quarterly">รายไตรมาส (ทุก 3 เดือน)</option>
-                      <option value="evenly">กระจายสม่ำเสมอตลอดระยะเวลาสัญญา</option>
-                    </select>
-                  </div>
-
-                  {/* Preview Calculation */}
-                  <div style={{ background: 'rgba(2, 132, 199, 0.06)', border: '1px solid rgba(2, 132, 199, 0.2)', padding: '0.75rem', borderRadius: '6px', fontSize: '0.8rem' }}>
-                    <div style={{ fontWeight: 600, color: 'var(--accent-secondary)', marginBottom: '0.3rem' }}>ตัวอย่างการแบ่งงวด:</div>
-                    <div>• รอบที่ 1 ถึง {rounds > 1 ? rounds - 1 : 1}: ส่งรอบละ <strong>{base.toLocaleString()}</strong> {selectedItem.unit}</div>
-                    {rounds > 1 && rem > 0 && (
-                      <div>• รอบสุดท้าย (รอบที่ {rounds}): ส่ง <strong>{(base + rem).toLocaleString()}</strong> {selectedItem.unit} (รวมเศษคงเหลือ)</div>
-                    )}
-                  </div>
-
-                  <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', marginTop: '0.5rem' }}>
-                    <button
-                      type="button"
-                      className="btn btn-secondary"
-                      onClick={() => setAutoSplitConfig(null)}
-                    >
-                      ยกเลิก
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn-primary"
-                      onClick={() => handleExecuteAutoSplit(autoSplitConfig.isEdit, autoSplitConfig.roundsCount, autoSplitConfig.intervalType, autoSplitConfig.selectedItemIndex || 0)}
-                      style={{ background: 'var(--accent-secondary)', color: '#fff' }}
-                    >
-                      ยืนยันการแบ่งงวด
-                    </button>
-                  </div>
-                </div>
-              );
-            })()}
-          </div>
-        </div>
-      )}
     </div>
   );
 };
@@ -3078,6 +2941,144 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
           )}
         </div>
       )}
+            {/* Auto Split Schedule Modal */}
+      {autoSplitConfig !== null && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.7)',
+          backdropFilter: 'blur(5px)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 99999
+        }}>
+          <div className="glass card" style={{
+            maxWidth: '500px',
+            width: '90%',
+            padding: '2rem',
+            border: '1px solid var(--accent-secondary)',
+            boxShadow: '0 20px 25px -5px rgba(0,0,0,0.5)'
+          }}>
+            <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--accent-secondary)', marginBottom: '1.25rem' }}>
+              <Sparkles size={20} /> ตัวช่วยแบ่งงวดส่งมอบอัตโนมัติ (Auto-Split)
+            </h3>
+            
+            {(() => {
+              const formTarget = autoSplitConfig.isEdit ? editForm : newAgreement;
+              const targetItems = formTarget ? (formTarget.itemsList || []) : [];
+              const selectedItem = targetItems[autoSplitConfig.selectedItemIndex || 0] || targetItems[0] || { itemName: '-', totalQty: 0, unit: 'ชิ้น' };
+              const totalQty = Number(selectedItem.totalQty || 0);
+              const rounds = Math.max(1, Number(autoSplitConfig.roundsCount) || 3);
+              const base = Math.floor(totalQty / rounds);
+              const rem = totalQty - (base * rounds);
+
+              return (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.1rem' }}>
+                  {targetItems.length > 1 && (
+                    <div>
+                      <label style={{ display: 'block', marginBottom: '0.4rem', fontSize: '0.85rem', fontWeight: 600 }}>เลือกสินค้าที่ต้องการแบ่งงวด:</label>
+                      <select
+                        value={autoSplitConfig.selectedItemIndex || 0}
+                        onChange={(e) => setAutoSplitConfig({ ...autoSplitConfig, selectedItemIndex: Number(e.target.value) })}
+                        style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', background: 'var(--input-bg)', border: '1px solid var(--glass-border)', color: 'var(--text-primary)' }}
+                      >
+                        {targetItems.map((item, idx) => (
+                          <option key={idx} value={idx}>{item.itemName} (ยอด {Number(item.totalQty || 0).toLocaleString()} {item.unit})</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  <div style={{ background: 'rgba(255,255,255,0.03)', padding: '0.75rem', borderRadius: '6px', border: '1px solid var(--glass-border)', fontSize: '0.85rem' }}>
+                    <div>รายการสินค้า: <strong>{selectedItem.itemName || '-'}</strong></div>
+                    <div>ยอดจัดซื้อตามสัญญา: <strong style={{ color: 'var(--accent-secondary)' }}>{totalQty.toLocaleString()} {selectedItem.unit}</strong></div>
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '0.4rem', fontSize: '0.85rem', fontWeight: 600 }}>จำนวนรอบที่ต้องการแบ่งส่ง (รอบ):</label>
+                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                      <input
+                        type="number"
+                        min="1"
+                        max="36"
+                        value={autoSplitConfig.roundsCount}
+                        onChange={(e) => setAutoSplitConfig({ ...autoSplitConfig, roundsCount: Math.max(1, parseInt(e.target.value, 10) || 1) })}
+                        style={{ width: '80px', padding: '0.45rem', fontSize: '0.9rem', textAlign: 'center' }}
+                      />
+                      <div style={{ display: 'flex', gap: '0.25rem', flexWrap: 'wrap' }}>
+                        {[2, 3, 4, 6, 12].map(r => (
+                          <button
+                            key={r}
+                            type="button"
+                            onClick={() => setAutoSplitConfig({ ...autoSplitConfig, roundsCount: r })}
+                            style={{
+                              padding: '0.35rem 0.6rem',
+                              fontSize: '0.78rem',
+                              borderRadius: '4px',
+                              background: autoSplitConfig.roundsCount === r ? 'var(--accent-secondary)' : 'rgba(255,255,255,0.05)',
+                              color: autoSplitConfig.roundsCount === r ? '#fff' : 'var(--text-secondary)',
+                              border: '1px solid var(--glass-border)',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            {r} รอบ
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '0.4rem', fontSize: '0.85rem', fontWeight: 600 }}>ระยะห่างระหว่างงวด:</label>
+                    <select
+                      value={autoSplitConfig.intervalType}
+                      onChange={(e) => setAutoSplitConfig({ ...autoSplitConfig, intervalType: e.target.value })}
+                      style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', background: 'var(--input-bg)', border: '1px solid var(--glass-border)', color: 'var(--text-primary)' }}
+                    >
+                      <option value="monthly">รายเดือน (ทุก 1 เดือน)</option>
+                      <option value="biweekly">ทุก 15 วัน (Bi-weekly)</option>
+                      <option value="quarterly">รายไตรมาส (ทุก 3 เดือน)</option>
+                      <option value="evenly">กระจายสม่ำเสมอตลอดระยะเวลาสัญญา</option>
+                    </select>
+                  </div>
+
+                  {/* Preview Calculation */}
+                  <div style={{ background: 'rgba(2, 132, 199, 0.06)', border: '1px solid rgba(2, 132, 199, 0.2)', padding: '0.75rem', borderRadius: '6px', fontSize: '0.8rem' }}>
+                    <div style={{ fontWeight: 600, color: 'var(--accent-secondary)', marginBottom: '0.3rem' }}>ตัวอย่างการแบ่งงวด:</div>
+                    <div>• รอบที่ 1 ถึง {rounds > 1 ? rounds - 1 : 1}: ส่งรอบละ <strong>{base.toLocaleString()}</strong> {selectedItem.unit}</div>
+                    {rounds > 1 && rem > 0 && (
+                      <div>• รอบสุดท้าย (รอบที่ {rounds}): ส่ง <strong>{(base + rem).toLocaleString()}</strong> {selectedItem.unit} (รวมเศษคงเหลือ)</div>
+                    )}
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', marginTop: '0.5rem' }}>
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      onClick={() => setAutoSplitConfig(null)}
+                    >
+                      ยกเลิก
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      onClick={() => handleExecuteAutoSplit(autoSplitConfig.isEdit, autoSplitConfig.roundsCount, autoSplitConfig.intervalType, autoSplitConfig.selectedItemIndex || 0)}
+                      style={{ background: 'var(--accent-secondary)', color: '#fff' }}
+                    >
+                      ยืนยันการแบ่งงวด
+                    </button>
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+        </div>
+      )}
+
       {/* Deletion Warning Modal */}
       {deleteAgreementId !== null && (
         <div style={{
