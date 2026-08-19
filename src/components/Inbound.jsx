@@ -2799,6 +2799,47 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
                         ]}
                         placeholder="เลือกสัญญา..."
                       />
+                      {(() => {
+                        if (!entry.agreementId) return null;
+                        const selAg = agreements.find(ag => ag.id === entry.agreementId);
+                        if (!selAg || !selAg.tentativeSchedule || selAg.tentativeSchedule.length === 0) return null;
+                        const itemRounds = selAg.tentativeSchedule.filter(ts => !entry.itemName || ts.itemName === entry.itemName);
+                        if (itemRounds.length === 0) return null;
+                        
+                        return (
+                          <div style={{ marginTop: '0.3rem', fontSize: '0.68rem', display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+                            <span style={{ color: 'var(--accent-secondary)', fontWeight: 600 }}>
+                              📅 แผนส่งมอบ ({itemRounds.length} งวด):
+                            </span>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.25rem' }}>
+                              {itemRounds.slice(0, 3).map((r, idx) => (
+                                <button
+                                  key={idx}
+                                  type="button"
+                                  onClick={() => {
+                                    updateEntry(entry.id, 'quantity', r.quantity);
+                                  }}
+                                  title={`คลิกเพื่อใส่จำนวนตามแผน ${Number(r.quantity).toLocaleString()} ${r.unit || ''} (กำหนด ${r.date || '-'})`}
+                                  style={{
+                                    background: 'rgba(2, 132, 199, 0.1)',
+                                    border: '1px solid rgba(2, 132, 199, 0.3)',
+                                    borderRadius: '4px',
+                                    color: 'var(--accent-secondary)',
+                                    fontSize: '0.65rem',
+                                    padding: '0.15rem 0.35rem',
+                                    cursor: 'pointer',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '0.2rem'
+                                  }}
+                                >
+                                  <span>งวด {r.round || idx + 1}: <strong>{Number(r.quantity).toLocaleString()}</strong></span>
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })()}
                     </td>
                     <td style={{ padding: '0.5rem 0.25rem', verticalAlign: 'top' }}>
                       <input 

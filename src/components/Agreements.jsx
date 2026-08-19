@@ -1,6 +1,6 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Plus, Check, X, FileText, ShieldAlert, PackageOpen, ChevronDown, ChevronUp, UserCheck, AlertTriangle, Search, Edit2, Trash2, Paperclip, Eye, Loader2, Sparkles, Image as ImageIcon } from 'lucide-react';
+import { Plus, Check, X, FileText, ShieldAlert, PackageOpen, ChevronDown, ChevronUp, UserCheck, AlertTriangle, Search, Edit2, Trash2, Paperclip, Eye, Loader2, Sparkles, Image as ImageIcon, Calendar, Clock, Split, RefreshCw, CheckCircle2, AlertCircle, CalendarDays } from 'lucide-react';
 import { smartCompressUploadFile, formatFileSize } from '../utils/fileCompressor';
 
 const escapeHTML = (str) => {
@@ -190,6 +190,143 @@ const SearchableSelect = ({ value, onChange, options = [], placeholder, disabled
         </>,
         document.body
       )}
+      {/* Auto Split Schedule Modal */}
+      {autoSplitConfig !== null && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.7)',
+          backdropFilter: 'blur(5px)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 99999
+        }}>
+          <div className="glass card" style={{
+            maxWidth: '500px',
+            width: '90%',
+            padding: '2rem',
+            border: '1px solid var(--accent-secondary)',
+            boxShadow: '0 20px 25px -5px rgba(0,0,0,0.5)'
+          }}>
+            <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--accent-secondary)', marginBottom: '1.25rem' }}>
+              <Sparkles size={20} /> ตัวช่วยแบ่งงวดส่งมอบอัตโนมัติ (Auto-Split)
+            </h3>
+            
+            {(() => {
+              const formTarget = autoSplitConfig.isEdit ? editForm : newAgreement;
+              const targetItems = formTarget ? (formTarget.itemsList || []) : [];
+              const selectedItem = targetItems[autoSplitConfig.selectedItemIndex || 0] || targetItems[0] || { itemName: '-', totalQty: 0, unit: 'ชิ้น' };
+              const totalQty = Number(selectedItem.totalQty || 0);
+              const rounds = Math.max(1, Number(autoSplitConfig.roundsCount) || 3);
+              const base = Math.floor(totalQty / rounds);
+              const rem = totalQty - (base * rounds);
+
+              return (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.1rem' }}>
+                  {targetItems.length > 1 && (
+                    <div>
+                      <label style={{ display: 'block', marginBottom: '0.4rem', fontSize: '0.85rem', fontWeight: 600 }}>เลือกสินค้าที่ต้องการแบ่งงวด:</label>
+                      <select
+                        value={autoSplitConfig.selectedItemIndex || 0}
+                        onChange={(e) => setAutoSplitConfig({ ...autoSplitConfig, selectedItemIndex: Number(e.target.value) })}
+                        style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', background: 'var(--input-bg)', border: '1px solid var(--glass-border)', color: 'var(--text-primary)' }}
+                      >
+                        {targetItems.map((item, idx) => (
+                          <option key={idx} value={idx}>{item.itemName} (ยอด {Number(item.totalQty || 0).toLocaleString()} {item.unit})</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  <div style={{ background: 'rgba(255,255,255,0.03)', padding: '0.75rem', borderRadius: '6px', border: '1px solid var(--glass-border)', fontSize: '0.85rem' }}>
+                    <div>รายการสินค้า: <strong>{selectedItem.itemName || '-'}</strong></div>
+                    <div>ยอดจัดซื้อตามสัญญา: <strong style={{ color: 'var(--accent-secondary)' }}>{totalQty.toLocaleString()} {selectedItem.unit}</strong></div>
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '0.4rem', fontSize: '0.85rem', fontWeight: 600 }}>จำนวนรอบที่ต้องการแบ่งส่ง (รอบ):</label>
+                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                      <input
+                        type="number"
+                        min="1"
+                        max="36"
+                        value={autoSplitConfig.roundsCount}
+                        onChange={(e) => setAutoSplitConfig({ ...autoSplitConfig, roundsCount: Math.max(1, parseInt(e.target.value, 10) || 1) })}
+                        style={{ width: '80px', padding: '0.45rem', fontSize: '0.9rem', textAlign: 'center' }}
+                      />
+                      <div style={{ display: 'flex', gap: '0.25rem', flexWrap: 'wrap' }}>
+                        {[2, 3, 4, 6, 12].map(r => (
+                          <button
+                            key={r}
+                            type="button"
+                            onClick={() => setAutoSplitConfig({ ...autoSplitConfig, roundsCount: r })}
+                            style={{
+                              padding: '0.35rem 0.6rem',
+                              fontSize: '0.78rem',
+                              borderRadius: '4px',
+                              background: autoSplitConfig.roundsCount === r ? 'var(--accent-secondary)' : 'rgba(255,255,255,0.05)',
+                              color: autoSplitConfig.roundsCount === r ? '#fff' : 'var(--text-secondary)',
+                              border: '1px solid var(--glass-border)',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            {r} รอบ
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '0.4rem', fontSize: '0.85rem', fontWeight: 600 }}>ระยะห่างระหว่างงวด:</label>
+                    <select
+                      value={autoSplitConfig.intervalType}
+                      onChange={(e) => setAutoSplitConfig({ ...autoSplitConfig, intervalType: e.target.value })}
+                      style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', background: 'var(--input-bg)', border: '1px solid var(--glass-border)', color: 'var(--text-primary)' }}
+                    >
+                      <option value="monthly">รายเดือน (ทุก 1 เดือน)</option>
+                      <option value="biweekly">ทุก 15 วัน (Bi-weekly)</option>
+                      <option value="quarterly">รายไตรมาส (ทุก 3 เดือน)</option>
+                      <option value="evenly">กระจายสม่ำเสมอตลอดระยะเวลาสัญญา</option>
+                    </select>
+                  </div>
+
+                  {/* Preview Calculation */}
+                  <div style={{ background: 'rgba(2, 132, 199, 0.06)', border: '1px solid rgba(2, 132, 199, 0.2)', padding: '0.75rem', borderRadius: '6px', fontSize: '0.8rem' }}>
+                    <div style={{ fontWeight: 600, color: 'var(--accent-secondary)', marginBottom: '0.3rem' }}>ตัวอย่างการแบ่งงวด:</div>
+                    <div>• รอบที่ 1 ถึง {rounds > 1 ? rounds - 1 : 1}: ส่งรอบละ <strong>{base.toLocaleString()}</strong> {selectedItem.unit}</div>
+                    {rounds > 1 && rem > 0 && (
+                      <div>• รอบสุดท้าย (รอบที่ {rounds}): ส่ง <strong>{(base + rem).toLocaleString()}</strong> {selectedItem.unit} (รวมเศษคงเหลือ)</div>
+                    )}
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', marginTop: '0.5rem' }}>
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      onClick={() => setAutoSplitConfig(null)}
+                    >
+                      ยกเลิก
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      onClick={() => handleExecuteAutoSplit(autoSplitConfig.isEdit, autoSplitConfig.roundsCount, autoSplitConfig.intervalType, autoSplitConfig.selectedItemIndex || 0)}
+                      style={{ background: 'var(--accent-secondary)', color: '#fff' }}
+                    >
+                      ยืนยันการแบ่งงวด
+                    </button>
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -216,6 +353,9 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
   const [deletePassword, setDeletePassword] = useState('');
   const [deleteError, setDeleteError] = useState('');
 
+  // Auto Split Helper Modal State
+  const [autoSplitConfig, setAutoSplitConfig] = useState(null); // { isEdit: boolean, roundsCount: 3, intervalType: 'monthly', selectedItemIndex: 0 }
+
   const activeDeliveriesCount = useMemo(() => {
     if (!deleteAgreementId) return 0;
     return inventory.filter(lot => lot.agreementId === deleteAgreementId && !lot.isCancelled).length;
@@ -228,6 +368,7 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
       itemsList: agreement.itemsList || [
         { itemName: agreement.itemName, totalQty: agreement.totalQty, unit: agreement.unit }
       ],
+      tentativeSchedule: (agreement.tentativeSchedule || []).map(s => ({ ...s })),
       attachments: agreement.attachments || []
     });
     setEditFormSearchQuery('');
@@ -252,6 +393,19 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
       return;
     }
 
+    // Clean and validate tentative schedule rows
+    const cleanedTentative = (editForm.tentativeSchedule || [])
+      .filter(s => s && (s.quantity !== '' && s.quantity !== undefined && Number(s.quantity) > 0))
+      .map((s, idx) => ({
+        id: s.id || `tentative-${Date.now()}-${idx}`,
+        round: Number(s.round) || (idx + 1),
+        date: s.date || editForm.startDate || new Date().toISOString().split('T')[0],
+        itemName: s.itemName || (editForm.itemsList[0] ? editForm.itemsList[0].itemName : ''),
+        quantity: Number(s.quantity),
+        unit: s.unit || (editForm.itemsList.find(i => i.itemName === s.itemName) ? editForm.itemsList.find(i => i.itemName === s.itemName).unit : 'ชิ้น'),
+        remarks: s.remarks || ''
+      }));
+
     const updatedAgreements = agreements.map(ag => {
       if (ag.id === editingAgreementId) {
         const primaryItem = editForm.itemsList[0] || { itemName: '', totalQty: 0, unit: 'ชิ้น' };
@@ -262,6 +416,7 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
             ...item,
             totalQty: Number(item.totalQty)
           })),
+          tentativeSchedule: cleanedTentative,
           // Fallback properties for compatibility with other parts of the application:
           itemName: primaryItem.itemName,
           totalQty: Number(primaryItem.totalQty),
@@ -484,10 +639,217 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
     }));
   };
 
+  // Helper handlers for Tentative Delivery Schedule in newAgreement
+  const handleAddNewAgreementTentativeRow = () => {
+    setNewAgreement(prev => {
+      const currentTentative = prev.tentativeSchedule || [];
+      const defaultItem = (prev.itemsList && prev.itemsList.length > 0) ? prev.itemsList[0] : { itemName: '', unit: 'ชิ้น' };
+      
+      // Smart next date: 30 days from last row or 30 days from startDate
+      let nextDate = prev.startDate || new Date().toISOString().split('T')[0];
+      if (currentTentative.length > 0) {
+        const lastDate = currentTentative[currentTentative.length - 1].date;
+        if (lastDate) {
+          const d = new Date(lastDate);
+          d.setMonth(d.getMonth() + 1);
+          nextDate = d.toISOString().split('T')[0];
+        }
+      }
+
+      return {
+        ...prev,
+        tentativeSchedule: [
+          ...currentTentative,
+          {
+            id: `tentative-${Date.now()}-${currentTentative.length + 1}`,
+            round: currentTentative.length + 1,
+            date: nextDate,
+            itemName: defaultItem.itemName,
+            quantity: '',
+            unit: defaultItem.unit || 'ชิ้น',
+            remarks: `รอบที่ ${currentTentative.length + 1}`
+          }
+        ]
+      };
+    });
+  };
+
+  const handleUpdateNewAgreementTentativeRow = (index, key, val) => {
+    setNewAgreement(prev => {
+      const list = [...(prev.tentativeSchedule || [])];
+      if (key === 'itemName') {
+        const matchedItem = (prev.itemsList || []).find(i => i.itemName === val);
+        list[index] = {
+          ...list[index],
+          itemName: val,
+          unit: matchedItem ? matchedItem.unit : (list[index].unit || 'ชิ้น')
+        };
+      } else {
+        list[index] = {
+          ...list[index],
+          [key]: val
+        };
+      }
+      return { ...prev, tentativeSchedule: list };
+    });
+  };
+
+  const handleRemoveNewAgreementTentativeRow = (index) => {
+    setNewAgreement(prev => ({
+      ...prev,
+      tentativeSchedule: (prev.tentativeSchedule || []).filter((_, i) => i !== index)
+    }));
+  };
+
+  // Helper handlers for Tentative Delivery Schedule in editForm
+  const handleAddEditAgreementTentativeRow = () => {
+    setEditForm(prev => {
+      const currentTentative = prev.tentativeSchedule || [];
+      const defaultItem = (prev.itemsList && prev.itemsList.length > 0) ? prev.itemsList[0] : { itemName: '', unit: 'ชิ้น' };
+      
+      let nextDate = prev.startDate || new Date().toISOString().split('T')[0];
+      if (currentTentative.length > 0) {
+        const lastDate = currentTentative[currentTentative.length - 1].date;
+        if (lastDate) {
+          const d = new Date(lastDate);
+          d.setMonth(d.getMonth() + 1);
+          nextDate = d.toISOString().split('T')[0];
+        }
+      }
+
+      return {
+        ...prev,
+        tentativeSchedule: [
+          ...currentTentative,
+          {
+            id: `tentative-${Date.now()}-${currentTentative.length + 1}`,
+            round: currentTentative.length + 1,
+            date: nextDate,
+            itemName: defaultItem.itemName,
+            quantity: '',
+            unit: defaultItem.unit || 'ชิ้น',
+            remarks: `รอบที่ ${currentTentative.length + 1}`
+          }
+        ]
+      };
+    });
+  };
+
+  const handleUpdateEditAgreementTentativeRow = (index, key, val) => {
+    setEditForm(prev => {
+      const list = [...(prev.tentativeSchedule || [])];
+      if (key === 'itemName') {
+        const matchedItem = (prev.itemsList || []).find(i => i.itemName === val);
+        list[index] = {
+          ...list[index],
+          itemName: val,
+          unit: matchedItem ? matchedItem.unit : (list[index].unit || 'ชิ้น')
+        };
+      } else {
+        list[index] = {
+          ...list[index],
+          [key]: val
+        };
+      }
+      return { ...prev, tentativeSchedule: list };
+    });
+  };
+
+  const handleRemoveEditAgreementTentativeRow = (index) => {
+    setEditForm(prev => ({
+      ...prev,
+      tentativeSchedule: (prev.tentativeSchedule || []).filter((_, i) => i !== index)
+    }));
+  };
+
+  // Helper to execute Auto-Split
+  const handleExecuteAutoSplit = (isEdit, roundsCount, intervalType, selectedItemIndex = 0) => {
+    const formTarget = isEdit ? editForm : newAgreement;
+    if (!formTarget || !formTarget.itemsList || formTarget.itemsList.length === 0) {
+      alert("กรุณาระบุรายการสินค้าในสัญญาก่อนแบ่งงวด");
+      return;
+    }
+
+    const numRounds = Math.max(1, parseInt(roundsCount, 10) || 3);
+    const startDateStr = formTarget.startDate || new Date().toISOString().split('T')[0];
+    const endDateStr = formTarget.endDate || new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString().split('T')[0];
+
+    const targetItem = formTarget.itemsList[selectedItemIndex] || formTarget.itemsList[0];
+    const totalQty = Number(targetItem.totalQty || 0);
+
+    if (totalQty <= 0) {
+      alert(`กรุณาระบุยอดจัดซื้อของสินค้า "${targetItem.itemName || 'ที่เลือก'}" ให้ถูกต้องก่อนแบ่งงวด`);
+      return;
+    }
+
+    const baseQty = Math.floor(totalQty / numRounds);
+    const remainder = totalQty - (baseQty * numRounds);
+
+    const startD = new Date(startDateStr);
+    const endD = new Date(endDateStr);
+    const totalDays = Math.max(1, Math.round((endD - startD) / (1000 * 60 * 60 * 24)));
+
+    const newRounds = [];
+
+    for (let r = 1; r <= numRounds; r++) {
+      const roundQty = r === numRounds ? (baseQty + remainder) : baseQty;
+      
+      let roundDate = new Date(startD);
+      if (intervalType === 'evenly') {
+        const stepDays = Math.round((totalDays / numRounds) * r);
+        roundDate.setDate(roundDate.getDate() + stepDays);
+      } else if (intervalType === 'biweekly') {
+        roundDate.setDate(roundDate.getDate() + (r * 14));
+      } else if (intervalType === 'monthly') {
+        roundDate.setMonth(roundDate.getMonth() + r);
+      } else if (intervalType === 'quarterly') {
+        roundDate.setMonth(roundDate.getMonth() + (r * 3));
+      } else {
+        roundDate.setMonth(roundDate.getMonth() + r);
+      }
+
+      const yyyy = roundDate.getFullYear();
+      const mm = String(roundDate.getMonth() + 1).padStart(2, '0');
+      const dd = String(roundDate.getDate()).padStart(2, '0');
+      const dateStr = `${yyyy}-${mm}-${dd}`;
+
+      newRounds.push({
+        id: `tentative-${Date.now()}-${r}-${Math.random().toString(36).substr(2, 4)}`,
+        round: r,
+        date: dateStr,
+        itemName: targetItem.itemName,
+        quantity: roundQty,
+        unit: targetItem.unit || 'ชิ้น',
+        remarks: `รอบที่ ${r} จากทั้งหมด ${numRounds} รอบ`
+      });
+    }
+
+    if (isEdit) {
+      setEditForm(prev => {
+        const otherItemsRounds = (prev.tentativeSchedule || []).filter(s => s.itemName && s.itemName !== targetItem.itemName);
+        return {
+          ...prev,
+          tentativeSchedule: [...otherItemsRounds, ...newRounds]
+        };
+      });
+    } else {
+      setNewAgreement(prev => {
+        const otherItemsRounds = (prev.tentativeSchedule || []).filter(s => s.itemName && s.itemName !== targetItem.itemName);
+        return {
+          ...prev,
+          tentativeSchedule: [...otherItemsRounds, ...newRounds]
+        };
+      });
+    }
+
+    setAutoSplitConfig(null);
+  };
+
   // New agreement form state
   const [newAgreement, setNewAgreement] = useState({
     id: '',
     itemsList: [{ itemName: (items && items.length > 0) ? items[0].name : '', totalQty: '', unit: (items && items.length > 0) ? items[0].unit : 'ชิ้น' }],
+    tentativeSchedule: [],
     supplier: '',
     startDate: new Date().toISOString().split('T')[0],
     endDate: new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString().split('T')[0],
@@ -520,6 +882,19 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
       return;
     }
 
+    // Clean and validate tentative schedule rows
+    const cleanedTentative = (newAgreement.tentativeSchedule || [])
+      .filter(s => s && (s.quantity !== '' && s.quantity !== undefined && Number(s.quantity) > 0))
+      .map((s, idx) => ({
+        id: s.id || `tentative-${Date.now()}-${idx}`,
+        round: Number(s.round) || (idx + 1),
+        date: s.date || newAgreement.startDate || new Date().toISOString().split('T')[0],
+        itemName: s.itemName || (newAgreement.itemsList[0] ? newAgreement.itemsList[0].itemName : ''),
+        quantity: Number(s.quantity),
+        unit: s.unit || (newAgreement.itemsList.find(i => i.itemName === s.itemName) ? newAgreement.itemsList.find(i => i.itemName === s.itemName).unit : 'ชิ้น'),
+        remarks: s.remarks || ''
+      }));
+
     const primaryItem = newAgreement.itemsList[0] || { itemName: '', totalQty: 0, unit: 'ชิ้น' };
     const agreementToAdd = {
       ...newAgreement,
@@ -527,6 +902,7 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
         ...item,
         totalQty: Number(item.totalQty)
       })),
+      tentativeSchedule: cleanedTentative,
       // Fallback properties for compatibility with other parts of the application:
       itemName: primaryItem.itemName,
       totalQty: Number(primaryItem.totalQty),
@@ -543,6 +919,7 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
     setNewAgreement({
       id: '',
       itemsList: [{ itemName: (items && items.length > 0) ? items[0].name : '', totalQty: '', unit: (items && items.length > 0) ? items[0].unit : 'ชิ้น' }],
+      tentativeSchedule: [],
       supplier: '',
       startDate: new Date().toISOString().split('T')[0],
       endDate: new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString().split('T')[0],
@@ -659,6 +1036,74 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
         displayStatus = 'Expired';
       }
 
+      // Compute Tentative Delivery Schedule metrics
+      const rawTentative = ag.tentativeSchedule || [];
+      const todayStr = new Date().toISOString().split('T')[0];
+      
+      // Map and sort tentative rounds
+      const sortedTentative = [...rawTentative].sort((a, b) => {
+        const dateCompare = String(a.date || '').localeCompare(String(b.date || ''));
+        if (dateCompare !== 0) return dateCompare;
+        return (Number(a.round) || 0) - (Number(b.round) || 0);
+      });
+
+      // Track cumulative delivered quantities per item to determine tentative status
+      const cumulativeDeliveredPerItem = {};
+
+      const processedTentativeSchedule = sortedTentative.map((round, rIdx) => {
+        const targetItemName = round.itemName || (itemsListWithStats[0] ? itemsListWithStats[0].itemName : '');
+        const matchedItemStats = itemsListWithStats.find(i => i.itemName === targetItemName);
+        const totalAcceptedForItem = matchedItemStats ? matchedItemStats.acceptedQty : 0;
+        const plannedQty = Number(round.quantity || 0);
+
+        const prevCumulative = cumulativeDeliveredPerItem[targetItemName] || 0;
+        const currentCumulative = prevCumulative + plannedQty;
+        cumulativeDeliveredPerItem[targetItemName] = currentCumulative;
+
+        let fulfilledQty = 0;
+        let status = 'Pending'; // 'Completed' | 'Partial' | 'Pending' | 'Overdue'
+
+        if (totalAcceptedForItem >= currentCumulative) {
+          fulfilledQty = plannedQty;
+          status = 'Completed';
+        } else if (totalAcceptedForItem > prevCumulative) {
+          fulfilledQty = totalAcceptedForItem - prevCumulative;
+          status = 'Partial';
+        } else {
+          fulfilledQty = 0;
+          if (round.date && round.date < todayStr) {
+            status = 'Overdue';
+          } else {
+            status = 'Pending';
+          }
+        }
+
+        const fulfilledPct = plannedQty > 0 ? Math.min(100, Math.round((fulfilledQty / plannedQty) * 100)) : 100;
+
+        let daysDiff = null;
+        if (round.date) {
+          const dTarget = new Date(round.date + 'T00:00:00');
+          const dToday = new Date(todayStr + 'T00:00:00');
+          daysDiff = Math.round((dTarget - dToday) / (1000 * 60 * 60 * 24));
+        }
+
+        return {
+          ...round,
+          roundNumber: round.round || (rIdx + 1),
+          itemName: targetItemName,
+          quantity: plannedQty,
+          unit: round.unit || (matchedItemStats ? matchedItemStats.unit : 'ชิ้น'),
+          fulfilledQty,
+          fulfilledPct,
+          status,
+          daysDiff
+        };
+      });
+
+      const nextTentativeDelivery = processedTentativeSchedule.find(s => s.status !== 'Completed') || null;
+      const totalPlannedQty = processedTentativeSchedule.reduce((sum, s) => sum + s.quantity, 0);
+      const totalPlannedFulfilledQty = processedTentativeSchedule.reduce((sum, s) => sum + s.fulfilledQty, 0);
+
       return {
         ...ag,
         itemsListWithStats,
@@ -671,7 +1116,11 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
         withdrawnQty,
         remainingStockQty,
         displayStatus,
-        deliveries
+        deliveries,
+        tentativeSchedule: processedTentativeSchedule,
+        nextTentativeDelivery,
+        totalPlannedQty,
+        totalPlannedFulfilledQty
       };
     });
   }, [agreements, inventory]);
@@ -1286,6 +1735,186 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
               </div>
             </div>
 
+            {/* แผนการส่งมอบสินค้าล่วงหน้า (Tentative Delivery Schedule) */}
+            <div style={{ marginTop: '0.5rem', marginBottom: '0.5rem', border: '1px solid rgba(2, 132, 199, 0.25)', borderRadius: '10px', padding: '1.1rem', background: 'rgba(2, 132, 199, 0.03)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+                <div>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.88rem', fontWeight: 700, color: 'var(--accent-secondary)' }}>
+                    <CalendarDays size={16} /> แผนการส่งมอบสินค้าล่วงหน้า (Tentative Schedule)
+                  </label>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                    กำหนดรอบและวันที่คาดว่าสินค้าจะมาส่งมอบตามสัญญา (ปรับเปลี่ยนได้ตลอดเวลา)
+                  </span>
+                </div>
+                
+                <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+                  <button 
+                    type="button" 
+                    className="btn btn-secondary" 
+                    onClick={() => setAutoSplitConfig({ isEdit: false, roundsCount: 3, intervalType: 'monthly', selectedItemIndex: 0 })}
+                    style={{ padding: '0.3rem 0.6rem', fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: '0.25rem', color: 'var(--accent-color)', borderColor: 'rgba(245, 158, 11, 0.3)', background: 'rgba(245, 158, 11, 0.08)' }}
+                    title="ช่วยแบ่งงวดและวันที่อัตโนมัติตามจำนวนรอบที่ต้องการ"
+                  >
+                    <Sparkles size={13} /> ⚡ ช่วยแบ่งงวดอัตโนมัติ
+                  </button>
+                  <button 
+                    type="button" 
+                    className="btn btn-secondary" 
+                    onClick={handleAddNewAgreementTentativeRow}
+                    style={{ padding: '0.3rem 0.6rem', fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
+                  >
+                    <Plus size={13} /> เพิ่มรอบส่งมอบ
+                  </button>
+                </div>
+              </div>
+
+              {/* Status / Comparison summary bar */}
+              {(() => {
+                const totalContractQty = (newAgreement.itemsList || []).reduce((sum, i) => sum + (Number(i.totalQty) || 0), 0);
+                const totalPlannedQty = (newAgreement.tentativeSchedule || []).reduce((sum, s) => sum + (Number(s.quantity) || 0), 0);
+                const diff = totalPlannedQty - totalContractQty;
+                const isMatched = totalPlannedQty > 0 && diff === 0;
+
+                return (
+                  <div style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    background: isMatched ? 'rgba(16, 185, 129, 0.08)' : (diff > 0 ? 'rgba(239, 68, 68, 0.08)' : 'rgba(255, 255, 255, 0.03)'),
+                    border: `1px solid ${isMatched ? 'rgba(16, 185, 129, 0.25)' : (diff > 0 ? 'rgba(239, 68, 68, 0.25)' : 'var(--glass-border)')}`,
+                    borderRadius: '6px',
+                    padding: '0.45rem 0.75rem',
+                    marginBottom: '0.75rem',
+                    fontSize: '0.8rem',
+                    flexWrap: 'wrap',
+                    gap: '0.5rem'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <span>จำนวนรอบที่วางแผน: <strong>{(newAgreement.tentativeSchedule || []).length} รอบ</strong></span>
+                      <span>|</span>
+                      <span>ยอดรวมตามแผน: <strong style={{ color: isMatched ? '#10b981' : (diff > 0 ? '#ef4444' : 'var(--accent-secondary)') }}>{totalPlannedQty.toLocaleString()}</strong> / ยอดสัญญา: <strong>{totalContractQty.toLocaleString()}</strong></span>
+                    </div>
+                    <div>
+                      {totalPlannedQty === 0 ? (
+                        <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>(ยังไม่ได้กำหนดแผนส่งมอบ)</span>
+                      ) : isMatched ? (
+                        <span style={{ color: 'var(--success, #10b981)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.2rem' }}>
+                          <Check size={14} /> แผนตรงตามยอดสัญญาสมบูรณ์ (100%)
+                        </span>
+                      ) : diff < 0 ? (
+                        <span style={{ color: '#f59e0b', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.2rem' }}>
+                          <AlertCircle size={14} /> ยังขาดในแผนอีก {Math.abs(diff).toLocaleString()} หน่วย
+                        </span>
+                      ) : (
+                        <span style={{ color: 'var(--danger)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.2rem' }}>
+                          <AlertTriangle size={14} /> แผนเกินยอดสัญญา {diff.toLocaleString()} หน่วย
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {(!newAgreement.tentativeSchedule || newAgreement.tentativeSchedule.length === 0) ? (
+                <div style={{ textAlign: 'center', padding: '1.25rem', border: '1px dashed var(--glass-border)', borderRadius: '8px', color: 'var(--text-muted)', fontSize: '0.82rem' }}>
+                  ยังไม่มีการระบุแผนการส่งมอบล่วงหน้า (สามารถกดปุ่ม "<strong>⚡ ช่วยแบ่งงวดอัตโนมัติ</strong>" หรือ "<strong>+ เพิ่มรอบส่งมอบ</strong>" เพื่อเริ่มต้น)
+                </div>
+              ) : (
+                <div style={{ border: '1px solid var(--glass-border)', borderRadius: '8px', overflow: 'hidden', background: 'var(--glass-bg)' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
+                    <thead>
+                      <tr style={{ background: 'rgba(255, 255, 255, 0.02)', borderBottom: '1px solid var(--glass-border)', textAlign: 'left', color: 'var(--text-muted)' }}>
+                        <th style={{ padding: '0.5rem 0.6rem', width: '10%', textAlign: 'center' }}>รอบที่</th>
+                        <th style={{ padding: '0.5rem 0.6rem', width: '22%' }}>วันที่กำหนดส่ง</th>
+                        <th style={{ padding: '0.5rem 0.6rem', width: '28%' }}>รายการสินค้า</th>
+                        <th style={{ padding: '0.5rem 0.6rem', width: '20%' }}>จำนวนส่งมอบ</th>
+                        <th style={{ padding: '0.5rem 0.6rem', width: '14%' }}>หมายเหตุ</th>
+                        <th style={{ padding: '0.5rem 0.6rem', width: '6%', textAlign: 'center' }}>ลบ</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {newAgreement.tentativeSchedule.map((tRow, tIdx) => (
+                        <tr key={tRow.id || tIdx} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.02)' }}>
+                          <td style={{ padding: '0.4rem 0.6rem', textAlign: 'center', fontWeight: 600, color: 'var(--accent-secondary)' }}>
+                            {tRow.round || (tIdx + 1)}
+                          </td>
+                          <td style={{ padding: '0.4rem 0.6rem' }}>
+                            <input
+                              type="date"
+                              value={tRow.date || ''}
+                              onChange={(e) => handleUpdateNewAgreementTentativeRow(tIdx, 'date', e.target.value)}
+                              style={{ width: '100%', padding: '0.35rem 0.45rem', fontSize: '0.8rem' }}
+                              required
+                            />
+                          </td>
+                          <td style={{ padding: '0.4rem 0.6rem' }}>
+                            {(newAgreement.itemsList && newAgreement.itemsList.length > 1) ? (
+                              <select
+                                value={tRow.itemName || ''}
+                                onChange={(e) => handleUpdateNewAgreementTentativeRow(tIdx, 'itemName', e.target.value)}
+                                style={{ width: '100%', padding: '0.35rem 0.45rem', fontSize: '0.8rem', background: 'var(--input-bg)', color: 'var(--text-primary)', border: '1px solid var(--glass-border)', borderRadius: '4px' }}
+                              >
+                                {newAgreement.itemsList.map((item, iIdx) => (
+                                  <option key={iIdx} value={item.itemName}>{item.itemName || `รายการที่ ${iIdx + 1}`}</option>
+                                ))}
+                              </select>
+                            ) : (
+                              <span style={{ color: 'var(--text-primary)', fontWeight: 500, fontSize: '0.82rem' }}>
+                                {tRow.itemName || (newAgreement.itemsList && newAgreement.itemsList[0] ? newAgreement.itemsList[0].itemName : '-')}
+                              </span>
+                            )}
+                          </td>
+                          <td style={{ padding: '0.4rem 0.6rem' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                              <input
+                                type="number"
+                                value={tRow.quantity}
+                                onChange={(e) => handleUpdateNewAgreementTentativeRow(tIdx, 'quantity', e.target.value)}
+                                placeholder="จำนวน"
+                                style={{ width: '100%', padding: '0.35rem 0.45rem', fontSize: '0.8rem', outline: 'none' }}
+                                required
+                              />
+                              <span style={{ color: 'var(--text-secondary)', fontSize: '0.75rem', minWidth: '28px' }}>
+                                {tRow.unit || 'ชิ้น'}
+                              </span>
+                            </div>
+                          </td>
+                          <td style={{ padding: '0.4rem 0.6rem' }}>
+                            <input
+                              type="text"
+                              value={tRow.remarks || ''}
+                              onChange={(e) => handleUpdateNewAgreementTentativeRow(tIdx, 'remarks', e.target.value)}
+                              placeholder="เช่น ล็อต 1"
+                              style={{ width: '100%', padding: '0.35rem 0.45rem', fontSize: '0.78rem' }}
+                            />
+                          </td>
+                          <td style={{ padding: '0.4rem 0.6rem', textAlign: 'center' }}>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveNewAgreementTentativeRow(tIdx)}
+                              style={{
+                                background: 'transparent',
+                                border: 'none',
+                                color: 'var(--danger)',
+                                cursor: 'pointer',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                padding: '0.25rem'
+                              }}
+                              title="ลบรอบนี้"
+                            >
+                              <Trash2 size={15} />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
             <div>
               <label style={{ display: 'block', marginBottom: '0.4rem', fontSize: '0.85rem' }}>บันทึกเพิ่มเติม / หมายเหตุ</label>
               <textarea 
@@ -1603,6 +2232,186 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
                             />
                           </div>
                         </div>
+                      </div>
+
+                      {/* แผนการส่งมอบสินค้าล่วงหน้า (Tentative Delivery Schedule) in editForm */}
+                      <div style={{ marginTop: '0.5rem', marginBottom: '0.5rem', border: '1px solid rgba(2, 132, 199, 0.25)', borderRadius: '10px', padding: '1.1rem', background: 'rgba(2, 132, 199, 0.03)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+                          <div>
+                            <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.88rem', fontWeight: 700, color: 'var(--accent-secondary)' }}>
+                              <CalendarDays size={16} /> แผนการส่งมอบสินค้าล่วงหน้า (Tentative Schedule)
+                            </label>
+                            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                              กำหนดรอบและวันที่คาดว่าสินค้าจะมาส่งมอบตามสัญญา (ปรับเปลี่ยนได้ตลอดเวลา)
+                            </span>
+                          </div>
+                          
+                          <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+                            <button 
+                              type="button" 
+                              className="btn btn-secondary" 
+                              onClick={() => setAutoSplitConfig({ isEdit: true, roundsCount: 3, intervalType: 'monthly', selectedItemIndex: 0 })}
+                              style={{ padding: '0.3rem 0.6rem', fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: '0.25rem', color: 'var(--accent-color)', borderColor: 'rgba(245, 158, 11, 0.3)', background: 'rgba(245, 158, 11, 0.08)' }}
+                              title="ช่วยแบ่งงวดและวันที่อัตโนมัติตามจำนวนรอบที่ต้องการ"
+                            >
+                              <Sparkles size={13} /> ⚡ ช่วยแบ่งงวดอัตโนมัติ
+                            </button>
+                            <button 
+                              type="button" 
+                              className="btn btn-secondary" 
+                              onClick={handleAddEditAgreementTentativeRow}
+                              style={{ padding: '0.3rem 0.6rem', fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
+                            >
+                              <Plus size={13} /> เพิ่มรอบส่งมอบ
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Status / Comparison summary bar in editForm */}
+                        {(() => {
+                          const totalContractQty = (editForm.itemsList || []).reduce((sum, i) => sum + (Number(i.totalQty) || 0), 0);
+                          const totalPlannedQty = (editForm.tentativeSchedule || []).reduce((sum, s) => sum + (Number(s.quantity) || 0), 0);
+                          const diff = totalPlannedQty - totalContractQty;
+                          const isMatched = totalPlannedQty > 0 && diff === 0;
+
+                          return (
+                            <div style={{
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                              background: isMatched ? 'rgba(16, 185, 129, 0.08)' : (diff > 0 ? 'rgba(239, 68, 68, 0.08)' : 'rgba(255, 255, 255, 0.03)'),
+                              border: `1px solid ${isMatched ? 'rgba(16, 185, 129, 0.25)' : (diff > 0 ? 'rgba(239, 68, 68, 0.25)' : 'var(--glass-border)')}`,
+                              borderRadius: '6px',
+                              padding: '0.45rem 0.75rem',
+                              marginBottom: '0.75rem',
+                              fontSize: '0.8rem',
+                              flexWrap: 'wrap',
+                              gap: '0.5rem'
+                            }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                <span>จำนวนรอบที่วางแผน: <strong>{(editForm.tentativeSchedule || []).length} รอบ</strong></span>
+                                <span>|</span>
+                                <span>ยอดรวมตามแผน: <strong style={{ color: isMatched ? '#10b981' : (diff > 0 ? '#ef4444' : 'var(--accent-secondary)') }}>{totalPlannedQty.toLocaleString()}</strong> / ยอดสัญญา: <strong>{totalContractQty.toLocaleString()}</strong></span>
+                              </div>
+                              <div>
+                                {totalPlannedQty === 0 ? (
+                                  <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>(ยังไม่ได้กำหนดแผนส่งมอบ)</span>
+                                ) : isMatched ? (
+                                  <span style={{ color: 'var(--success, #10b981)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.2rem' }}>
+                                    <Check size={14} /> แผนตรงตามยอดสัญญาสมบูรณ์ (100%)
+                                  </span>
+                                ) : diff < 0 ? (
+                                  <span style={{ color: '#f59e0b', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.2rem' }}>
+                                    <AlertCircle size={14} /> ยังขาดในแผนอีก {Math.abs(diff).toLocaleString()} หน่วย
+                                  </span>
+                                ) : (
+                                  <span style={{ color: 'var(--danger)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.2rem' }}>
+                                    <AlertTriangle size={14} /> แผนเกินยอดสัญญา {diff.toLocaleString()} หน่วย
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })()}
+
+                        {(!editForm.tentativeSchedule || editForm.tentativeSchedule.length === 0) ? (
+                          <div style={{ textAlign: 'center', padding: '1.25rem', border: '1px dashed var(--glass-border)', borderRadius: '8px', color: 'var(--text-muted)', fontSize: '0.82rem' }}>
+                            ยังไม่มีการระบุแผนการส่งมอบล่วงหน้า (สามารถกดปุ่ม "<strong>⚡ ช่วยแบ่งงวดอัตโนมัติ</strong>" หรือ "<strong>+ เพิ่มรอบส่งมอบ</strong>" เพื่อเริ่มต้น)
+                          </div>
+                        ) : (
+                          <div style={{ border: '1px solid var(--glass-border)', borderRadius: '8px', overflow: 'hidden', background: 'var(--glass-bg)' }}>
+                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
+                              <thead>
+                                <tr style={{ background: 'rgba(255, 255, 255, 0.02)', borderBottom: '1px solid var(--glass-border)', textAlign: 'left', color: 'var(--text-muted)' }}>
+                                  <th style={{ padding: '0.5rem 0.6rem', width: '10%', textAlign: 'center' }}>รอบที่</th>
+                                  <th style={{ padding: '0.5rem 0.6rem', width: '22%' }}>วันที่กำหนดส่ง</th>
+                                  <th style={{ padding: '0.5rem 0.6rem', width: '28%' }}>รายการสินค้า</th>
+                                  <th style={{ padding: '0.5rem 0.6rem', width: '20%' }}>จำนวนส่งมอบ</th>
+                                  <th style={{ padding: '0.5rem 0.6rem', width: '14%' }}>หมายเหตุ</th>
+                                  <th style={{ padding: '0.5rem 0.6rem', width: '6%', textAlign: 'center' }}>ลบ</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {editForm.tentativeSchedule.map((tRow, tIdx) => (
+                                  <tr key={tRow.id || tIdx} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.02)' }}>
+                                    <td style={{ padding: '0.4rem 0.6rem', textAlign: 'center', fontWeight: 600, color: 'var(--accent-secondary)' }}>
+                                      {tRow.round || (tIdx + 1)}
+                                    </td>
+                                    <td style={{ padding: '0.4rem 0.6rem' }}>
+                                      <input
+                                        type="date"
+                                        value={tRow.date || ''}
+                                        onChange={(e) => handleUpdateEditAgreementTentativeRow(tIdx, 'date', e.target.value)}
+                                        style={{ width: '100%', padding: '0.35rem 0.45rem', fontSize: '0.8rem' }}
+                                        required
+                                      />
+                                    </td>
+                                    <td style={{ padding: '0.4rem 0.6rem' }}>
+                                      {(editForm.itemsList && editForm.itemsList.length > 1) ? (
+                                        <select
+                                          value={tRow.itemName || ''}
+                                          onChange={(e) => handleUpdateEditAgreementTentativeRow(tIdx, 'itemName', e.target.value)}
+                                          style={{ width: '100%', padding: '0.35rem 0.45rem', fontSize: '0.8rem', background: 'var(--input-bg)', color: 'var(--text-primary)', border: '1px solid var(--glass-border)', borderRadius: '4px' }}
+                                        >
+                                          {editForm.itemsList.map((item, iIdx) => (
+                                            <option key={iIdx} value={item.itemName}>{item.itemName || `รายการที่ ${iIdx + 1}`}</option>
+                                          ))}
+                                        </select>
+                                      ) : (
+                                        <span style={{ color: 'var(--text-primary)', fontWeight: 500, fontSize: '0.82rem' }}>
+                                          {tRow.itemName || (editForm.itemsList && editForm.itemsList[0] ? editForm.itemsList[0].itemName : '-')}
+                                        </span>
+                                      )}
+                                    </td>
+                                    <td style={{ padding: '0.4rem 0.6rem' }}>
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                                        <input
+                                          type="number"
+                                          value={tRow.quantity}
+                                          onChange={(e) => handleUpdateEditAgreementTentativeRow(tIdx, 'quantity', e.target.value)}
+                                          placeholder="จำนวน"
+                                          style={{ width: '100%', padding: '0.35rem 0.45rem', fontSize: '0.8rem', outline: 'none' }}
+                                          required
+                                        />
+                                        <span style={{ color: 'var(--text-secondary)', fontSize: '0.75rem', minWidth: '28px' }}>
+                                          {tRow.unit || 'ชิ้น'}
+                                        </span>
+                                      </div>
+                                    </td>
+                                    <td style={{ padding: '0.4rem 0.6rem' }}>
+                                      <input
+                                        type="text"
+                                        value={tRow.remarks || ''}
+                                        onChange={(e) => handleUpdateEditAgreementTentativeRow(tIdx, 'remarks', e.target.value)}
+                                        placeholder="เช่น ล็อต 1"
+                                        style={{ width: '100%', padding: '0.35rem 0.45rem', fontSize: '0.78rem' }}
+                                      />
+                                    </td>
+                                    <td style={{ padding: '0.4rem 0.6rem', textAlign: 'center' }}>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleRemoveEditAgreementTentativeRow(tIdx)}
+                                        style={{
+                                          background: 'transparent',
+                                          border: 'none',
+                                          color: 'var(--danger)',
+                                          cursor: 'pointer',
+                                          display: 'inline-flex',
+                                          alignItems: 'center',
+                                          justifyContent: 'center',
+                                          padding: '0.25rem'
+                                        }}
+                                        title="ลบรอบนี้"
+                                      >
+                                        <Trash2 size={15} />
+                                      </button>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
                       </div>
 
                       <div>
@@ -1955,6 +2764,135 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
                     })}
                   </div>
 
+                  {/* แผนการส่งมอบสินค้าล่วงหน้า (Tentative Schedule) Card Block */}
+                  <div style={{
+                    background: 'rgba(2, 132, 199, 0.04)',
+                    border: '1px solid rgba(2, 132, 199, 0.22)',
+                    borderRadius: '10px',
+                    padding: '1rem 1.25rem',
+                    marginBottom: '1.25rem'
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                        <CalendarDays size={18} style={{ color: 'var(--accent-secondary)' }} />
+                        <span style={{ fontWeight: 700, fontSize: '0.92rem', color: 'var(--text-primary)' }}>
+                          แผนการส่งมอบสินค้าล่วงหน้า (Tentative Schedule)
+                        </span>
+                        {agreement.tentativeSchedule && agreement.tentativeSchedule.length > 0 && (
+                          <span style={{ fontSize: '0.75rem', fontWeight: 600, padding: '0.15rem 0.5rem', borderRadius: '12px', background: 'rgba(2, 132, 199, 0.15)', color: 'var(--accent-secondary)' }}>
+                            {agreement.tentativeSchedule.length} รอบ
+                          </span>
+                        )}
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                        {agreement.nextTentativeDelivery ? (
+                          <div style={{
+                            fontSize: '0.78rem',
+                            padding: '0.25rem 0.65rem',
+                            borderRadius: '6px',
+                            background: agreement.nextTentativeDelivery.status === 'Overdue' ? 'rgba(239, 68, 68, 0.12)' : 'rgba(245, 158, 11, 0.12)',
+                            color: agreement.nextTentativeDelivery.status === 'Overdue' ? '#ef4444' : '#f59e0b',
+                            border: `1px solid ${agreement.nextTentativeDelivery.status === 'Overdue' ? 'rgba(239, 68, 68, 0.25)' : 'rgba(245, 158, 11, 0.25)'}`,
+                            fontWeight: 600,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.35rem'
+                          }}>
+                            <Clock size={13} />
+                            <span>
+                              {agreement.nextTentativeDelivery.status === 'Overdue' ? '🔴 เกินกำหนดส่ง:' : '⏳ รอบส่งถัดไป:'} รอบที่ {agreement.nextTentativeDelivery.roundNumber} ({agreement.nextTentativeDelivery.date}) จำนวน {agreement.nextTentativeDelivery.quantity.toLocaleString()} {agreement.nextTentativeDelivery.unit}
+                              {agreement.nextTentativeDelivery.daysDiff !== null && (
+                                <strong style={{ marginLeft: '4px' }}>
+                                  {agreement.nextTentativeDelivery.daysDiff === 0 ? '(ส่งวันนี้!)' : (agreement.nextTentativeDelivery.daysDiff > 0 ? `(อีก ${agreement.nextTentativeDelivery.daysDiff} วัน)` : `(เลย ${Math.abs(agreement.nextTentativeDelivery.daysDiff)} วัน)`)}
+                                </strong>
+                              )}
+                            </span>
+                          </div>
+                        ) : agreement.tentativeSchedule && agreement.tentativeSchedule.length > 0 ? (
+                          <span style={{ fontSize: '0.78rem', padding: '0.2rem 0.6rem', borderRadius: '6px', background: 'rgba(16, 185, 129, 0.12)', color: '#10b981', border: '1px solid rgba(16, 185, 129, 0.25)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                            <CheckCircle2 size={13} /> ส่งมอบครบถ้วนทุกงวดตามแผนแล้ว
+                          </span>
+                        ) : null}
+
+                        <button
+                          type="button"
+                          onClick={() => handleStartEdit(agreement)}
+                          style={{
+                            background: 'rgba(255,255,255,0.05)',
+                            border: '1px solid var(--glass-border)',
+                            color: 'var(--text-secondary)',
+                            borderRadius: '5px',
+                            padding: '0.25rem 0.5rem',
+                            fontSize: '0.75rem',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.2rem'
+                          }}
+                          title="แก้ไขแผนการส่งมอบ"
+                        >
+                          <Edit2 size={11} /> {(!agreement.tentativeSchedule || agreement.tentativeSchedule.length === 0) ? '+ กำหนดแผน' : 'แก้ไขแผน'}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Table or Empty message */}
+                    {(!agreement.tentativeSchedule || agreement.tentativeSchedule.length === 0) ? (
+                      <div style={{ textAlign: 'center', padding: '1rem', color: 'var(--text-muted)', fontSize: '0.8rem', border: '1px dashed var(--glass-border)', borderRadius: '6px' }}>
+                        ยังไม่ได้ระบุแผนการส่งมอบล่วงหน้าสำหรับสัญญานี้ <button type="button" onClick={() => handleStartEdit(agreement)} style={{ background: 'transparent', border: 'none', color: 'var(--accent-secondary)', textDecoration: 'underline', cursor: 'pointer', fontWeight: 600, fontSize: '0.8rem' }}>คลิกที่นี่เพื่อเพิ่มแผน</button>
+                      </div>
+                    ) : (
+                      <div style={{ overflowX: 'auto', border: '1px solid var(--glass-border)', borderRadius: '6px' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem', minWidth: '700px' }}>
+                          <thead>
+                            <tr style={{ background: 'rgba(255, 255, 255, 0.03)', borderBottom: '1px solid var(--glass-border)', textAlign: 'left', color: 'var(--text-muted)' }}>
+                              <th style={{ padding: '0.45rem 0.6rem', width: '8%', textAlign: 'center' }}>รอบที่</th>
+                              <th style={{ padding: '0.45rem 0.6rem', width: '16%' }}>กำหนดส่งมอบ</th>
+                              <th style={{ padding: '0.45rem 0.6rem', width: '22%' }}>รายการสินค้า</th>
+                              <th style={{ padding: '0.45rem 0.6rem', width: '15%', textAlign: 'right' }}>จำนวนตามแผน</th>
+                              <th style={{ padding: '0.45rem 0.6rem', width: '15%', textAlign: 'right' }}>รับเข้าจริงแล้ว</th>
+                              <th style={{ padding: '0.45rem 0.6rem', width: '14%', textAlign: 'center' }}>สถานะงวด</th>
+                              <th style={{ padding: '0.45rem 0.6rem', width: '10%' }}>หมายเหตุ</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {agreement.tentativeSchedule.map((round, rIdx) => (
+                              <tr key={round.id || rIdx} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.02)', background: round.status === 'Completed' ? 'rgba(16, 185, 129, 0.02)' : (round.status === 'Overdue' ? 'rgba(239, 68, 68, 0.03)' : 'transparent') }}>
+                                <td style={{ padding: '0.45rem 0.6rem', textAlign: 'center', fontWeight: 700, color: 'var(--accent-secondary)' }}>
+                                  {round.roundNumber}
+                                </td>
+                                <td style={{ padding: '0.45rem 0.6rem', color: 'var(--text-primary)', fontWeight: 500 }}>
+                                  {round.date || '-'}
+                                </td>
+                                <td style={{ padding: '0.45rem 0.6rem', color: 'var(--text-primary)' }}>
+                                  {round.itemName}
+                                </td>
+                                <td style={{ padding: '0.45rem 0.6rem', textAlign: 'right', fontWeight: 700, color: 'var(--text-primary)' }}>
+                                  {round.quantity.toLocaleString()} {round.unit}
+                                </td>
+                                <td style={{ padding: '0.45rem 0.6rem', textAlign: 'right' }}>
+                                  <span style={{ fontWeight: 700, color: round.fulfilledQty >= round.quantity ? 'var(--success)' : (round.fulfilledQty > 0 ? '#f59e0b' : 'var(--text-muted)') }}>
+                                    {round.fulfilledQty.toLocaleString()} {round.unit}
+                                  </span>
+                                  <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginLeft: '4px' }}>
+                                    ({round.fulfilledPct}%)
+                                  </span>
+                                </td>
+                                <td style={{ padding: '0.45rem 0.6rem', textAlign: 'center' }}>
+                                  <TentativeStatusBadge status={round.status} daysDiff={round.daysDiff} />
+                                </td>
+                                <td style={{ padding: '0.45rem 0.6rem', color: 'var(--text-muted)', fontSize: '0.75rem' }}>
+                                  {round.remarks || '-'}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+
                   {/* Remarks */}
                   {agreement.remarks && (
                     <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: '1rem 0 0 0', fontStyle: 'italic' }}>
@@ -2290,6 +3228,80 @@ const AcceptanceBadge = ({ status }) => {
       backgroundColor: current.bg, 
       color: current.text 
     }}>{current.label}</span>
+  );
+};
+
+const TentativeStatusBadge = ({ status, daysDiff }) => {
+  if (status === 'Completed') {
+    return (
+      <span style={{ 
+        padding: '0.15rem 0.5rem', 
+        borderRadius: '4px', 
+        fontSize: '0.7rem', 
+        fontWeight: 700, 
+        backgroundColor: 'rgba(16, 185, 129, 0.15)', 
+        color: '#10b981',
+        border: '1px solid rgba(16, 185, 129, 0.3)',
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: '0.25rem'
+      }}>
+        <CheckCircle2 size={12} /> ส่งมอบครบแล้ว
+      </span>
+    );
+  }
+  if (status === 'Partial') {
+    return (
+      <span style={{ 
+        padding: '0.15rem 0.5rem', 
+        borderRadius: '4px', 
+        fontSize: '0.7rem', 
+        fontWeight: 700, 
+        backgroundColor: 'rgba(245, 158, 11, 0.15)', 
+        color: '#f59e0b',
+        border: '1px solid rgba(245, 158, 11, 0.3)',
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: '0.25rem'
+      }}>
+        <Clock size={12} /> ส่งมอบแล้วบางส่วน
+      </span>
+    );
+  }
+  if (status === 'Overdue') {
+    return (
+      <span style={{ 
+        padding: '0.15rem 0.5rem', 
+        borderRadius: '4px', 
+        fontSize: '0.7rem', 
+        fontWeight: 700, 
+        backgroundColor: 'rgba(239, 68, 68, 0.15)', 
+        color: '#ef4444',
+        border: '1px solid rgba(239, 68, 68, 0.3)',
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: '0.25rem'
+      }}>
+        <AlertTriangle size={12} /> เกินกำหนด {daysDiff !== null && daysDiff < 0 ? `(${Math.abs(daysDiff)} วัน)` : ''}
+      </span>
+    );
+  }
+  // Pending / Upcoming
+  return (
+    <span style={{ 
+      padding: '0.15rem 0.5rem', 
+      borderRadius: '4px', 
+      fontSize: '0.7rem', 
+      fontWeight: 600, 
+      backgroundColor: 'rgba(2, 132, 199, 0.12)', 
+      color: '#0284c7',
+      border: '1px solid rgba(2, 132, 199, 0.25)',
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: '0.25rem'
+    }}>
+      <Calendar size={12} /> รอส่งมอบ {daysDiff !== null && daysDiff >= 0 ? `(อีก ${daysDiff} วัน)` : ''}
+    </span>
   );
 };
 
