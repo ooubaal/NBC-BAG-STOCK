@@ -15,7 +15,22 @@ import {
   Calendar,
   Tag,
   Menu,
-  X
+  X,
+  Clock,
+  TrendingUp,
+  Sparkles,
+  CheckCircle2,
+  ChevronRight,
+  Truck,
+  Flame,
+  ArrowDownLeft,
+  ShieldAlert,
+  Check,
+  RefreshCw,
+  AlertTriangle,
+  Layers,
+  Activity,
+  ArrowRight
 } from 'lucide-react';
 import './App.css';
 
@@ -635,7 +650,7 @@ function App() {
   const renderContent = () => {
     switch (activeTab) {
       case 'dashboard':
-        return <Dashboard inventory={inventory} items={items} claims={claims} setActiveTab={setActiveTab} />;
+        return <Dashboard inventory={inventory} items={items} claims={claims} agreements={agreements} setActiveTab={setActiveTab} />;
       case 'items':
         return <ProductRegistry items={items} setItems={updateItems} />;
       case 'inventory':
@@ -676,7 +691,7 @@ function App() {
           />
         );
       default:
-        return <Dashboard inventory={inventory} items={items} claims={claims} setActiveTab={setActiveTab} />;
+        return <Dashboard inventory={inventory} items={items} claims={claims} agreements={agreements} setActiveTab={setActiveTab} />;
     }
   };
 
@@ -807,17 +822,121 @@ const formatThaiDate = (dateStr) => {
   return `${dd}/${mm}/${thaiYear}`;
 };
 
-const Dashboard = ({ inventory, items, claims, setActiveTab }) => {
-  const stats = {
-    total: inventory.length,
-    pass: inventory.filter(i => i.qcStatus === 'Pass').length,
-    quarantine: inventory.filter(i => i.qcStatus === 'Quarantine').length,
-    reject: inventory.filter(i => i.qcStatus === 'Reject').length,
-  };
+const Dashboard = ({ inventory, items, claims, agreements = [], setActiveTab }) => {
+  // 1. Calculate Core Operational Stats
+  const activeLots = useMemo(() => inventory.filter(i => !i.isCancelled), [inventory]);
+  
+  const totalPhysicalUnits = useMemo(() => {
+    return activeLots.reduce((sum, l) => sum + Number(l.remainingQty || 0), 0);
+  }, [activeLots]);
 
-  const recentEntries = [...inventory].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, 5);
+  const uniqueSkusCount = useMemo(() => {
+    const fromItems = items ? items.map(i => i.name) : [];
+    const fromInv = activeLots.map(l => l.itemName);
+    return new Set([...fromItems, ...fromInv].filter(Boolean)).size;
+  }, [items, activeLots]);
 
-  // Calculate stock status alerts dynamically
+  const passLots = useMemo(() => activeLots.filter(i => i.qcStatus === 'Pass'), [activeLots]);
+  const passTotalUnits = useMemo(() => passLots.reduce((sum, l) => sum + Number(l.remainingQty || 0), 0), [passLots]);
+
+  const quarantineLots = useMemo(() => activeLots.filter(i => i.qcStatus === 'Quarantine'), [activeLots]);
+  const pendingAcceptanceLots = useMemo(() => activeLots.filter(i => i.acceptanceStatus === 'Pending'), [activeLots]);
+
+  const activeClaims = useMemo(() => (claims || []).filter(c => c.status !== 'Returned'), [claims]);
+  const rejectLots = useMemo(() => activeLots.filter(i => i.qcStatus === 'Reject'), [activeLots]);
+
+  // Today's Activity metrics
+  const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
+
+  const todayInboundCount = useMemo(() => {
+    return activeLots.filter(l => l.date === todayStr || (l.createdAt && l.createdAt.startsWith(todayStr))).length;
+  }, [activeLots, todayStr]);
+
+  const todayWithdrawalCount = useMemo(() => {
+    return activeLots.reduce((count, lot) => {
+      const withs = (lot.withdrawals || []).filter(w => !w.isCancelled && (w.date === todayStr || (w.createdAt && w.createdAt.startsWith(todayStr))));
+      return count + withs.length;
+    }, 0);
+  }, [activeLots, todayStr]);
+
+  // 2. Upcoming Tentative Deliveries from Agreements
+  const upcomingDeliveries = useMemo(() => {
+    if (!agreements || agreements.length === 0) return [];
+    
+    const list = [];
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    agreements.forEach(ag => {
+      if (ag.status === 'Completed') return;
+      const schedules = ag.tentativeSchedule || [];
+      
+      // Calculate fulfilled quantities per item for this agreement
+      const deliveries = inventory.filter(lot => lot.agreementId === ag.id && !lot.isCancelled && lot.acceptanceStatus === 'Accepted');
+      const deliveredMap = {};
+      deliveries.forEach(lot => {
+        const item = lot.itemName || 'default';
+        deliveredMap[item] = (deliveredMap[item] || 0) + Number(lot.quantity || 0);
+      });
+
+      // Sort and accumulate tentative rounds
+      const sortedRounds = [...schedules].sort((a, b) => String(a.date || '').localeCompare(String(b.date || '')));
+      const cumulativePlanned = {};
+
+      sortedRounds.forEach((round, rIdx) => {
+        const itemName = round.itemName || (ag.itemsList && ag.itemsList[0] ? ag.itemsList[0].itemName : (ag.itemName || ''));
+        const plannedQty = Number(round.quantity || 0);
+        const prevCumulative = cumulativePlanned[itemName] || 0;
+        const currentCumulative = prevCumulative + plannedQty;
+        cumulativePlanned[itemName] = currentCumulative;
+
+        const totalAccepted = deliveredMap[itemName] || 0;
+        let isDone = false;
+        let isPartial = false;
+        let fulfilledQty = 0;
+
+        if (totalAccepted >= currentCumulative) {
+          isDone = true;
+          fulfilledQty = plannedQty;
+        } else if (totalAccepted > prevCumulative) {
+          isPartial = true;
+          fulfilledQty = totalAccepted - prevCumulative;
+        }
+
+        if (!isDone) {
+          let daysDiff = null;
+          if (round.date) {
+            const targetD = new Date(round.date + 'T00:00:00');
+            daysDiff = Math.round((targetD - today) / (1000 * 60 * 60 * 24));
+          }
+
+          list.push({
+            id: round.id || `${ag.id}-${rIdx}`,
+            agreementId: ag.id,
+            supplier: ag.supplier || '-',
+            round: round.round || (rIdx + 1),
+            date: round.date,
+            itemName,
+            quantity: plannedQty,
+            unit: round.unit || 'ชิ้น',
+            fulfilledQty,
+            isPartial,
+            daysDiff,
+            remarks: round.remarks || ''
+          });
+        }
+      });
+    });
+
+    // Sort by date ascending (overdue first, then soonest upcoming)
+    return list.sort((a, b) => {
+      if (!a.date) return 1;
+      if (!b.date) return -1;
+      return a.date.localeCompare(b.date);
+    }).slice(0, 5);
+  }, [agreements, inventory]);
+
+  // 3. Stock Status Alerts (Out of Stock & Low Stock Prediction)
   const alerts = useMemo(() => {
     const outOfStockList = [];
     const lowStockList = [];
@@ -825,10 +944,10 @@ const Dashboard = ({ inventory, items, claims, setActiveTab }) => {
     if (!items || items.length === 0) return { outOfStockList, lowStockList };
 
     items.forEach(item => {
-      const itemLots = inventory.filter(l => l.itemName === item.name);
-      const totalQty = itemLots.reduce((sum, l) => sum + Number(l.remainingQty), 0);
-      const withdrawals = itemLots.flatMap(l => l.withdrawals || []);
-      const totalWithdrawn = withdrawals.reduce((sum, w) => sum + w.amount, 0);
+      const itemLots = activeLots.filter(l => l.itemName === item.name);
+      const totalQty = itemLots.reduce((sum, l) => sum + Number(l.remainingQty || 0), 0);
+      const withdrawals = itemLots.flatMap(l => (l.withdrawals || []).filter(w => !w.isCancelled));
+      const totalWithdrawn = withdrawals.reduce((sum, w) => sum + Number(w.amount || 0), 0);
 
       if (totalQty === 0) {
         if (totalWithdrawn > 0) {
@@ -838,7 +957,6 @@ const Dashboard = ({ inventory, items, claims, setActiveTab }) => {
           });
         }
       } else {
-        // Compute coverage prediction based on withdrawal rate
         let daysRemaining = null;
 
         if (withdrawals.length > 0) {
@@ -862,7 +980,6 @@ const Dashboard = ({ inventory, items, claims, setActiveTab }) => {
           }
         }
 
-        // Flags: Prediction runs out <= 14 days OR no usage history but qty <= 200
         if (daysRemaining !== null && daysRemaining <= 14) {
           lowStockList.push({
             name: item.name,
@@ -884,211 +1001,518 @@ const Dashboard = ({ inventory, items, claims, setActiveTab }) => {
     });
 
     return { outOfStockList, lowStockList };
-  }, [inventory, items]);
+  }, [activeLots, items]);
 
+  // 4. NCP Active Claims needing follow-up
   const ncpFollowUps = useMemo(() => {
     if (!claims || claims.length === 0) return [];
-    
-    // Filter active claims with a follow-up date and sort ascending
     return claims
       .filter(c => c.status !== 'Returned' && c.followUpDate)
-      .sort((a, b) => new Date(a.followUpDate) - new Date(b.followUpDate));
+      .sort((a, b) => new Date(a.followUpDate) - new Date(b.followUpDate))
+      .slice(0, 5);
   }, [claims]);
 
+  // 5. Recent Inbound Entries
+  const recentEntries = useMemo(() => {
+    return [...activeLots]
+      .sort((a, b) => new Date(b.createdAt || b.date) - new Date(a.createdAt || a.date))
+      .slice(0, 5);
+  }, [activeLots]);
+
+  // 6. Top 5 Fast-Moving Items (Most Withdrawn in last 30 days)
+  const topFastMovingItems = useMemo(() => {
+    const usageMap = {};
+    activeLots.forEach(lot => {
+      (lot.withdrawals || []).forEach(w => {
+        if (!w.isCancelled) {
+          const item = lot.itemName || 'Unknown';
+          const unit = lot.unit || 'ชิ้น';
+          if (!usageMap[item]) {
+            usageMap[item] = { name: item, unit, totalAmount: 0, count: 0 };
+          }
+          usageMap[item].totalAmount += Number(w.amount || 0);
+          usageMap[item].count += 1;
+        }
+      });
+    });
+
+    const list = Object.values(usageMap).sort((a, b) => b.totalAmount - a.totalAmount);
+    const maxAmount = list.length > 0 ? list[0].totalAmount : 1;
+
+    return list.slice(0, 5).map((item, idx) => ({
+      ...item,
+      rank: idx + 1,
+      percentage: Math.min(100, Math.round((item.totalAmount / maxAmount) * 100))
+    }));
+  }, [activeLots]);
+
   return (
-    <div className="fade-in">
-      <div className="page-header">
-        <h1 className="page-title">Dashboard</h1>
-        <p className="page-subtitle">ภาพรวมของคลังสินค้าและความเคลื่อนไหวล่าสุด</p>
+    <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+      
+      {/* Top Header & Quick Action Bar */}
+      <div className="glass card" style={{ padding: '1.25rem 1.5rem', background: 'linear-gradient(135deg, rgba(2, 132, 199, 0.08), rgba(15, 23, 42, 0.6))' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.1rem' }}>
+          <div>
+            <h1 className="page-title" style={{ margin: 0, fontSize: '1.6rem', display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+              <LayoutDashboard size={26} color="var(--accent-secondary)" /> Dashboard
+            </h1>
+            <p className="page-subtitle" style={{ margin: '0.25rem 0 0 0', fontSize: '0.85rem' }}>
+              ศูนย์กลางควบคุมคลังสินค้า ตรวจสอบความเคลื่อนไหว และการแจ้งเตือนแบบเรียลไทม์
+            </p>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', background: 'rgba(255,255,255,0.05)', padding: '0.35rem 0.75rem', borderRadius: '20px', border: '1px solid var(--glass-border)' }}>
+              📥 วันนี้รับเข้า: <strong style={{ color: todayInboundCount > 0 ? '#10b981' : 'var(--text-primary)' }}>{todayInboundCount}</strong> รายการ
+            </span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', background: 'rgba(255,255,255,0.05)', padding: '0.35rem 0.75rem', borderRadius: '20px', border: '1px solid var(--glass-border)' }}>
+              📤 วันนี้เบิกจ่าย: <strong style={{ color: todayWithdrawalCount > 0 ? 'var(--accent-secondary)' : 'var(--text-primary)' }}>{todayWithdrawalCount}</strong> รายการ
+            </span>
+          </div>
+        </div>
+
+        {/* Quick Action Buttons */}
+        <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap', paddingTop: '0.9rem', borderTop: '1px solid var(--glass-border)' }}>
+          <button 
+            type="button"
+            className="btn btn-primary" 
+            onClick={() => setActiveTab('inbound')}
+            style={{ padding: '0.45rem 0.9rem', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '0.4rem', background: 'var(--accent-secondary)' }}
+          >
+            <Plus size={15} /> บันทึกรับเข้าพัสดุ
+          </button>
+          <button 
+            type="button"
+            className="btn btn-secondary" 
+            onClick={() => setActiveTab('withdrawal')}
+            style={{ padding: '0.45rem 0.9rem', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--text-primary)' }}
+          >
+            <MinusCircle size={15} color="var(--accent-color)" /> บันทึกเบิกจ่าย
+          </button>
+          <button 
+            type="button"
+            className="btn btn-secondary" 
+            onClick={() => setActiveTab('agreements')}
+            style={{ padding: '0.45rem 0.9rem', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+          >
+            <Calendar size={15} color="#06b6d4" /> สัญญา & แผนส่งมอบ
+          </button>
+          <button 
+            type="button"
+            className="btn btn-secondary" 
+            onClick={() => setActiveTab('ncp')}
+            style={{ padding: '0.45rem 0.9rem', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+          >
+            <ShieldAlert size={15} color="#ef4444" /> บันทึกเคลม NCP
+          </button>
+          <button 
+            type="button"
+            className="btn btn-secondary" 
+            onClick={() => setActiveTab('inventory')}
+            style={{ padding: '0.45rem 0.9rem', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+          >
+            <Package size={15} color="#10b981" /> ตรวจเช็กสต็อก
+          </button>
+        </div>
       </div>
       
-      <div className="stats-grid">
-        <div className="stat-card glass" style={{ borderTop: '4px solid var(--accent-secondary)' }}>
-          <div className="stat-label">รายการทั้งหมด</div>
-          <div className="stat-value">{stats.total}</div>
+      {/* 4 Enhanced KPI Stat Cards */}
+      <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
+        
+        {/* Card 1: Total SKUs & Units */}
+        <div 
+          className="stat-card glass" 
+          onClick={() => setActiveTab('inventory')}
+          style={{ borderTop: '4px solid var(--accent-secondary)', cursor: 'pointer', transition: 'transform 0.15s ease' }}
+          title="คลิกเพื่อดูรายการสินค้าในคลังทั้งหมด"
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div className="stat-label">สินค้าคงคลังทั้งหมด</div>
+            <Package size={18} color="var(--accent-secondary)" />
+          </div>
+          <div className="stat-value" style={{ display: 'flex', alignItems: 'baseline', gap: '0.4rem' }}>
+            {uniqueSkusCount} <span style={{ fontSize: '0.9rem', fontWeight: 500, color: 'var(--text-secondary)' }}>ชนิดสินค้า</span>
+          </div>
+          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.3rem' }}>
+            ยอดคงเหลือรวม: <strong style={{ color: 'var(--text-primary)' }}>{totalPhysicalUnits.toLocaleString()}</strong> ชิ้น ({activeLots.length} Lots)
+          </div>
         </div>
-        <div className="stat-card glass" style={{ borderTop: '4px solid var(--success)' }}>
-          <div className="stat-label">ผ่าน QC (Pass)</div>
-          <div className="stat-value">{stats.pass}</div>
+
+        {/* Card 2: Pass QC */}
+        <div 
+          className="stat-card glass" 
+          onClick={() => setActiveTab('inventory')}
+          style={{ borderTop: '4px solid var(--success)', cursor: 'pointer', transition: 'transform 0.15s ease' }}
+          title="คลิกเพื่อดูรายการที่พร้อมใช้งาน"
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div className="stat-label">พร้อมใช้งาน (Pass QC)</div>
+            <CheckCircle2 size={18} color="var(--success)" />
+          </div>
+          <div className="stat-value" style={{ color: '#10b981', display: 'flex', alignItems: 'baseline', gap: '0.4rem' }}>
+            {passLots.length} <span style={{ fontSize: '0.9rem', fontWeight: 500, color: 'var(--text-secondary)' }}>Lots</span>
+          </div>
+          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.3rem' }}>
+            จำนวนที่พร้อมเบิก: <strong style={{ color: '#10b981' }}>{passTotalUnits.toLocaleString()}</strong> ชิ้น
+          </div>
         </div>
-        <div className="stat-card glass" style={{ borderTop: '4px solid var(--quarantine)' }}>
-          <div className="stat-label">กักกัน (Quarantine)</div>
-          <div className="stat-value">{stats.quarantine}</div>
+
+        {/* Card 3: Quarantine & Pending Acceptance */}
+        <div 
+          className="stat-card glass" 
+          onClick={() => setActiveTab('inbound')}
+          style={{ borderTop: '4px solid var(--quarantine)', cursor: 'pointer', transition: 'transform 0.15s ease' }}
+          title="คลิกเพื่อไปที่หน้ารับเข้า/ตรวจรับสินค้า"
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div className="stat-label">รอผล QC / รอตรวจรับ</div>
+            <Clock size={18} color="var(--quarantine)" />
+          </div>
+          <div className="stat-value" style={{ color: '#f59e0b', display: 'flex', alignItems: 'baseline', gap: '0.4rem' }}>
+            {quarantineLots.length + pendingAcceptanceLots.length} <span style={{ fontSize: '0.9rem', fontWeight: 500, color: 'var(--text-secondary)' }}>Lots</span>
+          </div>
+          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.3rem' }}>
+            กักกัน (Quarantine): <strong>{quarantineLots.length}</strong> | รอตรวจรับ: <strong>{pendingAcceptanceLots.length}</strong>
+          </div>
         </div>
-        <div className="stat-card glass" style={{ borderTop: '4px solid var(--danger)' }}>
-          <div className="stat-label">ไม่ผ่าน (Reject)</div>
-          <div className="stat-value">{stats.reject}</div>
+
+        {/* Card 4: NCP & Reject */}
+        <div 
+          className="stat-card glass" 
+          onClick={() => setActiveTab('ncp')}
+          style={{ borderTop: '4px solid var(--danger)', cursor: 'pointer', transition: 'transform 0.15s ease' }}
+          title="คลิกเพื่อไปที่ระบบติดตามงานเคลม NCP"
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div className="stat-label">งานเคลม NCP / ไม่ผ่าน</div>
+            <ShieldAlert size={18} color="var(--danger)" />
+          </div>
+          <div className="stat-value" style={{ color: '#ef4444', display: 'flex', alignItems: 'baseline', gap: '0.4rem' }}>
+            {activeClaims.length} <span style={{ fontSize: '0.9rem', fontWeight: 500, color: 'var(--text-secondary)' }}>งานเคลม</span>
+          </div>
+          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.3rem' }}>
+            ติดตามเคลม: <strong>{activeClaims.length}</strong> | ตรวจไม่ผ่าน (Reject): <strong>{rejectLots.length}</strong>
+          </div>
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: '2rem' }}>
-        <div className="glass card">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-            <h3>รายการรับเข้าล่าสุด</h3>
-            <button className="btn btn-secondary" style={{ fontSize: '0.8rem' }} onClick={() => setActiveTab('inventory')}>
-              ดูทั้งหมด <ArrowUpRight size={14} />
-            </button>
-          </div>
-          {recentEntries.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>ไม่มีข้อมูลพัสดุใหม่</div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              {recentEntries.map(item => (
-                <div key={item.id} className="glass" style={{ padding: '1rem', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div>
-                    <div style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      {item.itemName}
-                      <span style={{ fontSize: '0.8rem', fontWeight: 400, color: 'var(--text-secondary)' }}>
-                        ({item.quantity} {item.unit || 'ชิ้น'})
-                      </span>
-                    </div>
-                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Lot: {item.supplierLot} | {formatDateToDDMMYYYY(item.date)}</div>
-                  </div>
-                  <div className={`status-badge status-${item.qcStatus.toLowerCase()}`} style={{ fontSize: '0.65rem' }}>{item.qcStatus}</div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
+      {/* Main Content Grid: Left Column (Inbound & Deliveries) vs Right Column (Alerts & Top Usage) */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.4fr) minmax(0, 1fr)', gap: '1.5rem' }}>
+        
+        {/* Left Column */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-          <div className="glass card" style={{ background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.1), transparent)' }}>
-            <h4 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
-              <PackageOpen size={18} color="var(--accent-color)" /> การแจ้งเตือน
-            </h4>
-            <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>มีรายการ Quarantine ค้างอยู่ {stats.quarantine} รายการ กรุณาตรวจสอบสถานะ QC</p>
-          </div>
+          
+          {/* Widget: Upcoming Tentative Deliveries from Agreements */}
+          <div className="glass card" style={{ borderLeft: '4px solid #06b6d4', padding: '1.25rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '1.05rem', display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#06b6d4' }}>
+                  <Truck size={18} /> แผนการส่งมอบสินค้าเร็วๆ นี้ (Tentative Deliveries)
+                </h3>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                  งวดส่งมอบพัสดุตามสัญญาจัดซื้อที่ใกล้ถึงกำหนด
+                </span>
+              </div>
+              <button 
+                type="button"
+                className="btn btn-secondary" 
+                style={{ fontSize: '0.75rem', padding: '0.3rem 0.6rem' }} 
+                onClick={() => setActiveTab('agreements')}
+              >
+                ดูสัญญาทั้งหมด <ArrowUpRight size={13} />
+              </button>
+            </div>
 
-          {ncpFollowUps.length > 0 && (
-            <div className="glass card" style={{ borderLeft: '4px solid var(--accent-secondary)' }}>
-              <h4 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem', color: 'var(--accent-secondary)' }}>
-                <Calendar size={18} /> ติดตามงานเคลม/คืน NCP ({ncpFollowUps.length})
-              </h4>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', maxHeight: '200px', overflowY: 'auto', paddingRight: '0.25rem' }}>
-                {ncpFollowUps.map((claim) => {
-                  const today = new Date();
-                  today.setHours(0, 0, 0, 0);
-                  const followUp = new Date(claim.followUpDate);
-                  followUp.setHours(0, 0, 0, 0);
-                  const isOverdue = followUp < today;
-                  
+            {upcomingDeliveries.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '2rem 1rem', color: 'var(--text-muted)', fontSize: '0.85rem', background: 'rgba(255,255,255,0.01)', borderRadius: '8px', border: '1px dashed var(--glass-border)' }}>
+                ไม่มีกำหนดการส่งมอบตามสัญญาที่ค้างอยู่ในช่วงนี้
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                {upcomingDeliveries.map((item) => {
+                  const isOverdue = item.daysDiff !== null && item.daysDiff < 0;
+                  const isToday = item.daysDiff === 0;
+
                   return (
                     <div 
-                      key={claim.id} 
+                      key={item.id} 
                       style={{ 
                         display: 'flex', 
-                        flexDirection: 'column', 
-                        gap: '0.35rem', 
-                        background: isOverdue ? 'rgba(239, 68, 68, 0.05)' : 'rgba(2, 132, 199, 0.05)', 
-                        padding: '0.65rem 0.75rem', 
-                        borderRadius: '6px', 
-                        fontSize: '0.8rem', 
-                        border: isOverdue ? '1px solid rgba(239, 68, 68, 0.15)' : '1px solid rgba(2, 132, 199, 0.15)' 
+                        justifyContent: 'space-between', 
+                        alignItems: 'center', 
+                        padding: '0.7rem 0.85rem', 
+                        borderRadius: '8px', 
+                        background: isOverdue ? 'rgba(239, 68, 68, 0.06)' : 'rgba(6, 182, 212, 0.05)', 
+                        border: isOverdue ? '1px solid rgba(239, 68, 68, 0.2)' : '1px solid rgba(6, 182, 212, 0.15)',
+                        fontSize: '0.82rem'
                       }}
                     >
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem' }}>
-                        <span style={{ fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '170px' }} title={claim.itemName}>
-                          {claim.itemName}
-                        </span>
-                        <span 
-                          style={{ 
-                            fontSize: '0.65rem', 
-                            padding: '0.1rem 0.4rem',
-                            borderRadius: '4px',
-                            fontWeight: 700,
-                            backgroundColor: claim.status === 'Found' ? 'rgba(239, 68, 68, 0.15)' : 'rgba(245, 158, 11, 0.15)',
-                            color: claim.status === 'Found' ? '#ef4444' : '#f59e0b',
-                            whiteSpace: 'nowrap'
-                          }}
-                        >
-                          {claim.status === 'Found' ? 'พบปัญหา' : claim.status === 'Claiming' ? 'กำลังเคลม' : 'กำลังติดตาม'}
-                        </span>
-                      </div>
-                      
-                      <div style={{ fontSize: '0.725rem', color: 'var(--text-secondary)' }}>
-                        จำนวน: <span style={{ fontWeight: 600 }}>{claim.quantity || 0}</span> {claim.unit || 'ชิ้น'} | Lot: <span style={{ fontWeight: 600 }}>{claim.lotNo || '-'}</span>
-                      </div>
-
-                      {claim.reason && (
-                        <div 
-                          style={{ 
-                            fontSize: '0.7rem', 
-                            color: 'var(--text-muted)', 
-                            whiteSpace: 'nowrap', 
-                            overflow: 'hidden', 
-                            textOverflow: 'ellipsis',
-                            borderTop: '1px dashed var(--glass-border)',
-                            paddingTop: '0.2rem',
-                            marginTop: '0.1rem'
-                          }} 
-                          title={claim.reason}
-                        >
-                          สาเหตุ: {claim.reason}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem', overflow: 'hidden' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <span style={{ fontWeight: 700, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '200px' }} title={item.itemName}>
+                            {item.itemName}
+                          </span>
+                          <span style={{ fontSize: '0.72rem', background: 'rgba(255,255,255,0.06)', padding: '0.1rem 0.4rem', borderRadius: '4px', color: 'var(--text-secondary)' }}>
+                            สัญญา: {item.agreementId}
+                          </span>
                         </div>
-                      )}
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                          ผู้ขาย: {item.supplier} | รอบที่ {item.round} {item.remarks ? `(${item.remarks})` : ''}
+                        </div>
+                      </div>
 
-                      <div style={{ display: 'flex', justifyContent: 'flex-end', fontSize: '0.725rem', marginTop: '0.15rem' }}>
-                        <span style={{ 
-                          color: isOverdue ? '#ef4444' : 'var(--accent-secondary)', 
-                          fontWeight: 600 
-                        }}>
-                          {isOverdue ? `เลยกำหนด: ${formatThaiDate(claim.followUpDate)}` : `กำหนดตาม: ${formatThaiDate(claim.followUpDate)}`}
-                        </span>
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.25rem', flexShrink: 0, marginLeft: '0.75rem' }}>
+                        <div style={{ fontWeight: 700, color: 'var(--accent-secondary)' }}>
+                          {item.quantity.toLocaleString()} {item.unit}
+                        </div>
+                        <div>
+                          {isOverdue ? (
+                            <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#ef4444', background: 'rgba(239, 68, 68, 0.15)', padding: '0.15rem 0.45rem', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', gap: '0.2rem' }}>
+                              <AlertTriangle size={11} /> เกินกำหนด ({Math.abs(item.daysDiff)} วัน)
+                            </span>
+                          ) : isToday ? (
+                            <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#10b981', background: 'rgba(16, 185, 129, 0.15)', padding: '0.15rem 0.45rem', borderRadius: '4px' }}>
+                              ⚡ กำหนดส่งวันนี้!
+                            </span>
+                          ) : (
+                            <span style={{ fontSize: '0.68rem', fontWeight: 600, color: '#06b6d4', background: 'rgba(6, 182, 212, 0.12)', padding: '0.15rem 0.45rem', borderRadius: '4px' }}>
+                              📅 {formatThaiDate(item.date)} (อีก {item.daysDiff} วัน)
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
                   );
                 })}
               </div>
-            </div>
-          )}
+            )}
+          </div>
 
-          {alerts.outOfStockList.length > 0 && (
-            <div className="glass card" style={{ borderLeft: '4px solid #ef4444' }}>
-              <h4 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem', color: '#ef4444' }}>
-                <AlertOctagon size={18} /> สินค้าที่ตัดหมดคลังแล้ว ({alerts.outOfStockList.length})
-              </h4>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', maxHeight: '180px', overflowY: 'auto', paddingRight: '0.25rem' }}>
-                {alerts.outOfStockList.map((item, idx) => (
-                  <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(239, 68, 68, 0.05)', padding: '0.5rem 0.75rem', borderRadius: '6px', fontSize: '0.8rem', border: '1px solid rgba(239, 68, 68, 0.1)' }}>
-                    <span style={{ fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '180px' }} title={item.name}>{item.name}</span>
-                    <span className="status-badge status-reject" style={{ fontSize: '0.65rem', padding: '0.1rem 0.4rem' }}>ตัดหมดคลัง</span>
-                  </div>
-                ))}
+          {/* Widget: Recent Inbound Entries */}
+          <div className="glass card" style={{ padding: '1.25rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '1.05rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <History size={18} color="var(--accent-secondary)" /> รายการรับเข้าล่าสุด (Recent Inbound)
+                </h3>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>พัสดุที่รับเข้าคลังล่าสุด 5 รายการ</span>
               </div>
+              <button 
+                type="button"
+                className="btn btn-secondary" 
+                style={{ fontSize: '0.75rem', padding: '0.3rem 0.6rem' }} 
+                onClick={() => setActiveTab('inventory')}
+              >
+                ดูสต็อกทั้งหมด <ArrowUpRight size={13} />
+              </button>
             </div>
-          )}
 
-          {alerts.lowStockList.length > 0 && (
-            <div className="glass card" style={{ borderLeft: '4px solid #f59e0b' }}>
-              <h4 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem', color: '#f59e0b' }}>
-                <Package size={18} /> ควรเตรียมสั่งซื้อสินค้า ({alerts.lowStockList.length})
-              </h4>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', maxHeight: '200px', overflowY: 'auto', paddingRight: '0.25rem' }}>
-                {alerts.lowStockList.map((item, idx) => (
-                  <div key={idx} style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', background: 'rgba(245, 158, 11, 0.05)', padding: '0.5rem 0.75rem', borderRadius: '6px', fontSize: '0.8rem', border: '1px solid rgba(245, 158, 11, 0.1)' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '180px' }} title={item.name}>{item.name}</span>
-                      <span className="status-badge status-warning" style={{ fontSize: '0.65rem', padding: '0.1rem 0.4rem' }}>
-                        {item.reasonType === 'prediction' ? `คาดว่าจะหมดใน ${item.daysRemaining} วัน` : 'คงคลังเหลือน้อย'}
+            {recentEntries.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '2.5rem 1rem', color: 'var(--text-muted)', fontSize: '0.85rem' }}>ไม่มีข้อมูลพัสดุรับเข้า</div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                {recentEntries.map(item => (
+                  <div key={item.id} className="glass" style={{ padding: '0.8rem 1rem', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.82rem' }}>
+                    <div>
+                      <div style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        {item.itemName}
+                        <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--accent-secondary)' }}>
+                          ({item.quantity} {item.unit || 'ชิ้น'})
+                        </span>
+                      </div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.15rem' }}>
+                        Lot: <strong>{item.supplierLot}</strong> {item.inhouseLot ? `| QC Lot: ${item.inhouseLot}` : ''} | {formatDateToDDMMYYYY(item.date)}
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+                      <span className={`status-badge status-${(item.qcStatus || 'pass').toLowerCase()}`} style={{ fontSize: '0.68rem', padding: '0.15rem 0.45rem' }}>
+                        {item.qcStatus}
                       </span>
                     </div>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                      ยอดคงเหลือปัจจุบัน: <strong style={{ color: 'var(--text-primary)' }}>{item.qty}</strong> {item.unit}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Right Column */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+          
+          {/* Widget: Smart Alert Center */}
+          <div className="glass card" style={{ padding: '1.25rem' }}>
+            <h3 style={{ margin: '0 0 1rem 0', fontSize: '1.05rem', display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--accent-color)' }}>
+              <PackageOpen size={18} /> ศูนย์รวมการแจ้งเตือนด่วน (Alert Center)
+            </h3>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              
+              {/* Alert 1: Out of Stock */}
+              {alerts.outOfStockList.length > 0 && (
+                <div style={{ background: 'rgba(239, 68, 68, 0.06)', borderLeft: '4px solid #ef4444', borderRadius: '6px', padding: '0.75rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                    <span style={{ fontWeight: 700, color: '#ef4444', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                      <AlertOctagon size={15} /> สินค้าตัดหมดคลังแล้ว ({alerts.outOfStockList.length})
+                    </span>
+                    <button 
+                      type="button" 
+                      onClick={() => setActiveTab('agreements')}
+                      style={{ background: 'transparent', border: 'none', color: '#ef4444', fontSize: '0.72rem', textDecoration: 'underline', cursor: 'pointer', fontWeight: 600 }}
+                    >
+                      สั่งซื้อเพิ่ม ↗
+                    </button>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', maxHeight: '140px', overflowY: 'auto' }}>
+                    {alerts.outOfStockList.map((item, idx) => (
+                      <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255,255,255,0.03)', padding: '0.35rem 0.5rem', borderRadius: '4px', fontSize: '0.78rem' }}>
+                        <span style={{ fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '180px' }}>{item.name}</span>
+                        <span style={{ color: '#ef4444', fontWeight: 700, fontSize: '0.7rem' }}>0 {item.unit}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Alert 2: Low Stock Prediction */}
+              {alerts.lowStockList.length > 0 && (
+                <div style={{ background: 'rgba(245, 158, 11, 0.06)', borderLeft: '4px solid #f59e0b', borderRadius: '6px', padding: '0.75rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                    <span style={{ fontWeight: 700, color: '#f59e0b', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                      <Package size={15} /> ควรเตรียมสั่งซื้อสินค้า ({alerts.lowStockList.length})
+                    </span>
+                    <button 
+                      type="button" 
+                      onClick={() => setActiveTab('agreements')}
+                      style={{ background: 'transparent', border: 'none', color: '#f59e0b', fontSize: '0.72rem', textDecoration: 'underline', cursor: 'pointer', fontWeight: 600 }}
+                    >
+                      เปิดสัญญา ↗
+                    </button>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', maxHeight: '150px', overflowY: 'auto' }}>
+                    {alerts.lowStockList.map((item, idx) => (
+                      <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255,255,255,0.03)', padding: '0.4rem 0.5rem', borderRadius: '4px', fontSize: '0.78rem' }}>
+                        <div>
+                          <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{item.name}</div>
+                          <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>คงเหลือ: <strong>{item.qty}</strong> {item.unit}</div>
+                        </div>
+                        <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#f59e0b', background: 'rgba(245, 158, 11, 0.15)', padding: '0.15rem 0.4rem', borderRadius: '4px' }}>
+                          {item.reasonType === 'prediction' ? `หมดใน ${item.daysRemaining} วัน` : 'เหลือน้อย'}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Alert 3: NCP Claims Follow-up */}
+              {ncpFollowUps.length > 0 && (
+                <div style={{ background: 'rgba(2, 132, 199, 0.06)', borderLeft: '4px solid var(--accent-secondary)', borderRadius: '6px', padding: '0.75rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                    <span style={{ fontWeight: 700, color: 'var(--accent-secondary)', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                      <Calendar size={15} /> ติดตามงานเคลม NCP ({ncpFollowUps.length})
+                    </span>
+                    <button 
+                      type="button" 
+                      onClick={() => setActiveTab('ncp')}
+                      style={{ background: 'transparent', border: 'none', color: 'var(--accent-secondary)', fontSize: '0.72rem', textDecoration: 'underline', cursor: 'pointer', fontWeight: 600 }}
+                    >
+                      จัดการเคลม ↗
+                    </button>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', maxHeight: '150px', overflowY: 'auto' }}>
+                    {ncpFollowUps.map((claim) => {
+                      const today = new Date();
+                      today.setHours(0, 0, 0, 0);
+                      const followUp = new Date(claim.followUpDate);
+                      followUp.setHours(0, 0, 0, 0);
+                      const isOverdue = followUp < today;
+
+                      return (
+                        <div key={claim.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255,255,255,0.03)', padding: '0.35rem 0.5rem', borderRadius: '4px', fontSize: '0.78rem' }}>
+                          <div>
+                            <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{claim.itemName}</div>
+                            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>จำนวน: {claim.quantity} {claim.unit || 'ชิ้น'} | Lot: {claim.lotNo || '-'}</div>
+                          </div>
+                          <span style={{ fontSize: '0.68rem', fontWeight: 700, color: isOverdue ? '#ef4444' : 'var(--accent-secondary)' }}>
+                            {isOverdue ? `เกินนัด: ${formatThaiDate(claim.followUpDate)}` : formatThaiDate(claim.followUpDate)}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Empty state when everything is normal */}
+              {alerts.outOfStockList.length === 0 && alerts.lowStockList.length === 0 && ncpFollowUps.length === 0 && (
+                <div style={{ textAlign: 'center', padding: '2rem 1rem', background: 'rgba(16, 185, 129, 0.05)', border: '1px solid rgba(16, 185, 129, 0.2)', borderRadius: '8px' }}>
+                  <ShieldCheck size={28} color="#10b981" style={{ marginBottom: '0.4rem' }} />
+                  <div style={{ fontWeight: 600, color: '#10b981', fontSize: '0.85rem' }}>ระบบและระดับสต็อกอยู่ในเกณฑ์ปกติ</div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>ไม่พบรายการพัสดุขาดแคลนหรืองานเคลมที่ต้องติดตามด่วน</div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Widget: Top Fast-Moving Items (Most Withdrawn) */}
+          <div className="glass card" style={{ padding: '1.25rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '1.05rem', display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#f59e0b' }}>
+                  <Flame size={18} /> สินค้าเบิกใช้สูงสุด (Top Fast-Moving)
+                </h3>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>สินค้าที่มีอัตราการเบิกใช้งานสูงสุด</span>
+              </div>
+              <button 
+                type="button"
+                className="btn btn-secondary" 
+                style={{ fontSize: '0.75rem', padding: '0.3rem 0.6rem' }} 
+                onClick={() => setActiveTab('analytics')}
+              >
+                กราฟวิเคราะห์ ↗
+              </button>
+            </div>
+
+            {topFastMovingItems.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '2rem 1rem', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                ยังไม่มีประวัติการเบิกจ่ายสินค้า
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.7rem' }}>
+                {topFastMovingItems.map(item => (
+                  <div key={item.name} style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                        <span style={{ 
+                          width: '18px', 
+                          height: '18px', 
+                          borderRadius: '50%', 
+                          background: item.rank === 1 ? '#f59e0b' : item.rank === 2 ? '#94a3b8' : item.rank === 3 ? '#cd7f32' : 'rgba(255,255,255,0.1)', 
+                          color: item.rank <= 3 ? '#000' : 'var(--text-primary)', 
+                          fontSize: '0.68rem', 
+                          fontWeight: 700, 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          justifyContent: 'center' 
+                        }}>
+                          {item.rank}
+                        </span>
+                        <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{item.name}</span>
+                      </div>
+                      <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>
+                        {item.totalAmount.toLocaleString()} <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 400 }}>{item.unit}</span>
+                      </span>
+                    </div>
+                    {/* Mini Progress Bar */}
+                    <div style={{ width: '100%', height: '5px', background: 'rgba(255,255,255,0.06)', borderRadius: '3px', overflow: 'hidden' }}>
+                      <div style={{ width: `${item.percentage}%`, height: '100%', background: 'linear-gradient(90deg, #f59e0b, #eab308)', borderRadius: '3px' }}></div>
                     </div>
                   </div>
                 ))}
               </div>
-            </div>
-          )}
+            )}
+          </div>
 
-          {alerts.outOfStockList.length === 0 && alerts.lowStockList.length === 0 && (
-            <div className="glass card" style={{ borderLeft: '4px solid #10b981', background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.05), transparent)' }}>
-              <h4 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem', color: '#10b981' }}>
-                <ShieldCheck size={18} /> ระดับพัสดุในคลังปกติ
-              </h4>
-              <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>ไม่พบรายการพัสดุขาดแคลนหรือใกล้หมดคลังในขณะนี้</p>
-            </div>
-          )}
         </div>
       </div>
     </div>
