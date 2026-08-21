@@ -318,46 +318,63 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
 
   // Smart file attachment upload with automatic real-time compression (PDF & Images)
   const handleFileChange = async (e, isEdit = false) => {
-    const files = Array.from(e.target.files || []);
-    if (files.length === 0) return;
+    try {
+      const files = Array.from(e.target.files || []);
+      if (files.length === 0) return;
 
-    setIsUploading(true);
-    setUploadStatus(`กำลังลดขนาดไฟล์ (0/${files.length})...`);
+      setIsUploading(true);
+      setUploadStatus(`กำลังลดขนาดไฟล์ (0/${files.length})...`);
 
-    const newAttachments = [];
-    let count = 0;
+      const newAttachments = [];
+      let count = 0;
 
-    for (const file of files) {
-      try {
-        count++;
-        setUploadStatus(`กำลังบีบอัดลดขนาด "${file.name}" (${count}/${files.length})...`);
-        const compressed = await smartCompressUploadFile(file);
-        if (compressed) {
-          newAttachments.push(compressed);
+      for (const file of files) {
+        try {
+          count++;
+          setUploadStatus(`กำลังประมวลผลไฟล์ "${file.name}" (${count}/${files.length})...`);
+          const compressed = await smartCompressUploadFile(file);
+          if (compressed) {
+            newAttachments.push(compressed);
+          }
+        } catch (err) {
+          console.error("File compression error:", err);
+          alert(`เกิดข้อผิดพลาดในการประมวลผลไฟล์ "${file.name}": ` + (err.message || err));
         }
-      } catch (err) {
-        console.error("File compression error:", err);
-        alert(err.message || `เกิดข้อผิดพลาดในการประมวลผลไฟล์ "${file.name}"`);
+      }
+
+      if (newAttachments.length > 0) {
+        if (isEdit) {
+          setEditForm(prev => {
+            if (!prev) return prev;
+            return {
+              ...prev,
+              attachments: [...(prev.attachments || []), ...newAttachments]
+            };
+          });
+        } else {
+          setNewAgreement(prev => {
+            if (!prev) return prev;
+            return {
+              ...prev,
+              attachments: [...(prev.attachments || []), ...newAttachments]
+            };
+          });
+        }
+      }
+    } catch (globalErr) {
+      console.error("Global file change error:", globalErr);
+      alert("เกิดข้อผิดพลาดร้ายแรงในการแนบไฟล์: " + globalErr.message);
+    } finally {
+      setIsUploading(false);
+      setUploadStatus('');
+      try {
+        if (e && e.target) {
+          e.target.value = '';
+        }
+      } catch (inputErr) {
+        console.error("Error resetting input value:", inputErr);
       }
     }
-
-    if (newAttachments.length > 0) {
-      if (isEdit) {
-        setEditForm(prev => ({
-          ...prev,
-          attachments: [...(prev.attachments || []), ...newAttachments]
-        }));
-      } else {
-        setNewAgreement(prev => ({
-          ...prev,
-          attachments: [...(prev.attachments || []), ...newAttachments]
-        }));
-      }
-    }
-
-    setIsUploading(false);
-    setUploadStatus('');
-    if (e.target) e.target.value = '';
   };
 
   // High-clarity multi-page attachment viewer with zoom and print
@@ -1877,7 +1894,7 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
                       fontSize: '0.82rem'
                     }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', overflow: 'hidden' }}>
-                        <FileText size={18} style={{ color: file.type === 'pdf' ? '#ef4444' : '#10b981', flexShrink: 0 }} />
+                        <FileText size={18} style={{ color: (file.type || '').toLowerCase() === 'pdf' ? '#ef4444' : '#10b981', flexShrink: 0 }} />
                         <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
                           <span style={{ textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', color: 'var(--text-primary)', fontWeight: 600 }}>
                             {file.name}
@@ -1898,7 +1915,7 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
                                 )}
                               </>
                             ) : (
-                              <span>{file.type.toUpperCase()}</span>
+                              <span>{(file.type || 'file').toUpperCase()}</span>
                             )}
                           </div>
                         </div>
@@ -2375,7 +2392,7 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
                                 fontSize: '0.82rem'
                               }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', overflow: 'hidden' }}>
-                                  <FileText size={18} style={{ color: file.type === 'pdf' ? '#ef4444' : '#10b981', flexShrink: 0 }} />
+                                  <FileText size={18} style={{ color: (file.type || '').toLowerCase() === 'pdf' ? '#ef4444' : '#10b981', flexShrink: 0 }} />
                                   <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
                                     <span style={{ textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', color: 'var(--text-primary)', fontWeight: 600 }}>
                                       {file.name}
@@ -2396,7 +2413,7 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
                                           )}
                                         </>
                                       ) : (
-                                        <span>{file.type.toUpperCase()}</span>
+                                        <span>{(file.type || 'file').toUpperCase()}</span>
                                       )}
                                     </div>
                                   </div>
@@ -2806,7 +2823,7 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
                             onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.borderColor = 'var(--glass-border)'; }}
                             title={file.compressedSizeFormatted ? `${file.name} (${file.compressedSizeFormatted}${file.savingsPercent > 0 ? `, ลด ${file.savingsPercent}%` : ''})` : file.name}
                           >
-                            <FileText size={14} style={{ color: file.type === 'pdf' ? '#ef4444' : '#10b981', flexShrink: 0 }} />
+                            <FileText size={14} style={{ color: (file.type || '').toLowerCase() === 'pdf' ? '#ef4444' : '#10b981', flexShrink: 0 }} />
                             <span style={{ maxWidth: '160px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.name}</span>
                             {file.compressedSizeFormatted && (
                               <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>({file.compressedSizeFormatted})</span>

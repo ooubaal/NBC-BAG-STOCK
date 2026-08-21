@@ -1,12 +1,4 @@
-import * as pdfjsLib from 'pdfjs-dist';
-import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.mjs?url';
 
-// Configure pdfjs worker
-try {
-  pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
-} catch (e) {
-  pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.worker.min.mjs`;
-}
 
 /**
  * Format bytes to readable string (e.g. 1.2 MB, 350 KB)
