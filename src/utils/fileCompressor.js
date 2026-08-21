@@ -138,84 +138,35 @@ export const compressImageFile = (file, { maxDimension = 1400, targetQuality = 0
 /**
  * Intelligently compress PDF document by rasterizing pages into HD compressed pages
  */
-export const compressPdfFile = async (file, { scale = 1.55, quality = 0.68 } = {}) => {
+export const compressPdfFile = async (file) => {
   if (!file) throw new Error("No PDF file provided");
   
-  try {
-    const arrayBuffer = await file.arrayBuffer();
-    const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
-    const pdfDoc = await loadingTask.promise;
-    const numPages = pdfDoc.numPages;
-    const pages = [];
-    let totalCompressedSize = 0;
-
-    for (let pageNum = 1; pageNum <= numPages; pageNum++) {
-      const page = await pdfDoc.getPage(pageNum);
-      const viewport = page.getViewport({ scale });
-
-      const canvas = document.createElement('canvas');
-      canvas.width = viewport.width;
-      canvas.height = viewport.height;
-      const ctx = canvas.getContext('2d');
-
-      // Crisp clean white page background
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-      await page.render({
-        canvasContext: ctx,
-        viewport: viewport
-      }).promise;
-
-      // Convert page to compressed JPEG
-      const pageDataUrl = canvas.toDataURL('image/jpeg', quality);
-      pages.push(pageDataUrl);
-      totalCompressedSize += getBase64Size(pageDataUrl);
-    }
-
-    const originalSize = file.size;
-    const savings = Math.max(0, Math.round((1 - (totalCompressedSize / originalSize)) * 100));
-
-    return {
-      name: file.name,
-      type: 'pdf',
-      isPdf: true,
-      isCompressedPdf: true,
-      totalPages: numPages,
-      pages: pages,
-      data: pages[0], // First page for quick thumbnail / viewer
-      originalSize: originalSize,
-      compressedSize: totalCompressedSize,
-      savingsPercent: savings,
-      originalSizeFormatted: formatFileSize(originalSize),
-      compressedSizeFormatted: formatFileSize(totalCompressedSize)
+  // Directly read PDF as a raw Data URL (Base64)
+  // This preserves vector text, searchability, signatures, and prevents blank pages
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result;
+      const size = getBase64Size(result);
+      
+      resolve({
+        name: file.name,
+        type: 'pdf',
+        isPdf: true,
+        isCompressedPdf: false,
+        // We set pages to undefined so the viewer uses native PDF reader via iframe
+        pages: undefined,
+        data: result,
+        originalSize: file.size,
+        compressedSize: size,
+        savingsPercent: 0,
+        originalSizeFormatted: formatFileSize(file.size),
+        compressedSizeFormatted: formatFileSize(size)
+      });
     };
-  } catch (err) {
-    console.error("PDF compression error, falling back to direct data URL:", err);
-    // Fallback: Read as raw Data URL
-    return new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        const result = reader.result;
-        const size = getBase64Size(result);
-        resolve({
-          name: file.name,
-          type: 'pdf',
-          isPdf: true,
-          isCompressedPdf: false,
-          totalPages: 1,
-          pages: [result],
-          data: result,
-          originalSize: file.size,
-          compressedSize: size,
-          savingsPercent: 0,
-          originalSizeFormatted: formatFileSize(file.size),
-          compressedSizeFormatted: formatFileSize(size)
-        });
-      };
-      reader.readAsDataURL(file);
-    });
-  }
+    reader.onerror = (err) => reject(err);
+    reader.readAsDataURL(file);
+  });
 };
 
 /**
