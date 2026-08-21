@@ -219,6 +219,31 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
   // Auto Split Helper Modal State
   const [autoSplitConfig, setAutoSplitConfig] = useState(null); // { isEdit: boolean, roundsCount: 3, intervalType: 'monthly', selectedItemIndex: 0 }
 
+  // Delivery history sorting & filtering states (keyed by agreementId to remain separate)
+  const [deliverySorts, setDeliverySorts] = useState({});
+  const [deliveryFilters, setDeliveryFilters] = useState({});
+
+  const handleToggleDeliverySort = (agreementId, field) => {
+    setDeliverySorts(prev => {
+      const current = prev[agreementId] || { field: 'date', order: 'desc' };
+      const nextOrder = (current.field === field && current.order === 'asc') ? 'desc' : 'asc';
+      return {
+        ...prev,
+        [agreementId]: { field, order: nextOrder }
+      };
+    });
+  };
+
+  const handleUpdateDeliveryFilter = (agreementId, filterKey, val) => {
+    setDeliveryFilters(prev => {
+      const current = prev[agreementId] || { itemName: 'all', status: 'all' };
+      return {
+        ...prev,
+        [agreementId]: { ...current, [filterKey]: val }
+      };
+    });
+  };
+
   const activeDeliveriesCount = useMemo(() => {
     if (!deleteAgreementId) return 0;
     return inventory.filter(lot => lot.agreementId === deleteAgreementId && !lot.isCancelled).length;
@@ -2890,108 +2915,287 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
                         <p style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
                           ยังไม่มีการรับของเข้าคลังพัสดุสำหรับสัญญานี้
                         </p>
-                      ) : (
-                        <div style={{ overflowX: 'auto' }}>
-                          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem', minWidth: '850px' }}>
-                            <thead>
-                              <tr style={{ textAlign: 'left', borderBottom: '1px solid var(--glass-border)', color: 'var(--text-muted)' }}>
-                                <th style={{ padding: '0.6rem 0.5rem' }}>วันที่นำส่ง</th>
-                                <th style={{ padding: '0.6rem 0.5rem' }}>รายการพัสดุ / Lot</th>
-                                <th style={{ padding: '0.6rem 0.5rem' }}>QC Lot</th>
-                                <th style={{ padding: '0.6rem 0.5rem', textAlign: 'right' }}>จำนวนส่ง (ตรวจรับ)</th>
-                                <th style={{ padding: '0.6rem 0.5rem', textAlign: 'right', color: '#f59e0b' }}>ตัดใช้แล้ว</th>
-                                <th style={{ padding: '0.6rem 0.5rem', textAlign: 'right', color: '#10b981' }}>คงเหลือในคลัง</th>
-                                <th style={{ padding: '0.6rem 0.5rem' }}>ที่เก็บ</th>
-                                <th style={{ padding: '0.6rem 0.5rem' }}>สถานะจัดซื้อ</th>
-                                <th style={{ padding: '0.6rem 0.5rem', textAlign: 'center' }}>การอนุมัติจัดซื้อ</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {agreement.deliveries.map(del => {
-                                const totalDefective = (del.claimReturns || []).reduce((cSum, cr) => cSum + (cr.syncContractAdjustment !== false ? Number(cr.defectiveQty || 0) : 0), 0);
-                                const totalReturned = (del.claimReturns || []).reduce((cSum, cr) => cSum + Number(cr.returnedQty || 0), 0);
-                                const rawWithdrawn = (del.withdrawals || []).filter(w => !w.isCancelled).reduce((sum, w) => sum + Number(w.amount || 0), 0);
-                                const lotWithdrawn = rawWithdrawn > 0 ? Math.max(0, rawWithdrawn - totalReturned - totalDefective) : Math.max(0, Number(del.quantity || 0) - totalDefective - Number(del.remainingQty !== undefined ? del.remainingQty : del.quantity));
-                                const lotRemaining = del.remainingQty !== undefined ? Number(del.remainingQty) : Number(del.quantity || 0);
-                                const netDeliveredQty = Math.max(0, Number(del.quantity || 0) - totalDefective);
+                      ) : (() => {
+                        const agreementSort = deliverySorts[agreement.id] || { field: 'date', order: 'desc' };
+                        const agreementFilter = deliveryFilters[agreement.id] || { itemName: 'all', status: 'all' };
 
-                                return (
-                                  <tr key={del.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
-                                    <td style={{ padding: '0.6rem 0.5rem' }}>{del.date}</td>
-                                    <td style={{ padding: '0.6rem 0.5rem' }}>
-                                      <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{del.itemName}</div>
-                                      <div style={{ fontSize: '0.72rem', color: 'var(--accent-secondary)' }}>Lot: {del.supplierLot}</div>
-                                    </td>
-                                    <td style={{ padding: '0.6rem 0.5rem', color: 'var(--text-secondary)' }}>{del.inhouseLot || '-'}</td>
-                                    <td style={{ padding: '0.6rem 0.5rem', textAlign: 'right' }}>
-                                      <div style={{ fontWeight: 700 }}>{netDeliveredQty.toLocaleString()} {del.unit}</div>
-                                      {totalDefective > 0 && (
-                                        <div style={{ fontSize: '0.68rem', color: 'var(--danger)', marginTop: '0.1rem' }}>
-                                          (รับเดิม {del.quantity.toLocaleString()} / เคลมชำรุด -{totalDefective.toLocaleString()})
-                                        </div>
-                                      )}
-                                    </td>
-                                    <td style={{ padding: '0.6rem 0.5rem', textAlign: 'right', fontWeight: 600, color: lotWithdrawn > 0 ? '#f59e0b' : 'var(--text-muted)' }}>
-                                      {lotWithdrawn > 0 ? `-${lotWithdrawn.toLocaleString()} ${del.unit}` : `0 ${del.unit}`}
-                                    </td>
-                                    <td style={{ padding: '0.6rem 0.5rem', textAlign: 'right', fontWeight: 700, color: lotRemaining > 0 ? '#10b981' : 'var(--danger)' }}>
-                                      {lotRemaining.toLocaleString()} {del.unit}
-                                    </td>
-                                    <td style={{ padding: '0.6rem 0.5rem' }}>{del.location || '-'}</td>
-                                    <td style={{ padding: '0.6rem 0.5rem' }}>
-                                      <AcceptanceBadge status={del.acceptanceStatus} />
-                                    </td>
-                                    <td style={{ padding: '0.6rem 0.5rem', textAlign: 'center' }}>
-                                      {del.acceptanceStatus === 'Pending' ? (
-                                        <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'center' }}>
-                                          <button 
-                                            className="btn btn-primary"
-                                            onClick={() => handleAcceptDelivery(del.id)}
-                                            style={{ 
-                                              background: 'var(--success)', 
-                                              color: '#fff', 
-                                              padding: '0.2rem 0.5rem', 
-                                              fontSize: '0.7rem',
-                                              display: 'flex',
-                                              alignItems: 'center',
-                                              gap: '0.2rem'
-                                            }}
-                                          >
-                                            <Check size={12} /> ตรวจรับผ่าน
-                                          </button>
-                                          <button 
-                                            className="btn"
-                                            onClick={() => handleRejectDelivery(del.id)}
-                                            style={{ 
-                                              background: 'var(--danger)', 
-                                              color: '#fff', 
-                                              padding: '0.2rem 0.5rem', 
-                                              fontSize: '0.7rem',
-                                              display: 'flex',
-                                              alignItems: 'center',
-                                              gap: '0.2rem'
-                                            }}
-                                          >
-                                            <X size={12} /> ปฏิเสธการรับ
-                                          </button>
-                                        </div>
-                                      ) : del.acceptanceStatus === 'Accepted' ? (
-                                        <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.2rem' }}>
-                                          <UserCheck size={14} color="var(--success)" /> บันทึกสิทธิ์ตรวจรับแล้ว
-                                        </span>
-                                      ) : (
-                                        <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.2rem' }}>
-                                          <AlertTriangle size={14} color="var(--danger)" /> ปฏิเสธตรวจรับเสร็จสิ้น
-                                        </span>
-                                      )}
-                                    </td>
-                                  </tr>
-                                );
-                              })}
-                            </tbody>
-                          </table>
-                        </div>
-                      )}
+                        // 1. Filter deliveries
+                        let filteredDeliveries = [...agreement.deliveries];
+                        if (agreementFilter.itemName && agreementFilter.itemName !== 'all') {
+                          filteredDeliveries = filteredDeliveries.filter(del => del.itemName === agreementFilter.itemName);
+                        }
+                        if (agreementFilter.status && agreementFilter.status !== 'all') {
+                          filteredDeliveries = filteredDeliveries.filter(del => del.acceptanceStatus === agreementFilter.status);
+                        }
+
+                        // 2. Sort deliveries
+                        filteredDeliveries.sort((a, b) => {
+                          let valA = a[agreementSort.field];
+                          let valB = b[agreementSort.field];
+
+                          if (agreementSort.field === 'quantity') {
+                            const defA = (a.claimReturns || []).reduce((cSum, cr) => cSum + (cr.syncContractAdjustment !== false ? Number(cr.defectiveQty || 0) : 0), 0);
+                            const defB = (b.claimReturns || []).reduce((cSum, cr) => cSum + (cr.syncContractAdjustment !== false ? Number(cr.defectiveQty || 0) : 0), 0);
+                            valA = Math.max(0, Number(a.quantity || 0) - defA);
+                            valB = Math.max(0, Number(b.quantity || 0) - defB);
+                          } else if (agreementSort.field === 'withdrawn') {
+                            const defA = (a.claimReturns || []).reduce((cSum, cr) => cSum + (cr.syncContractAdjustment !== false ? Number(cr.defectiveQty || 0) : 0), 0);
+                            const retA = (a.claimReturns || []).reduce((cSum, cr) => cSum + Number(cr.returnedQty || 0), 0);
+                            const rawWithdrawnA = (a.withdrawals || []).filter(w => !w.isCancelled).reduce((sum, w) => sum + Number(w.amount || 0), 0);
+                            valA = rawWithdrawnA > 0 ? Math.max(0, rawWithdrawnA - retA - defA) : Math.max(0, Number(a.quantity || 0) - defA - Number(a.remainingQty !== undefined ? a.remainingQty : a.quantity));
+
+                            const defB = (b.claimReturns || []).reduce((cSum, cr) => cSum + (cr.syncContractAdjustment !== false ? Number(cr.defectiveQty || 0) : 0), 0);
+                            const retB = (b.claimReturns || []).reduce((cSum, cr) => cSum + Number(cr.returnedQty || 0), 0);
+                            const rawWithdrawnB = (b.withdrawals || []).filter(w => !w.isCancelled).reduce((sum, w) => sum + Number(w.amount || 0), 0);
+                            valB = rawWithdrawnB > 0 ? Math.max(0, rawWithdrawnB - retB - defB) : Math.max(0, Number(b.quantity || 0) - defB - Number(b.remainingQty !== undefined ? b.remainingQty : b.quantity));
+                          } else if (agreementSort.field === 'remainingQty') {
+                            valA = a.remainingQty !== undefined ? Number(a.remainingQty) : Number(a.quantity || 0);
+                            valB = b.remainingQty !== undefined ? Number(b.remainingQty) : Number(b.quantity || 0);
+                          }
+
+                          if (typeof valA === 'string') {
+                            valA = valA.toLowerCase();
+                            valB = (valB || '').toLowerCase();
+                          } else {
+                            valA = Number(valA || 0);
+                            valB = Number(valB || 0);
+                          }
+
+                          if (valA < valB) return agreementSort.order === 'asc' ? -1 : 1;
+                          if (valA > valB) return agreementSort.order === 'asc' ? 1 : -1;
+                          return 0;
+                        });
+
+                        return (
+                          <>
+                            {/* Filter Bar */}
+                            <div style={{ 
+                              display: 'flex', 
+                              gap: '1rem', 
+                              marginBottom: '1rem', 
+                              background: 'rgba(255,255,255,0.02)', 
+                              padding: '0.6rem 1rem', 
+                              borderRadius: '8px', 
+                              border: '1px solid var(--glass-border)',
+                              flexWrap: 'wrap',
+                              alignItems: 'center'
+                            }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>📦 กรองรายการพัสดุ:</span>
+                                <select
+                                  value={agreementFilter.itemName || 'all'}
+                                  onChange={(e) => handleUpdateDeliveryFilter(agreement.id, 'itemName', e.target.value)}
+                                  style={{
+                                    background: 'rgba(30, 41, 59, 0.8)',
+                                    border: '1px solid var(--glass-border)',
+                                    borderRadius: '6px',
+                                    color: 'var(--text-primary)',
+                                    fontSize: '0.78rem',
+                                    padding: '0.25rem 0.55rem',
+                                    outline: 'none',
+                                    cursor: 'pointer'
+                                  }}
+                                >
+                                  <option value="all">ทั้งหมด</option>
+                                  {(agreement.itemsListWithStats || []).map((item, iIdx) => (
+                                    <option key={iIdx} value={item.itemName}>{item.itemName}</option>
+                                  ))}
+                                </select>
+                              </div>
+
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>🔍 กรองสถานะตรวจรับ:</span>
+                                <select
+                                  value={agreementFilter.status || 'all'}
+                                  onChange={(e) => handleUpdateDeliveryFilter(agreement.id, 'status', e.target.value)}
+                                  style={{
+                                    background: 'rgba(30, 41, 59, 0.8)',
+                                    border: '1px solid var(--glass-border)',
+                                    borderRadius: '6px',
+                                    color: 'var(--text-primary)',
+                                    fontSize: '0.78rem',
+                                    padding: '0.25rem 0.55rem',
+                                    outline: 'none',
+                                    cursor: 'pointer'
+                                  }}
+                                >
+                                  <option value="all">ทุกสถานะ</option>
+                                  <option value="Accepted">ตรวจรับผ่านแล้ว</option>
+                                  <option value="Pending">รอตรวจรับ</option>
+                                  <option value="Rejected">ปฏิเสธการรับ</option>
+                                </select>
+                              </div>
+
+                              {((agreementFilter.itemName && agreementFilter.itemName !== 'all') || (agreementFilter.status && agreementFilter.status !== 'all')) && (
+                                <button
+                                  onClick={() => setDeliveryFilters(prev => ({ ...prev, [agreement.id]: { itemName: 'all', status: 'all' } }))}
+                                  style={{
+                                    background: 'rgba(239, 68, 68, 0.1)',
+                                    border: '1px solid rgba(239, 68, 68, 0.25)',
+                                    color: 'var(--danger)',
+                                    padding: '0.25rem 0.65rem',
+                                    borderRadius: '6px',
+                                    fontSize: '0.72rem',
+                                    cursor: 'pointer',
+                                    fontWeight: 'bold',
+                                    marginLeft: 'auto'
+                                  }}
+                                >
+                                  ล้างตัวกรอง
+                                </button>
+                              )}
+                            </div>
+
+                            {/* Sorted & Filtered Table */}
+                            {filteredDeliveries.length === 0 ? (
+                              <p style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                                ไม่พบรายการส่งมอบที่ตรงตามตัวกรองดังกล่าว
+                              </p>
+                            ) : (
+                              <div style={{ overflowX: 'auto' }}>
+                                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem', minWidth: '850px' }}>
+                                  <thead>
+                                    <tr style={{ textAlign: 'left', borderBottom: '1px solid var(--glass-border)', color: 'var(--text-muted)' }}>
+                                      <th 
+                                        style={{ padding: '0.6rem 0.5rem', cursor: 'pointer', userSelect: 'none' }}
+                                        onClick={() => handleToggleDeliverySort(agreement.id, 'date')}
+                                      >
+                                        วันที่นำส่ง {agreementSort.field === 'date' ? (agreementSort.order === 'asc' ? '▲' : '▼') : '⇅'}
+                                      </th>
+                                      <th 
+                                        style={{ padding: '0.6rem 0.5rem', cursor: 'pointer', userSelect: 'none' }}
+                                        onClick={() => handleToggleDeliverySort(agreement.id, 'itemName')}
+                                      >
+                                        รายการพัสดุ / Lot {agreementSort.field === 'itemName' ? (agreementSort.order === 'asc' ? '▲' : '▼') : '⇅'}
+                                      </th>
+                                      <th 
+                                        style={{ padding: '0.6rem 0.5rem', cursor: 'pointer', userSelect: 'none' }}
+                                        onClick={() => handleToggleDeliverySort(agreement.id, 'inhouseLot')}
+                                      >
+                                        QC Lot {agreementSort.field === 'inhouseLot' ? (agreementSort.order === 'asc' ? '▲' : '▼') : '⇅'}
+                                      </th>
+                                      <th 
+                                        style={{ padding: '0.6rem 0.5rem', cursor: 'pointer', userSelect: 'none', textAlign: 'right' }}
+                                        onClick={() => handleToggleDeliverySort(agreement.id, 'quantity')}
+                                      >
+                                        จำนวนส่ง (ตรวจรับ) {agreementSort.field === 'quantity' ? (agreementSort.order === 'asc' ? '▲' : '▼') : '⇅'}
+                                      </th>
+                                      <th 
+                                        style={{ padding: '0.6rem 0.5rem', cursor: 'pointer', userSelect: 'none', textAlign: 'right', color: '#f59e0b' }}
+                                        onClick={() => handleToggleDeliverySort(agreement.id, 'withdrawn')}
+                                      >
+                                        ตัดใช้แล้ว {agreementSort.field === 'withdrawn' ? (agreementSort.order === 'asc' ? '▲' : '▼') : '⇅'}
+                                      </th>
+                                      <th 
+                                        style={{ padding: '0.6rem 0.5rem', cursor: 'pointer', userSelect: 'none', textAlign: 'right', color: '#10b981' }}
+                                        onClick={() => handleToggleDeliverySort(agreement.id, 'remainingQty')}
+                                      >
+                                        คงเหลือในคลัง {agreementSort.field === 'remainingQty' ? (agreementSort.order === 'asc' ? '▲' : '▼') : '⇅'}
+                                      </th>
+                                      <th 
+                                        style={{ padding: '0.6rem 0.5rem', cursor: 'pointer', userSelect: 'none' }}
+                                        onClick={() => handleToggleDeliverySort(agreement.id, 'location')}
+                                      >
+                                        ที่เก็บ {agreementSort.field === 'location' ? (agreementSort.order === 'asc' ? '▲' : '▼') : '⇅'}
+                                      </th>
+                                      <th 
+                                        style={{ padding: '0.6rem 0.5rem', cursor: 'pointer', userSelect: 'none' }}
+                                        onClick={() => handleToggleDeliverySort(agreement.id, 'acceptanceStatus')}
+                                      >
+                                        สถานะจัดซื้อ {agreementSort.field === 'acceptanceStatus' ? (agreementSort.order === 'asc' ? '▲' : '▼') : '⇅'}
+                                      </th>
+                                      <th style={{ padding: '0.6rem 0.5rem', textAlign: 'center' }}>การอนุมัติจัดซื้อ</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {filteredDeliveries.map(del => {
+                                      const totalDefective = (del.claimReturns || []).reduce((cSum, cr) => cSum + (cr.syncContractAdjustment !== false ? Number(cr.defectiveQty || 0) : 0), 0);
+                                      const totalReturned = (del.claimReturns || []).reduce((cSum, cr) => cSum + Number(cr.returnedQty || 0), 0);
+                                      const rawWithdrawn = (del.withdrawals || []).filter(w => !w.isCancelled).reduce((sum, w) => sum + Number(w.amount || 0), 0);
+                                      const lotWithdrawn = rawWithdrawn > 0 ? Math.max(0, rawWithdrawn - totalReturned - totalDefective) : Math.max(0, Number(del.quantity || 0) - totalDefective - Number(del.remainingQty !== undefined ? del.remainingQty : del.quantity));
+                                      const lotRemaining = del.remainingQty !== undefined ? Number(del.remainingQty) : Number(del.quantity || 0);
+                                      const netDeliveredQty = Math.max(0, Number(del.quantity || 0) - totalDefective);
+
+                                      return (
+                                        <tr key={del.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
+                                          <td style={{ padding: '0.6rem 0.5rem' }}>{del.date}</td>
+                                          <td style={{ padding: '0.6rem 0.5rem' }}>
+                                            <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{del.itemName}</div>
+                                            <div style={{ fontSize: '0.72rem', color: 'var(--accent-secondary)' }}>Lot: {del.supplierLot}</div>
+                                          </td>
+                                          <td style={{ padding: '0.6rem 0.5rem', color: 'var(--text-secondary)' }}>{del.inhouseLot || '-'}</td>
+                                          <td style={{ padding: '0.6rem 0.5rem', textAlign: 'right' }}>
+                                            <div style={{ fontWeight: 700 }}>{netDeliveredQty.toLocaleString()} {del.unit}</div>
+                                            {totalDefective > 0 && (
+                                              <div style={{ fontSize: '0.68rem', color: 'var(--danger)', marginTop: '0.1rem' }}>
+                                                (รับเดิม {del.quantity.toLocaleString()} / เคลมชำรุด -{totalDefective.toLocaleString()})
+                                              </div>
+                                            )}
+                                          </td>
+                                          <td style={{ padding: '0.6rem 0.5rem', textAlign: 'right', fontWeight: 600, color: lotWithdrawn > 0 ? '#f59e0b' : 'var(--text-muted)' }}>
+                                            {lotWithdrawn > 0 ? `-${lotWithdrawn.toLocaleString()} ${del.unit}` : `0 ${del.unit}`}
+                                          </td>
+                                          <td style={{ padding: '0.6rem 0.5rem', textAlign: 'right', fontWeight: 700, color: lotRemaining > 0 ? '#10b981' : 'var(--danger)' }}>
+                                            {lotRemaining.toLocaleString()} {del.unit}
+                                          </td>
+                                          <td style={{ padding: '0.6rem 0.5rem' }}>{del.location || '-'}</td>
+                                          <td style={{ padding: '0.6rem 0.5rem' }}>
+                                            <AcceptanceBadge status={del.acceptanceStatus} />
+                                          </td>
+                                          <td style={{ padding: '0.6rem 0.5rem', textAlign: 'center' }}>
+                                            {del.acceptanceStatus === 'Pending' ? (
+                                              <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'center' }}>
+                                                <button 
+                                                  className="btn btn-primary"
+                                                  onClick={() => handleAcceptDelivery(del.id)}
+                                                  style={{ 
+                                                    background: 'var(--success)', 
+                                                    color: '#fff', 
+                                                    padding: '0.2rem 0.5rem', 
+                                                    fontSize: '0.7rem',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: '0.2rem'
+                                                  }}
+                                                >
+                                                  <Check size={12} /> ตรวจรับผ่าน
+                                                </button>
+                                                <button 
+                                                  className="btn"
+                                                  onClick={() => handleRejectDelivery(del.id)}
+                                                  style={{ 
+                                                    background: 'var(--danger)', 
+                                                    color: '#fff', 
+                                                    padding: '0.2rem 0.5rem', 
+                                                    fontSize: '0.7rem',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: '0.2rem'
+                                                  }}
+                                                >
+                                                  <X size={12} /> ปฏิเสธการรับ
+                                                </button>
+                                              </div>
+                                            ) : del.acceptanceStatus === 'Accepted' ? (
+                                              <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.2rem' }}>
+                                                <UserCheck size={14} color="var(--success)" /> บันทึกสิทธิ์ตรวจรับแล้ว
+                                              </span>
+                                            ) : (
+                                              <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.2rem' }}>
+                                                <AlertTriangle size={14} color="var(--danger)" /> ปฏิเสธตรวจรับเสร็จสิ้น
+                                              </span>
+                                            )}
+                                          </td>
+                                        </tr>
+                                      );
+                                    })}
+                                  </tbody>
+                                </table>
+                              </div>
+                            )}
+                          </>
+                        );
+                      })()}
                     </div>
                   )}
                 </div>
