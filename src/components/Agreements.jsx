@@ -224,6 +224,23 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
     return inventory.filter(lot => lot.agreementId === deleteAgreementId && !lot.isCancelled).length;
   }, [deleteAgreementId, inventory]);
 
+  const handleDeleteCardAttachment = (agreementId, fileIndex, fileName) => {
+    if (window.confirm(`คุณต้องการลบเอกสารแนบ "${fileName}" จากสัญญานี้ใช่หรือไม่?`)) {
+      const updated = agreements.map(ag => {
+        if (ag.id === agreementId) {
+          const cleanAttachments = (ag.attachments || []).filter((_, idx) => idx !== fileIndex);
+          // Update both the base object and the processed schedule properties
+          return {
+            ...ag,
+            attachments: cleanAttachments
+          };
+        }
+        return ag;
+      });
+      setAgreements(updated);
+    }
+  };
+
   const handleStartEdit = (agreement) => {
     setEditingAgreementId(agreement.id);
     setEditForm({
@@ -2794,7 +2811,32 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
                             {file.compressedSizeFormatted && (
                               <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>({file.compressedSizeFormatted})</span>
                             )}
-                            <Eye size={12} style={{ color: 'var(--accent-secondary)', marginLeft: '0.15rem' }} />
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', marginLeft: '0.2rem' }}>
+                              <Eye size={12} style={{ color: 'var(--accent-secondary)' }} title="ดูตัวอย่าง" />
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteCardAttachment(agreement.id, idx, file.name);
+                                }}
+                                style={{
+                                  background: 'transparent',
+                                  border: 'none',
+                                  color: 'var(--danger)',
+                                  cursor: 'pointer',
+                                  padding: '0.1rem 0.2rem',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  opacity: 0.6,
+                                  transition: 'opacity 0.15s ease'
+                                }}
+                                onMouseEnter={(e) => { e.currentTarget.style.opacity = 1; }}
+                                onMouseLeave={(e) => { e.currentTarget.style.opacity = 0.6; }}
+                                title="ลบเอกสารแนบนี้"
+                              >
+                                <Trash2 size={12} />
+                              </button>
+                            </div>
                           </div>
                         ))}
                       </div>
