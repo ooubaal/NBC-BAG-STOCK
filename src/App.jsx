@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   LayoutDashboard, 
   Package, 
@@ -71,6 +71,97 @@ const safeSetLocalStorage = (key, value) => {
     }
   }
 };
+
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    console.error("ErrorBoundary caught an error:", error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ 
+          padding: '2.5rem', 
+          textAlign: 'center', 
+          color: '#fff', 
+          background: 'rgba(15, 23, 42, 0.4)',
+          backdropFilter: 'blur(10px)',
+          border: '1px solid rgba(239, 68, 68, 0.25)',
+          borderRadius: '12px',
+          margin: '2rem auto',
+          maxWidth: '700px',
+          display: 'flex', 
+          flexDirection: 'column', 
+          alignItems: 'center', 
+          gap: '1.25rem',
+          boxShadow: '0 20px 25px -5px rgba(0,0,0,0.5)'
+        }}>
+          <h2 style={{ color: '#ef4444', margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>⚠️ เกิดข้อผิดพลาดในการโหลดหน้าจอ</h2>
+          <p style={{ color: '#94a3b8', margin: 0, fontSize: '0.9rem' }}>
+            เกิดข้อผิดพลาดในการประมวลผลหรือเรนเดอร์เนื้อหาหน้าจอ
+          </p>
+          <div style={{ 
+            width: '100%',
+            textAlign: 'left', 
+            background: 'rgba(239, 68, 68, 0.05)', 
+            border: '1px solid rgba(239, 68, 68, 0.15)',
+            padding: '1rem', 
+            borderRadius: '8px',
+            fontFamily: 'monospace',
+            fontSize: '0.82rem',
+            overflowX: 'auto',
+            color: '#f43f5e'
+          }}>
+            {this.state.error ? this.state.error.toString() : 'Unknown Error'}
+          </div>
+          <div style={{ display: 'flex', gap: '0.75rem' }}>
+            <button 
+              onClick={() => this.setState({ hasError: false, error: null })} 
+              style={{ 
+                padding: '0.5rem 1.25rem', 
+                background: 'rgba(255,255,255,0.08)', 
+                border: '1px solid var(--glass-border)', 
+                borderRadius: '20px', 
+                color: '#fff', 
+                cursor: 'pointer', 
+                fontWeight: 'bold',
+                fontSize: '0.8rem'
+              }}
+            >
+              ย้อนกลับหน้าจอก่อนหน้า
+            </button>
+            <button 
+              onClick={() => window.location.reload()} 
+              style={{ 
+                padding: '0.5rem 1.25rem', 
+                background: 'var(--accent-secondary)', 
+                border: 'none', 
+                borderRadius: '20px', 
+                color: '#fff', 
+                cursor: 'pointer', 
+                fontWeight: 'bold',
+                fontSize: '0.8rem'
+              }}
+            >
+              โหลดหน้าเว็บใหม่
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
 
 function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -798,7 +889,7 @@ function App() {
       </aside>
 
       <main className="main-content">
-        {renderContent()}
+        <ErrorBoundary>{renderContent()}</ErrorBoundary>
       </main>
     </div>
   );
