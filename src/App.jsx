@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   LayoutDashboard, 
   Package, 
@@ -411,140 +411,244 @@ function App() {
     }
   }, [db, firebaseConfig, inventory.length, agreements.length]);
 
-  // Save data to LocalStorage as cache
+  // Save data to LocalStorage as cache with try/catch to prevent JSON serialization crashes
   useEffect(() => {
-    safeSetLocalStorage('wms_inventory', JSON.stringify(inventory));
+    try {
+      safeSetLocalStorage('wms_inventory', JSON.stringify(inventory));
+    } catch (e) {
+      console.error("Failed to stringify inventory for localStorage:", e);
+    }
   }, [inventory]);
 
   useEffect(() => {
-    safeSetLocalStorage('wms_items', JSON.stringify(items));
+    try {
+      safeSetLocalStorage('wms_items', JSON.stringify(items));
+    } catch (e) {
+      console.error("Failed to stringify items for localStorage:", e);
+    }
   }, [items]);
 
   useEffect(() => {
-    safeSetLocalStorage('wms_agreements', JSON.stringify(agreements));
+    try {
+      safeSetLocalStorage('wms_agreements', JSON.stringify(agreements));
+    } catch (e) {
+      console.error("Failed to stringify agreements for localStorage:", e);
+    }
   }, [agreements]);
 
   useEffect(() => {
-    safeSetLocalStorage('wms_claims', JSON.stringify(claims));
+    try {
+      safeSetLocalStorage('wms_claims', JSON.stringify(claims));
+    } catch (e) {
+      console.error("Failed to stringify claims for localStorage:", e);
+    }
   }, [claims]);
 
-  // 5. Intercept state updates to sync with Firestore
-  const updateItems = (newItemsOrFunc) => {
-    setItems(prev => {
-      const next = typeof newItemsOrFunc === 'function' ? newItemsOrFunc(prev) : newItemsOrFunc;
-      
-      if (db && Array.isArray(next)) {
-        next.forEach(item => {
-          if (item && item.name && item.name.trim()) {
-            const safeId = encodeURIComponent(item.name.trim());
+  // Refs for tracking previous state values for safe async syncing
+  const prevItemsRef = useRef(items);
+  const prevInventoryRef = useRef(inventory);
+  const prevAgreementsRef = useRef(agreements);
+  const prevClaimsRef = useRef(claims);
+
+  // 5. Asynchronous Firestore synchronizers using useEffect to guarantee no rendering crashes
+  useEffect(() => {
+    if (!db) return;
+    const prev = prevItemsRef.current || [];
+    const next = items || [];
+
+    next.forEach(item => {
+      if (item && item.name && item.name.trim()) {
+        const safeId = encodeURIComponent(item.name.trim());
+        const prevItem = prev.find(p => p && p.name === item.name);
+        let hasChanged = !prevItem;
+        if (prevItem) {
+          try {
+            hasChanged = JSON.stringify(prevItem) !== JSON.stringify(item);
+          } catch (e) {
+            hasChanged = true;
+          }
+        }
+        if (hasChanged) {
+          try {
             setDoc(doc(db, 'items', safeId), item)
               .catch(err => console.error("Error syncing item:", err));
+          } catch (err) {
+            console.error("Synchronous error during setDoc for item:", err);
           }
-        });
-        if (Array.isArray(prev)) {
-          prev.forEach(prevItem => {
-            if (prevItem && prevItem.name && prevItem.name.trim()) {
-              const stillExists = next.some(n => n && n.name === prevItem.name);
-              if (!stillExists) {
-                const safeId = encodeURIComponent(prevItem.name.trim());
-                deleteDoc(doc(db, 'items', safeId))
-                  .catch(err => console.error("Error deleting item:", err));
-              }
-            }
-          });
         }
       }
-      return next;
     });
+
+    prev.forEach(prevItem => {
+      if (prevItem && prevItem.name && prevItem.name.trim()) {
+        const stillExists = next.some(n => n && n.name === prevItem.name);
+        if (!stillExists) {
+          const safeId = encodeURIComponent(prevItem.name.trim());
+          try {
+            deleteDoc(doc(db, 'items', safeId))
+              .catch(err => console.error("Error deleting item:", err));
+          } catch (err) {
+            console.error("Synchronous error during deleteDoc for item:", err);
+          }
+        }
+      }
+    });
+
+    prevItemsRef.current = items;
+  }, [items, db]);
+
+  useEffect(() => {
+    if (!db) return;
+    const prev = prevInventoryRef.current || [];
+    const next = inventory || [];
+
+    next.forEach(item => {
+      if (item && item.id) {
+        const prevItem = prev.find(p => p && p.id === item.id);
+        let hasChanged = !prevItem;
+        if (prevItem) {
+          try {
+            hasChanged = JSON.stringify(prevItem) !== JSON.stringify(item);
+          } catch (e) {
+            hasChanged = true;
+          }
+        }
+        if (hasChanged) {
+          try {
+            setDoc(doc(db, 'inventory', String(item.id)), item)
+              .catch(err => console.error("Error syncing inventory:", err));
+          } catch (err) {
+            console.error("Synchronous error during setDoc for inventory:", err);
+          }
+        }
+      }
+    });
+
+    prev.forEach(prevItem => {
+      if (prevItem && prevItem.id) {
+        const stillExists = next.some(n => n && n.id === prevItem.id);
+        if (!stillExists) {
+          try {
+            deleteDoc(doc(db, 'inventory', String(prevItem.id)))
+              .catch(err => console.error("Error deleting inventory doc:", err));
+          } catch (err) {
+            console.error("Synchronous error during deleteDoc for inventory:", err);
+          }
+        }
+      }
+    });
+
+    prevInventoryRef.current = inventory;
+  }, [inventory, db]);
+
+  useEffect(() => {
+    if (!db) return;
+    const prev = prevAgreementsRef.current || [];
+    const next = agreements || [];
+
+    next.forEach(agreement => {
+      if (agreement && agreement.id) {
+        const prevAgreement = prev.find(p => p && p.id === agreement.id);
+        let hasChanged = !prevAgreement;
+        if (prevAgreement) {
+          try {
+            hasChanged = JSON.stringify(prevAgreement) !== JSON.stringify(agreement);
+          } catch (e) {
+            hasChanged = true;
+          }
+        }
+        if (hasChanged) {
+          try {
+            setDoc(doc(db, 'agreements', String(agreement.id)), agreement)
+              .catch(err => {
+                console.error("Error syncing agreement:", err);
+                if (err.code === 'resource-exhausted' || err.message.includes('too large') || err.message.includes('exceeds')) {
+                  alert("⚠️ ไม่สามารถบันทึกไฟล์แนบลงคลาวด์ได้ เนื่องจากขนาดเอกสารรวมกันใหญ่เกินข้อจำกัด (1 MB) ของ Firestore\nแต่อุปกรณ์เครื่องนี้ยังจดจำข้อมูลของคุณไว้ชั่วคราวได้");
+                }
+              });
+          } catch (err) {
+            console.error("Synchronous error during setDoc for agreement:", err);
+          }
+        }
+      }
+    });
+
+    prev.forEach(prevAgreement => {
+      if (prevAgreement && prevAgreement.id) {
+        const stillExists = next.some(n => n && n.id === prevAgreement.id);
+        if (!stillExists) {
+          try {
+            deleteDoc(doc(db, 'agreements', String(prevAgreement.id)))
+              .catch(err => console.error("Error deleting agreement:", err));
+          } catch (err) {
+            console.error("Synchronous error during deleteDoc for agreement:", err);
+          }
+        }
+      }
+    });
+
+    prevAgreementsRef.current = agreements;
+  }, [agreements, db]);
+
+  useEffect(() => {
+    if (!db) return;
+    const prev = prevClaimsRef.current || [];
+    const next = claims || [];
+
+    next.forEach(claim => {
+      if (claim && claim.id) {
+        const prevClaim = prev.find(p => p && p.id === claim.id);
+        let hasChanged = !prevClaim;
+        if (prevClaim) {
+          try {
+            hasChanged = JSON.stringify(prevClaim) !== JSON.stringify(claim);
+          } catch (e) {
+            hasChanged = true;
+          }
+        }
+        if (hasChanged) {
+          try {
+            setDoc(doc(db, 'claims', String(claim.id)), claim)
+              .catch(err => console.error("Error syncing claim:", err));
+          } catch (err) {
+            console.error("Synchronous error during setDoc for claim:", err);
+          }
+        }
+      }
+    });
+
+    prev.forEach(prevClaim => {
+      if (prevClaim && prevClaim.id) {
+        const stillExists = next.some(n => n && n.id === prevClaim.id);
+        if (!stillExists) {
+          try {
+            deleteDoc(doc(db, 'claims', String(prevClaim.id)))
+              .catch(err => console.error("Error deleting claim doc:", err));
+          } catch (err) {
+            console.error("Synchronous error during deleteDoc for claim:", err);
+          }
+        }
+      }
+    });
+
+    prevClaimsRef.current = claims;
+  }, [claims, db]);
+
+  // Pure React state interceptors without side effects (guarantees zero crashes)
+  const updateItems = (newItemsOrFunc) => {
+    setItems(prev => typeof newItemsOrFunc === 'function' ? newItemsOrFunc(prev) : newItemsOrFunc);
   };
 
   const updateInventory = (newInvOrFunc) => {
-    setInventory(prev => {
-      const next = typeof newInvOrFunc === 'function' ? newInvOrFunc(prev) : newInvOrFunc;
-      
-      if (db && Array.isArray(next)) {
-        next.forEach(item => {
-          if (item && item.id) {
-            const prevItem = Array.isArray(prev) ? prev.find(p => p && p.id === item.id) : null;
-            if (!prevItem || JSON.stringify(prevItem) !== JSON.stringify(item)) {
-              setDoc(doc(db, 'inventory', String(item.id)), item)
-                .catch(err => console.error("Error syncing inventory:", err));
-            }
-          }
-        });
-        if (Array.isArray(prev)) {
-          prev.forEach(prevItem => {
-            if (prevItem && prevItem.id) {
-              const stillExists = next.some(n => n && n.id === prevItem.id);
-              if (!stillExists) {
-                deleteDoc(doc(db, 'inventory', String(prevItem.id))).catch(err => console.error("Error deleting doc:", err));
-              }
-            }
-          });
-        }
-      }
-      return next;
-    });
+    setInventory(prev => typeof newInvOrFunc === 'function' ? newInvOrFunc(prev) : newInvOrFunc);
   };
 
   const updateAgreements = (newAgreementsOrFunc) => {
-    setAgreements(prev => {
-      const next = typeof newAgreementsOrFunc === 'function' ? newAgreementsOrFunc(prev) : newAgreementsOrFunc;
-      
-      if (db && Array.isArray(next)) {
-        next.forEach(agreement => {
-          if (agreement && agreement.id) {
-            const prevAgreement = Array.isArray(prev) ? prev.find(p => p && p.id === agreement.id) : null;
-            if (!prevAgreement || JSON.stringify(prevAgreement) !== JSON.stringify(agreement)) {
-              setDoc(doc(db, 'agreements', String(agreement.id)), agreement)
-                .catch(err => console.error("Error syncing agreement:", err));
-            }
-          }
-        });
-        if (Array.isArray(prev)) {
-          prev.forEach(prevAgreement => {
-            if (prevAgreement && prevAgreement.id) {
-              const stillExists = next.some(n => n && n.id === prevAgreement.id);
-              if (!stillExists) {
-                deleteDoc(doc(db, 'agreements', String(prevAgreement.id)))
-                  .catch(err => console.error("Error deleting agreement:", err));
-              }
-            }
-          });
-        }
-      }
-      return next;
-    });
+    setAgreements(prev => typeof newAgreementsOrFunc === 'function' ? newAgreementsOrFunc(prev) : newAgreementsOrFunc);
   };
 
   const updateClaims = (newClaimsOrFunc) => {
-    setClaims(prev => {
-      const next = typeof newClaimsOrFunc === 'function' ? newClaimsOrFunc(prev) : newClaimsOrFunc;
-      
-      if (db && Array.isArray(next)) {
-        next.forEach(claim => {
-          if (claim && claim.id) {
-            const prevClaim = Array.isArray(prev) ? prev.find(p => p && p.id === claim.id) : null;
-            if (!prevClaim || JSON.stringify(prevClaim) !== JSON.stringify(claim)) {
-              setDoc(doc(db, 'claims', String(claim.id)), claim)
-                .catch(err => console.error("Error syncing claim:", err));
-            }
-          }
-        });
-        if (Array.isArray(prev)) {
-          prev.forEach(prevClaim => {
-            if (prevClaim && prevClaim.id) {
-              const stillExists = next.some(n => n && n.id === prevClaim.id);
-              if (!stillExists) {
-                deleteDoc(doc(db, 'claims', String(prevClaim.id)))
-                  .catch(err => console.error("Error deleting claim doc:", err));
-              }
-            }
-          });
-        }
-      }
-      return next;
-    });
+    setClaims(prev => typeof newClaimsOrFunc === 'function' ? newClaimsOrFunc(prev) : newClaimsOrFunc);
   };
 
   // 6. Migration and Sync Helpers for SettingsTab
