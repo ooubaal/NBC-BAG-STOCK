@@ -1,5 +1,10 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
-import { getFirestore } from "firebase/firestore";
+import { 
+  initializeFirestore, 
+  getFirestore, 
+  persistentLocalCache, 
+  persistentMultipleTabManager 
+} from "firebase/firestore";
 
 let app = null;
 let db = null;
@@ -13,12 +18,24 @@ export const initFirebase = (config) => {
   try {
     const apps = getApps();
     if (apps.length > 0) {
-      // Return existing initialized db or re-initialize if needed
       app = getApp();
     } else {
       app = initializeApp(config);
     }
-    db = getFirestore(app);
+    
+    // Enable persistent local cache with multi-tab support
+    // This serves existing docs from IndexedDB and avoids burning Firestore reads on page reloads!
+    try {
+      db = initializeFirestore(app, {
+        localCache: persistentLocalCache({
+          tabManager: persistentMultipleTabManager()
+        })
+      });
+    } catch (e) {
+      // Fallback if already initialized (e.g. HMR or multiple calls)
+      db = getFirestore(app);
+    }
+
     return { app, db };
   } catch (error) {
     console.error("Firebase initialization failed:", error);
