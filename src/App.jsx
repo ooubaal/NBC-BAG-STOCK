@@ -46,6 +46,7 @@ import Agreements from './components/Agreements';
 import StatusLabels from './components/StatusLabels';
 import { initFirebase } from './firebase';
 import { doc, setDoc, collection, onSnapshot, deleteDoc, getDocs } from 'firebase/firestore';
+import { idbGet, idbSet, idbDel } from './utils/idb';
 
 const INITIAL_ITEMS = [];
 
@@ -62,13 +63,7 @@ const safeSetLocalStorage = (key, value) => {
   try {
     localStorage.setItem(key, value);
   } catch (error) {
-    console.error("LocalStorage write failed:", error);
-    if (error.name === 'QuotaExceededError' || error.code === 22) {
-      if (!window._wms_storage_warning_shown) {
-        window._wms_storage_warning_shown = true;
-        alert("⚠️ คำเตือน: พื้นที่เก็บข้อมูลของเบราว์เซอร์เต็มแล้ว! ไม่สามารถบันทึกข้อมูลสำรองชั่วคราวในเครื่องนี้ได้ (แต่อุปกรณ์ที่ต่อระบบแชร์คลาวด์/Firebase จะยังคงทำงานและบันทึกข้อมูลได้อย่างปลอดภัย)");
-      }
-    }
+    console.warn("LocalStorage write skipped for " + key + ":", error);
   }
 };
 
@@ -411,37 +406,85 @@ function App() {
     }
   }, [db, firebaseConfig, inventory.length, agreements.length]);
 
-  // Save data to LocalStorage as cache with try/catch to prevent JSON serialization crashes
+  // Startup: Load cache from IndexedDB and migrate/clean bulky datasets from LocalStorage
   useEffect(() => {
+    let active = true;
+
+    // 1. One-time migration: If LocalStorage has old large items, transfer to IndexedDB and remove them
     try {
-      safeSetLocalStorage('wms_inventory', JSON.stringify(inventory));
+      const oldInv = localStorage.getItem('wms_inventory');
+      const oldAg = localStorage.getItem('wms_agreements');
+      const oldClaims = localStorage.getItem('wms_claims');
+      const oldItems = localStorage.getItem('wms_items');
+
+      if (oldInv) {
+        try { idbSet('wms_inventory', JSON.parse(oldInv)); } catch (e) {}
+        localStorage.removeItem('wms_inventory');
+      }
+      if (oldAg) {
+        try { idbSet('wms_agreements', JSON.parse(oldAg)); } catch (e) {}
+        localStorage.removeItem('wms_agreements');
+      }
+      if (oldClaims) {
+        try { idbSet('wms_claims', JSON.parse(oldClaims)); } catch (e) {}
+        localStorage.removeItem('wms_claims');
+      }
+      if (oldItems) {
+        try { idbSet('wms_items', JSON.parse(oldItems)); } catch (e) {}
+        localStorage.removeItem('wms_items');
+      }
     } catch (e) {
-      console.error("Failed to stringify inventory for localStorage:", e);
+      console.warn("LocalStorage migration warning:", e);
     }
+
+    // 2. Load from IndexedDB if in-memory state is empty (e.g. before Firebase syncs or when offline)
+    const loadIdbCache = async () => {
+      try {
+        const [cachedInv, cachedItems, cachedAg, cachedClaims] = await Promise.all([
+          idbGet('wms_inventory'),
+          idbGet('wms_items'),
+          idbGet('wms_agreements'),
+          idbGet('wms_claims')
+        ]);
+        if (!active) return;
+        if (Array.isArray(cachedInv) && cachedInv.length > 0) {
+          setInventory(prev => prev.length === 0 ? cachedInv : prev);
+        }
+        if (Array.isArray(cachedItems) && cachedItems.length > 0) {
+          setItems(prev => prev.length === 0 ? cachedItems : prev);
+        }
+        if (Array.isArray(cachedAg) && cachedAg.length > 0) {
+          setAgreements(prev => prev.length === 0 ? cachedAg : prev);
+        }
+        if (Array.isArray(cachedClaims) && cachedClaims.length > 0) {
+          setClaims(prev => prev.length === 0 ? cachedClaims : prev);
+        }
+      } catch (err) {
+        console.warn("Error reading IndexedDB cache:", err);
+      }
+    };
+    loadIdbCache();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  // Save data to IndexedDB as high-capacity persistent cache (no 5MB LocalStorage limit!)
+  useEffect(() => {
+    idbSet('wms_inventory', inventory);
   }, [inventory]);
 
   useEffect(() => {
-    try {
-      safeSetLocalStorage('wms_items', JSON.stringify(items));
-    } catch (e) {
-      console.error("Failed to stringify items for localStorage:", e);
-    }
+    idbSet('wms_items', items);
   }, [items]);
 
   useEffect(() => {
-    try {
-      safeSetLocalStorage('wms_agreements', JSON.stringify(agreements));
-    } catch (e) {
-      console.error("Failed to stringify agreements for localStorage:", e);
-    }
+    idbSet('wms_agreements', agreements);
   }, [agreements]);
 
   useEffect(() => {
-    try {
-      safeSetLocalStorage('wms_claims', JSON.stringify(claims));
-    } catch (e) {
-      console.error("Failed to stringify claims for localStorage:", e);
-    }
+    idbSet('wms_claims', claims);
   }, [claims]);
 
   // Refs for tracking previous state values for safe async syncing
@@ -676,11 +719,9 @@ function App() {
         await setDoc(doc(db, 'agreements', String(ag.id)), ag);
       }
       
-      // Upload Claims from local storage
-      const savedClaimsText = localStorage.getItem('wms_claims');
-      if (savedClaimsText) {
-        const savedClaims = JSON.parse(savedClaimsText);
-        for (const claim of savedClaims) {
+      // Upload Claims
+      for (const claim of claims) {
+        if (claim && claim.id) {
           await setDoc(doc(db, 'claims', String(claim.id)), claim);
         }
       }
@@ -698,21 +739,16 @@ function App() {
   };
 
   const getSyncStats = () => {
-    const savedClaimsText = localStorage.getItem('wms_claims');
-    const localClaims = savedClaimsText ? JSON.parse(savedClaimsText).length : 0;
     return {
       localItems: items.length,
       localInventory: inventory.length,
-      localClaims,
+      localClaims: claims.length,
       localAgreements: agreements.length
     };
   };
 
   const handleBackup = () => {
     try {
-      const claimsText = localStorage.getItem('wms_claims');
-      const claims = claimsText ? JSON.parse(claimsText) : [];
-
       const backupData = {
         items,
         inventory,
@@ -751,14 +787,12 @@ function App() {
         updateItems(backupData.items);
         updateInventory(backupData.inventory);
         updateAgreements(backupData.agreements);
-
-        // Update NCP claims in LocalStorage
-        const claims = backupData.claims || [];
-        safeSetLocalStorage('wms_claims', JSON.stringify(claims));
+        const restoredClaims = backupData.claims || [];
+        updateClaims(restoredClaims);
 
         // If cloud database is connected, synchronize claims
-        if (db && claims.length > 0) {
-          for (const claim of claims) {
+        if (db && restoredClaims.length > 0) {
+          for (const claim of restoredClaims) {
             await setDoc(doc(db, 'claims', String(claim.id)), claim);
           }
         }
@@ -828,7 +862,17 @@ function App() {
           setInventory([]);
           setAgreements([]);
           setClaims([]);
-          safeSetLocalStorage('wms_claims', '[]');
+
+          await Promise.all([
+            idbDel('wms_inventory'),
+            idbDel('wms_items'),
+            idbDel('wms_agreements'),
+            idbDel('wms_claims')
+          ]);
+          localStorage.removeItem('wms_inventory');
+          localStorage.removeItem('wms_items');
+          localStorage.removeItem('wms_agreements');
+          localStorage.removeItem('wms_claims');
 
           if (firebaseConfig && firebaseConfig.projectId) {
             localStorage.setItem('wms_synced_project_id', firebaseConfig.projectId);

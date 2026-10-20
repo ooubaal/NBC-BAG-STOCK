@@ -408,14 +408,7 @@ const NCP = ({ inventory, items, claims, setClaims }) => {
     return base;
   }, [claims, ncpTab, searchQuery]);
 
-  useEffect(() => {
-    try {
-      localStorage.setItem('wms_claims', JSON.stringify(claims));
-    } catch (e) {
-      console.error("Storage quota exceeded:", e);
-      alert("ไม่สามารถบันทึกข้อมูลได้ เนื่องจากพื้นที่หน่วยความจำเบราว์เซอร์เต็ม");
-    }
-  }, [claims]);
+
 
   const handleImageUpload = (step, file) => {
     if (!file) return;
