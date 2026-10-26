@@ -45,7 +45,7 @@ import SettingsTab from './components/Settings';
 import Agreements from './components/Agreements';
 import StatusLabels from './components/StatusLabels';
 import { initFirebase } from './firebase';
-import { doc, setDoc, collection, onSnapshot, deleteDoc, getDocs } from 'firebase/firestore';
+import { doc, setDoc, collection, onSnapshot, deleteDoc, getDocs, writeBatch } from 'firebase/firestore';
 import { idbGet, idbSet, idbDel } from './utils/idb';
 
 const INITIAL_ITEMS = [];
@@ -232,6 +232,12 @@ function App() {
 
   const [db, setDb] = useState(null);
 
+  // Flags to prevent circular sync loops when data arrives from remote Firestore
+  const isRemoteItemsUpdateRef = useRef(false);
+  const isRemoteInventoryUpdateRef = useRef(false);
+  const isRemoteAgreementsUpdateRef = useRef(false);
+  const isRemoteClaimsUpdateRef = useRef(false);
+
   // 2. Initialize Firebase dynamically on boot or when config changes
   useEffect(() => {
     let active = true;
@@ -273,11 +279,13 @@ function App() {
       const isSynced = firebaseConfig && localStorage.getItem('wms_synced_project_id') === firebaseConfig.projectId;
 
       if (list.length > 0) {
+        isRemoteItemsUpdateRef.current = true;
         setItems(list);
         if (firebaseConfig) {
           localStorage.setItem('wms_synced_project_id', firebaseConfig.projectId);
         }
       } else if (isSynced) {
+        isRemoteItemsUpdateRef.current = true;
         setItems(INITIAL_ITEMS);
       }
     }, (error) => {
@@ -304,11 +312,13 @@ function App() {
       const isSynced = firebaseConfig && localStorage.getItem('wms_synced_project_id') === firebaseConfig.projectId;
 
       if (list.length > 0) {
+        isRemoteInventoryUpdateRef.current = true;
         setInventory(list);
         if (firebaseConfig) {
           localStorage.setItem('wms_synced_project_id', firebaseConfig.projectId);
         }
       } else if (isSynced) {
+        isRemoteInventoryUpdateRef.current = true;
         setInventory([]);
       }
     }, (error) => {
@@ -335,11 +345,13 @@ function App() {
       const isSynced = firebaseConfig && localStorage.getItem('wms_synced_project_id') === firebaseConfig.projectId;
 
       if (list.length > 0) {
+        isRemoteAgreementsUpdateRef.current = true;
         setAgreements(list);
         if (firebaseConfig) {
           localStorage.setItem('wms_synced_project_id', firebaseConfig.projectId);
         }
       } else if (isSynced) {
+        isRemoteAgreementsUpdateRef.current = true;
         setAgreements([]);
       }
     }, (error) => {
@@ -382,11 +394,13 @@ function App() {
           return { ...c, images: normalizedImages };
         });
 
+        isRemoteClaimsUpdateRef.current = true;
         setClaims(normalized);
         if (firebaseConfig) {
           localStorage.setItem('wms_synced_project_id', firebaseConfig.projectId);
         }
       } else if (isSynced) {
+        isRemoteClaimsUpdateRef.current = true;
         setClaims([]);
       }
     }, (error) => {
@@ -493,15 +507,22 @@ function App() {
   const prevAgreementsRef = useRef(agreements);
   const prevClaimsRef = useRef(claims);
 
-  // 5. Asynchronous Firestore synchronizers using useEffect to guarantee no rendering crashes
+  // 5. Asynchronous Firestore synchronizers using writeBatch and echo-prevention flags
+  // 5a. Items synchronizer
   useEffect(() => {
     if (!db) return;
+    if (isRemoteItemsUpdateRef.current) {
+      isRemoteItemsUpdateRef.current = false;
+      prevItemsRef.current = items;
+      return;
+    }
+
     const prev = prevItemsRef.current || [];
     const next = items || [];
 
+    const changedItems = [];
     next.forEach(item => {
       if (item && item.name && item.name.trim()) {
-        const safeId = encodeURIComponent(item.name.trim());
         const prevItem = prev.find(p => p && p.name === item.name);
         let hasChanged = !prevItem;
         if (prevItem) {
@@ -512,39 +533,65 @@ function App() {
           }
         }
         if (hasChanged) {
-          try {
-            setDoc(doc(db, 'items', safeId), item)
-              .catch(err => console.error("Error syncing item:", err));
-          } catch (err) {
-            console.error("Synchronous error during setDoc for item:", err);
-          }
+          changedItems.push(item);
         }
       }
     });
 
+    const deletedItems = [];
     prev.forEach(prevItem => {
       if (prevItem && prevItem.name && prevItem.name.trim()) {
         const stillExists = next.some(n => n && n.name === prevItem.name);
         if (!stillExists) {
-          const safeId = encodeURIComponent(prevItem.name.trim());
-          try {
-            deleteDoc(doc(db, 'items', safeId))
-              .catch(err => console.error("Error deleting item:", err));
-          } catch (err) {
-            console.error("Synchronous error during deleteDoc for item:", err);
-          }
+          deletedItems.push(prevItem);
         }
       }
     });
 
     prevItemsRef.current = items;
+
+    if (changedItems.length === 0 && deletedItems.length === 0) return;
+
+    const syncItemsBatch = async () => {
+      try {
+        const allOps = [
+          ...changedItems.map(item => ({ type: 'set', id: encodeURIComponent(item.name.trim()), data: item })),
+          ...deletedItems.map(item => ({ type: 'delete', id: encodeURIComponent(item.name.trim()) }))
+        ];
+        const BATCH_SIZE = 400;
+        for (let i = 0; i < allOps.length; i += BATCH_SIZE) {
+          const chunk = allOps.slice(i, i + BATCH_SIZE);
+          const batch = writeBatch(db);
+          chunk.forEach(op => {
+            const docRef = doc(db, 'items', op.id);
+            if (op.type === 'set') {
+              batch.set(docRef, op.data);
+            } else {
+              batch.delete(docRef);
+            }
+          });
+          await batch.commit();
+        }
+      } catch (err) {
+        console.error("Error batch syncing items to Firestore:", err);
+      }
+    };
+    syncItemsBatch();
   }, [items, db]);
 
+  // 5b. Inventory synchronizer (Atomic writeBatch prevents race conditions & flickering during bulk updates)
   useEffect(() => {
     if (!db) return;
+    if (isRemoteInventoryUpdateRef.current) {
+      isRemoteInventoryUpdateRef.current = false;
+      prevInventoryRef.current = inventory;
+      return;
+    }
+
     const prev = prevInventoryRef.current || [];
     const next = inventory || [];
 
+    const changedItems = [];
     next.forEach(item => {
       if (item && item.id) {
         const prevItem = prev.find(p => p && p.id === item.id);
@@ -557,38 +604,65 @@ function App() {
           }
         }
         if (hasChanged) {
-          try {
-            setDoc(doc(db, 'inventory', String(item.id)), item)
-              .catch(err => console.error("Error syncing inventory:", err));
-          } catch (err) {
-            console.error("Synchronous error during setDoc for inventory:", err);
-          }
+          changedItems.push(item);
         }
       }
     });
 
+    const deletedItems = [];
     prev.forEach(prevItem => {
       if (prevItem && prevItem.id) {
         const stillExists = next.some(n => n && n.id === prevItem.id);
         if (!stillExists) {
-          try {
-            deleteDoc(doc(db, 'inventory', String(prevItem.id)))
-              .catch(err => console.error("Error deleting inventory doc:", err));
-          } catch (err) {
-            console.error("Synchronous error during deleteDoc for inventory:", err);
-          }
+          deletedItems.push(prevItem);
         }
       }
     });
 
     prevInventoryRef.current = inventory;
+
+    if (changedItems.length === 0 && deletedItems.length === 0) return;
+
+    const syncInventoryBatch = async () => {
+      try {
+        const allOps = [
+          ...changedItems.map(item => ({ type: 'set', id: String(item.id), data: item })),
+          ...deletedItems.map(item => ({ type: 'delete', id: String(item.id) }))
+        ];
+        const BATCH_SIZE = 400;
+        for (let i = 0; i < allOps.length; i += BATCH_SIZE) {
+          const chunk = allOps.slice(i, i + BATCH_SIZE);
+          const batch = writeBatch(db);
+          chunk.forEach(op => {
+            const docRef = doc(db, 'inventory', op.id);
+            if (op.type === 'set') {
+              batch.set(docRef, op.data);
+            } else {
+              batch.delete(docRef);
+            }
+          });
+          await batch.commit();
+        }
+      } catch (err) {
+        console.error("Error batch syncing inventory to Firestore:", err);
+      }
+    };
+    syncInventoryBatch();
   }, [inventory, db]);
 
+  // 5c. Agreements synchronizer
   useEffect(() => {
     if (!db) return;
+    if (isRemoteAgreementsUpdateRef.current) {
+      isRemoteAgreementsUpdateRef.current = false;
+      prevAgreementsRef.current = agreements;
+      return;
+    }
+
     const prev = prevAgreementsRef.current || [];
     const next = agreements || [];
 
+    const changedAgreements = [];
     next.forEach(agreement => {
       if (agreement && agreement.id) {
         const prevAgreement = prev.find(p => p && p.id === agreement.id);
@@ -601,43 +675,68 @@ function App() {
           }
         }
         if (hasChanged) {
-          try {
-            setDoc(doc(db, 'agreements', String(agreement.id)), agreement)
-              .catch(err => {
-                console.error("Error syncing agreement:", err);
-                if (err.code === 'resource-exhausted' || err.message.includes('too large') || err.message.includes('exceeds')) {
-                  alert("⚠️ ไม่สามารถบันทึกไฟล์แนบลงคลาวด์ได้ เนื่องจากขนาดเอกสารรวมกันใหญ่เกินข้อจำกัด (1 MB) ของ Firestore\nแต่อุปกรณ์เครื่องนี้ยังจดจำข้อมูลของคุณไว้ชั่วคราวได้");
-                }
-              });
-          } catch (err) {
-            console.error("Synchronous error during setDoc for agreement:", err);
-          }
+          changedAgreements.push(agreement);
         }
       }
     });
 
+    const deletedAgreements = [];
     prev.forEach(prevAgreement => {
       if (prevAgreement && prevAgreement.id) {
         const stillExists = next.some(n => n && n.id === prevAgreement.id);
         if (!stillExists) {
-          try {
-            deleteDoc(doc(db, 'agreements', String(prevAgreement.id)))
-              .catch(err => console.error("Error deleting agreement:", err));
-          } catch (err) {
-            console.error("Synchronous error during deleteDoc for agreement:", err);
-          }
+          deletedAgreements.push(prevAgreement);
         }
       }
     });
 
     prevAgreementsRef.current = agreements;
+
+    if (changedAgreements.length === 0 && deletedAgreements.length === 0) return;
+
+    const syncAgreementsBatch = async () => {
+      try {
+        const allOps = [
+          ...changedAgreements.map(ag => ({ type: 'set', id: String(ag.id), data: ag })),
+          ...deletedAgreements.map(ag => ({ type: 'delete', id: String(ag.id) }))
+        ];
+        const BATCH_SIZE = 400;
+        for (let i = 0; i < allOps.length; i += BATCH_SIZE) {
+          const chunk = allOps.slice(i, i + BATCH_SIZE);
+          const batch = writeBatch(db);
+          chunk.forEach(op => {
+            const docRef = doc(db, 'agreements', op.id);
+            if (op.type === 'set') {
+              batch.set(docRef, op.data);
+            } else {
+              batch.delete(docRef);
+            }
+          });
+          await batch.commit();
+        }
+      } catch (err) {
+        console.error("Error syncing agreements:", err);
+        if (err.code === 'resource-exhausted' || err.message?.includes('too large') || err.message?.includes('exceeds')) {
+          alert("⚠️ ไม่สามารถบันทึกไฟล์แนบลงคลาวด์ได้ เนื่องจากขนาดเอกสารรวมกันใหญ่เกินข้อจำกัด (1 MB) ของ Firestore\nแต่อุปกรณ์เครื่องนี้ยังจดจำข้อมูลของคุณไว้ชั่วคราวได้");
+        }
+      }
+    };
+    syncAgreementsBatch();
   }, [agreements, db]);
 
+  // 5d. Claims synchronizer
   useEffect(() => {
     if (!db) return;
+    if (isRemoteClaimsUpdateRef.current) {
+      isRemoteClaimsUpdateRef.current = false;
+      prevClaimsRef.current = claims;
+      return;
+    }
+
     const prev = prevClaimsRef.current || [];
     const next = claims || [];
 
+    const changedClaims = [];
     next.forEach(claim => {
       if (claim && claim.id) {
         const prevClaim = prev.find(p => p && p.id === claim.id);
@@ -650,31 +749,50 @@ function App() {
           }
         }
         if (hasChanged) {
-          try {
-            setDoc(doc(db, 'claims', String(claim.id)), claim)
-              .catch(err => console.error("Error syncing claim:", err));
-          } catch (err) {
-            console.error("Synchronous error during setDoc for claim:", err);
-          }
+          changedClaims.push(claim);
         }
       }
     });
 
+    const deletedClaims = [];
     prev.forEach(prevClaim => {
       if (prevClaim && prevClaim.id) {
         const stillExists = next.some(n => n && n.id === prevClaim.id);
         if (!stillExists) {
-          try {
-            deleteDoc(doc(db, 'claims', String(prevClaim.id)))
-              .catch(err => console.error("Error deleting claim doc:", err));
-          } catch (err) {
-            console.error("Synchronous error during deleteDoc for claim:", err);
-          }
+          deletedClaims.push(prevClaim);
         }
       }
     });
 
     prevClaimsRef.current = claims;
+
+    if (changedClaims.length === 0 && deletedClaims.length === 0) return;
+
+    const syncClaimsBatch = async () => {
+      try {
+        const allOps = [
+          ...changedClaims.map(c => ({ type: 'set', id: String(c.id), data: c })),
+          ...deletedClaims.map(c => ({ type: 'delete', id: String(c.id) }))
+        ];
+        const BATCH_SIZE = 400;
+        for (let i = 0; i < allOps.length; i += BATCH_SIZE) {
+          const chunk = allOps.slice(i, i + BATCH_SIZE);
+          const batch = writeBatch(db);
+          chunk.forEach(op => {
+            const docRef = doc(db, 'claims', op.id);
+            if (op.type === 'set') {
+              batch.set(docRef, op.data);
+            } else {
+              batch.delete(docRef);
+            }
+          });
+          await batch.commit();
+        }
+      } catch (err) {
+        console.error("Error syncing claims:", err);
+      }
+    };
+    syncClaimsBatch();
   }, [claims, db]);
 
   // Pure React state interceptors without side effects (guarantees zero crashes)
