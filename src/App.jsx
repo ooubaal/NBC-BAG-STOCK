@@ -50,6 +50,19 @@ import { idbGet, idbSet, idbDel } from './utils/idb';
 
 const INITIAL_ITEMS = [];
 
+const NUM_BUCKETS = 20;
+
+const getBucketId = (id) => {
+  const str = String(id || '');
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) - hash) + str.charCodeAt(i);
+    hash |= 0;
+  }
+  const index = Math.abs(hash) % NUM_BUCKETS;
+  return `bucket_${index}`;
+};
+
 const formatDateToDDMMYYYY = (dateStr) => {
   if (!dateStr) return '';
   const cleanDate = dateStr.split('T')[0];
@@ -262,67 +275,113 @@ function App() {
     };
   }, [firebaseConfig]);
 
-  // 3. Real-time synchronisation for Items
+  // 3. Real-time synchronisation for Items (Consolidated Catalog = 1 Read!)
   useEffect(() => {
     if (!db) return;
 
-    const itemsRef = collection(db, 'items');
-    const unsubscribe = onSnapshot(itemsRef, (snapshot) => {
-      const list = [];
-      snapshot.forEach(docSnap => {
+    const catalogRef = doc(db, 'system_catalog', 'items_registry');
+    const unsubscribe = onSnapshot(catalogRef, async (docSnap) => {
+      if (docSnap.exists()) {
         const data = docSnap.data();
-        if (data && data.name && data.name.trim()) {
-          list.push(data);
+        if (data && Array.isArray(data.items)) {
+          isRemoteItemsUpdateRef.current = true;
+          setItems(data.items.length > 0 ? data.items : INITIAL_ITEMS);
+          if (firebaseConfig) {
+            localStorage.setItem('wms_synced_project_id', firebaseConfig.projectId);
+          }
+          return;
         }
-      });
-      
-      const isSynced = firebaseConfig && localStorage.getItem('wms_synced_project_id') === firebaseConfig.projectId;
+      }
 
-      if (list.length > 0) {
-        isRemoteItemsUpdateRef.current = true;
-        setItems(list);
-        if (firebaseConfig) {
-          localStorage.setItem('wms_synced_project_id', firebaseConfig.projectId);
+      // Auto-migration fallback for existing legacy items collection:
+      const legacyItemsRef = collection(db, 'items');
+      const legacySnap = await getDocs(legacyItemsRef).catch(() => null);
+      if (legacySnap && !legacySnap.empty) {
+        const list = [];
+        legacySnap.forEach(d => {
+          const item = d.data();
+          if (item && item.name && item.name.trim()) list.push(item);
+        });
+        if (list.length > 0) {
+          isRemoteItemsUpdateRef.current = true;
+          setItems(list);
+          await setDoc(catalogRef, {
+            items: list,
+            migratedAt: new Date().toISOString()
+          }).catch(err => console.error("Error migrating initial items catalog:", err));
         }
-      } else if (isSynced) {
-        isRemoteItemsUpdateRef.current = true;
-        setItems(INITIAL_ITEMS);
       }
     }, (error) => {
-      console.error("Error listening to items:", error);
+      console.error("Error listening to items catalog:", error);
     });
 
     return () => unsubscribe();
   }, [db, firebaseConfig]);
 
-  // 4. Real-time synchronisation for Inventory
+  // 4. Real-time synchronisation for Inventory (20 Buckets = exactly 20 Reads regardless of database size!)
   useEffect(() => {
     if (!db) return;
 
-    const invRef = collection(db, 'inventory');
-    const unsubscribe = onSnapshot(invRef, (snapshot) => {
-      const list = [];
-      snapshot.forEach(docSnap => {
-        const data = docSnap.data();
-        if (data && data.id) {
-          list.push(data);
-        }
-      });
-      
-      const isSynced = firebaseConfig && localStorage.getItem('wms_synced_project_id') === firebaseConfig.projectId;
+    const bucketsRef = collection(db, 'inventory_buckets');
+    const unsubscribe = onSnapshot(bucketsRef, async (snapshot) => {
+      if (!snapshot.empty) {
+        const allLots = [];
+        snapshot.forEach(docSnap => {
+          const data = docSnap.data();
+          if (data && Array.isArray(data.lots)) {
+            allLots.push(...data.lots);
+          }
+        });
 
-      if (list.length > 0) {
+        // Consistent ordering by id descending
+        allLots.sort((a, b) => Number(b.id || 0) - Number(a.id || 0));
+
         isRemoteInventoryUpdateRef.current = true;
-        setInventory(list);
+        setInventory(allLots);
         if (firebaseConfig) {
           localStorage.setItem('wms_synced_project_id', firebaseConfig.projectId);
         }
-      } else if (isSynced) {
-        isRemoteInventoryUpdateRef.current = true;
-        setInventory([]);
+        return;
+      }
+
+      // Auto-migration fallback for existing legacy inventory collection:
+      const legacyInvRef = collection(db, 'inventory');
+      const legacySnap = await getDocs(legacyInvRef).catch(() => null);
+      if (legacySnap && !legacySnap.empty) {
+        const list = [];
+        legacySnap.forEach(d => {
+          const lot = d.data();
+          if (lot && lot.id) list.push(lot);
+        });
+
+        if (list.length > 0) {
+          list.sort((a, b) => Number(b.id || 0) - Number(a.id || 0));
+          isRemoteInventoryUpdateRef.current = true;
+          setInventory(list);
+
+          // Partition into 20 buckets and save to Firestore
+          const bucketsMap = {};
+          for (let i = 0; i < NUM_BUCKETS; i++) {
+            bucketsMap[`bucket_${i}`] = [];
+          }
+          list.forEach(lot => {
+            const bId = getBucketId(lot.id);
+            bucketsMap[bId].push(lot);
+          });
+
+          const batch = writeBatch(db);
+          for (let i = 0; i < NUM_BUCKETS; i++) {
+            const bId = `bucket_${i}`;
+            batch.set(doc(db, 'inventory_buckets', bId), {
+              lots: bucketsMap[bId],
+              updatedAt: new Date().toISOString()
+            });
+          }
+          await batch.commit().catch(err => console.error("Error migrating inventory to buckets:", err));
+        }
       }
     }, (error) => {
-      console.error("Error listening to inventory:", error);
+      console.error("Error listening to inventory buckets:", error);
     });
 
     return () => unsubscribe();
@@ -508,7 +567,7 @@ function App() {
   const prevClaimsRef = useRef(claims);
 
   // 5. Asynchronous Firestore synchronizers using writeBatch and echo-prevention flags
-  // 5a. Items synchronizer
+  // 5a. Items synchronizer (Consolidated Catalog = 1 Write!)
   useEffect(() => {
     if (!db) return;
     if (isRemoteItemsUpdateRef.current) {
@@ -520,66 +579,25 @@ function App() {
     const prev = prevItemsRef.current || [];
     const next = items || [];
 
-    const changedItems = [];
-    next.forEach(item => {
-      if (item && item.name && item.name.trim()) {
-        const prevItem = prev.find(p => p && p.name === item.name);
-        let hasChanged = !prevItem;
-        if (prevItem) {
-          try {
-            hasChanged = JSON.stringify(prevItem) !== JSON.stringify(item);
-          } catch (e) {
-            hasChanged = true;
-          }
-        }
-        if (hasChanged) {
-          changedItems.push(item);
-        }
+    let hasChanged = prev.length !== next.length;
+    if (!hasChanged) {
+      try {
+        hasChanged = JSON.stringify(prev) !== JSON.stringify(next);
+      } catch (e) {
+        hasChanged = true;
       }
-    });
-
-    const deletedItems = [];
-    prev.forEach(prevItem => {
-      if (prevItem && prevItem.name && prevItem.name.trim()) {
-        const stillExists = next.some(n => n && n.name === prevItem.name);
-        if (!stillExists) {
-          deletedItems.push(prevItem);
-        }
-      }
-    });
+    }
 
     prevItemsRef.current = items;
+    if (!hasChanged) return;
 
-    if (changedItems.length === 0 && deletedItems.length === 0) return;
-
-    const syncItemsBatch = async () => {
-      try {
-        const allOps = [
-          ...changedItems.map(item => ({ type: 'set', id: encodeURIComponent(item.name.trim()), data: item })),
-          ...deletedItems.map(item => ({ type: 'delete', id: encodeURIComponent(item.name.trim()) }))
-        ];
-        const BATCH_SIZE = 400;
-        for (let i = 0; i < allOps.length; i += BATCH_SIZE) {
-          const chunk = allOps.slice(i, i + BATCH_SIZE);
-          const batch = writeBatch(db);
-          chunk.forEach(op => {
-            const docRef = doc(db, 'items', op.id);
-            if (op.type === 'set') {
-              batch.set(docRef, op.data);
-            } else {
-              batch.delete(docRef);
-            }
-          });
-          await batch.commit();
-        }
-      } catch (err) {
-        console.error("Error batch syncing items to Firestore:", err);
-      }
-    };
-    syncItemsBatch();
+    setDoc(doc(db, 'system_catalog', 'items_registry'), {
+      items: next,
+      updatedAt: new Date().toISOString()
+    }).catch(err => console.error("Error syncing items catalog:", err));
   }, [items, db]);
 
-  // 5b. Inventory synchronizer (Atomic writeBatch prevents race conditions & flickering during bulk updates)
+  // 5b. Inventory synchronizer (Bucketed Storage = updates only affected buckets in 1 atomic batch)
   useEffect(() => {
     if (!db) return;
     if (isRemoteInventoryUpdateRef.current) {
@@ -591,7 +609,8 @@ function App() {
     const prev = prevInventoryRef.current || [];
     const next = inventory || [];
 
-    const changedItems = [];
+    const affectedBucketIds = new Set();
+
     next.forEach(item => {
       if (item && item.id) {
         const prevItem = prev.find(p => p && p.id === item.id);
@@ -604,50 +623,41 @@ function App() {
           }
         }
         if (hasChanged) {
-          changedItems.push(item);
+          affectedBucketIds.add(getBucketId(item.id));
         }
       }
     });
 
-    const deletedItems = [];
     prev.forEach(prevItem => {
       if (prevItem && prevItem.id) {
         const stillExists = next.some(n => n && n.id === prevItem.id);
         if (!stillExists) {
-          deletedItems.push(prevItem);
+          affectedBucketIds.add(getBucketId(prevItem.id));
         }
       }
     });
 
     prevInventoryRef.current = inventory;
 
-    if (changedItems.length === 0 && deletedItems.length === 0) return;
+    if (affectedBucketIds.size === 0) return;
 
-    const syncInventoryBatch = async () => {
+    const syncAffectedBuckets = async () => {
       try {
-        const allOps = [
-          ...changedItems.map(item => ({ type: 'set', id: String(item.id), data: item })),
-          ...deletedItems.map(item => ({ type: 'delete', id: String(item.id) }))
-        ];
-        const BATCH_SIZE = 400;
-        for (let i = 0; i < allOps.length; i += BATCH_SIZE) {
-          const chunk = allOps.slice(i, i + BATCH_SIZE);
-          const batch = writeBatch(db);
-          chunk.forEach(op => {
-            const docRef = doc(db, 'inventory', op.id);
-            if (op.type === 'set') {
-              batch.set(docRef, op.data);
-            } else {
-              batch.delete(docRef);
-            }
+        const batch = writeBatch(db);
+        affectedBucketIds.forEach(bucketId => {
+          const bucketLots = next.filter(lot => lot && lot.id && getBucketId(lot.id) === bucketId);
+          batch.set(doc(db, 'inventory_buckets', bucketId), {
+            lots: bucketLots,
+            updatedAt: new Date().toISOString()
           });
-          await batch.commit();
-        }
+        });
+        await batch.commit();
       } catch (err) {
-        console.error("Error batch syncing inventory to Firestore:", err);
+        console.error("Error batch syncing inventory buckets:", err);
       }
     };
-    syncInventoryBatch();
+
+    syncAffectedBuckets();
   }, [inventory, db]);
 
   // 5c. Agreements synchronizer
@@ -819,18 +829,33 @@ function App() {
     if (!db) return;
     setIsMigrating(true);
     try {
-      // Upload Items
-      for (const item of items) {
-        if (item && item.name) {
-          const safeId = encodeURIComponent(item.name.trim());
-          await setDoc(doc(db, 'items', safeId), item);
-        }
-      }
+      // Upload Items to Consolidated Catalog (1 Document = 1 Read)
+      await setDoc(doc(db, 'system_catalog', 'items_registry'), {
+        items,
+        updatedAt: new Date().toISOString()
+      });
       
-      // Upload Inventory
-      for (const lot of inventory) {
-        await setDoc(doc(db, 'inventory', String(lot.id)), lot);
+      // Upload Inventory to 20 Buckets (20 Documents = 20 Reads total)
+      const bucketsMap = {};
+      for (let i = 0; i < NUM_BUCKETS; i++) {
+        bucketsMap[`bucket_${i}`] = [];
       }
+      inventory.forEach(lot => {
+        if (lot && lot.id) {
+          const bId = getBucketId(lot.id);
+          bucketsMap[bId].push(lot);
+        }
+      });
+
+      const invBatch = writeBatch(db);
+      for (let i = 0; i < NUM_BUCKETS; i++) {
+        const bId = `bucket_${i}`;
+        invBatch.set(doc(db, 'inventory_buckets', bId), {
+          lots: bucketsMap[bId],
+          updatedAt: new Date().toISOString()
+        });
+      }
+      await invBatch.commit();
       
       // Upload Agreements
       for (const ag of agreements) {
@@ -943,7 +968,8 @@ function App() {
       if (window.confirm("🚨 ยืนยันอีกครั้ง: คุณแน่ใจจริงๆ ใช่หรือไม่? ข้อมูลทั้งหมดที่ทำมาจะหายหมดแบบถาวรและไม่สามารถกู้คืนได้ (ยกเว้นมีไฟล์สำรอง) 🚨")) {
         try {
           if (db) {
-            // Delete all items from Firestore
+            // Delete items catalog & legacy items
+            await deleteDoc(doc(db, 'system_catalog', 'items_registry')).catch(() => {});
             const itemsSnap = await getDocs(collection(db, 'items')).catch(() => null);
             if (itemsSnap) {
               for (const docSnap of itemsSnap.docs) {
@@ -951,7 +977,13 @@ function App() {
               }
             }
 
-            // Delete all inventory from Firestore
+            // Delete inventory buckets & legacy inventory
+            const bucketBatch = writeBatch(db);
+            for (let i = 0; i < NUM_BUCKETS; i++) {
+              bucketBatch.delete(doc(db, 'inventory_buckets', `bucket_${i}`));
+            }
+            await bucketBatch.commit().catch(() => {});
+
             const invSnap = await getDocs(collection(db, 'inventory')).catch(() => null);
             if (invSnap) {
               for (const docSnap of invSnap.docs) {
