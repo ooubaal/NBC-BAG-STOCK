@@ -17,20 +17,11 @@ import {
   Menu,
   X,
   Clock,
-  TrendingUp,
-  Sparkles,
   CheckCircle2,
-  ChevronRight,
   Truck,
   Flame,
-  ArrowDownLeft,
   ShieldAlert,
-  Check,
-  RefreshCw,
-  AlertTriangle,
-  Layers,
-  Activity,
-  ArrowRight
+  AlertTriangle
 } from 'lucide-react';
 import './App.css';
 
@@ -72,13 +63,7 @@ const formatDateToDDMMYYYY = (dateStr) => {
   return `${dd}/${mm}/${yyyy}`;
 };
 
-const safeSetLocalStorage = (key, value) => {
-  try {
-    localStorage.setItem(key, value);
-  } catch (error) {
-    console.warn("LocalStorage write skipped for " + key + ":", error);
-  }
-};
+
 
 class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -491,19 +476,19 @@ function App() {
       const oldItems = localStorage.getItem('wms_items');
 
       if (oldInv) {
-        try { idbSet('wms_inventory', JSON.parse(oldInv)); } catch (e) {}
+        try { idbSet('wms_inventory', JSON.parse(oldInv)); } catch { /* ignore corrupt */ }
         localStorage.removeItem('wms_inventory');
       }
       if (oldAg) {
-        try { idbSet('wms_agreements', JSON.parse(oldAg)); } catch (e) {}
+        try { idbSet('wms_agreements', JSON.parse(oldAg)); } catch { /* ignore corrupt */ }
         localStorage.removeItem('wms_agreements');
       }
       if (oldClaims) {
-        try { idbSet('wms_claims', JSON.parse(oldClaims)); } catch (e) {}
+        try { idbSet('wms_claims', JSON.parse(oldClaims)); } catch { /* ignore corrupt */ }
         localStorage.removeItem('wms_claims');
       }
       if (oldItems) {
-        try { idbSet('wms_items', JSON.parse(oldItems)); } catch (e) {}
+        try { idbSet('wms_items', JSON.parse(oldItems)); } catch { /* ignore corrupt */ }
         localStorage.removeItem('wms_items');
       }
     } catch (e) {
@@ -583,7 +568,7 @@ function App() {
     if (!hasChanged) {
       try {
         hasChanged = JSON.stringify(prev) !== JSON.stringify(next);
-      } catch (e) {
+      } catch {
         hasChanged = true;
       }
     }
@@ -618,7 +603,7 @@ function App() {
         if (prevItem) {
           try {
             hasChanged = JSON.stringify(prevItem) !== JSON.stringify(item);
-          } catch (e) {
+          } catch {
             hasChanged = true;
           }
         }
@@ -680,7 +665,7 @@ function App() {
         if (prevAgreement) {
           try {
             hasChanged = JSON.stringify(prevAgreement) !== JSON.stringify(agreement);
-          } catch (e) {
+          } catch {
             hasChanged = true;
           }
         }
@@ -754,7 +739,7 @@ function App() {
         if (prevClaim) {
           try {
             hasChanged = JSON.stringify(prevClaim) !== JSON.stringify(claim);
-          } catch (e) {
+          } catch {
             hasChanged = true;
           }
         }

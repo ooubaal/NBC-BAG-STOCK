@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { MinusCircle, Search, Calendar, Package, AlertCircle, MapPin, Printer, ChevronDown, Zap, RotateCcw, X } from 'lucide-react';
+import { MinusCircle, Search, Calendar, Package, AlertCircle, MapPin, Printer, ChevronDown, Zap, RotateCcw, X, CheckCircle2 } from 'lucide-react';
 
 const formatDateToDDMMYYYY = (dateStr) => {
   if (!dateStr) return '';
@@ -42,7 +42,7 @@ const AcceptanceBadge = ({ status }) => {
   );
 };
 
-const Withdrawal = ({ inventory = [], setInventory, items = [], agreements = [] }) => {
+const Withdrawal = ({ inventory = [], setInventory, items = [] }) => {
   const [withdrawalTab, setWithdrawalTab] = useState('new'); // 'new' or 'history'
   const [selectedItem, setSelectedItem] = useState((items && items.length > 0 && items[0]) ? items[0].name : '');
   const [withdrawalDate, setWithdrawalDate] = useState(new Date().toISOString().split('T')[0]);
@@ -50,7 +50,7 @@ const Withdrawal = ({ inventory = [], setInventory, items = [], agreements = [] 
   const [lotWithdrawalAmounts, setLotWithdrawalAmounts] = useState({});
   const [cart, setCart] = useState([]);
 
-  const activeLotId = selectedLotIds.length === 1 ? selectedLotIds[0] : null;
+
   const [amount, setAmount] = useState('');
   const [reason, setReason] = useState('');
   const [reasonType, setReasonType] = useState('ตัดเข้าห้องสะอาด');
@@ -109,7 +109,7 @@ const Withdrawal = ({ inventory = [], setInventory, items = [], agreements = [] 
   const [historyStartDate, setHistoryStartDate] = useState('');
   const [historyEndDate, setHistoryEndDate] = useState('');
   const [historyFilterItem, setHistoryFilterItem] = useState('All');
-  const [historyFilterQC, setHistoryFilterQC] = useState('All');
+
   const [historyFilterLocation, setHistoryFilterLocation] = useState('All');
   const [historyFilterAgreement, setHistoryFilterAgreement] = useState('All');
   const [historyFilterReason, setHistoryFilterReason] = useState('All');
@@ -184,12 +184,14 @@ const Withdrawal = ({ inventory = [], setInventory, items = [], agreements = [] 
   };
 
   useEffect(() => {
-    setLotWithdrawalAmounts(prev => {
-      const updated = {};
-      selectedLotIds.forEach(id => {
-        updated[id] = prev[id] !== undefined ? prev[id] : '';
+    queueMicrotask(() => {
+      setLotWithdrawalAmounts(prev => {
+        const updated = {};
+        selectedLotIds.forEach(id => {
+          updated[id] = prev[id] !== undefined ? prev[id] : '';
+        });
+        return updated;
       });
-      return updated;
     });
   }, [selectedLotIds]);
 
@@ -256,9 +258,7 @@ const Withdrawal = ({ inventory = [], setInventory, items = [], agreements = [] 
     }).length;
   }, [inventory, selectedItem, lotPendingAmounts]);
 
-  const activeLot = useMemo(() => {
-    return (inventory || []).find(i => i && i.id === activeLotId);
-  }, [inventory, activeLotId]);
+
 
   const uniqueHistoryItems = useMemo(() => {
     const names = new Set();
@@ -1960,7 +1960,7 @@ const Withdrawal = ({ inventory = [], setInventory, items = [], agreements = [] 
                           type="checkbox"
                           checked={isSelected}
                           onClick={(e) => e.stopPropagation()}
-                          onChange={(e) => {
+                          onChange={() => {
                             setSelectedLotIds(prev => 
                               prev.includes(lot.id) ? prev.filter(x => x !== lot.id) : [...prev, lot.id]
                             );

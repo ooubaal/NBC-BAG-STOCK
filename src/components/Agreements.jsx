@@ -1,7 +1,7 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Plus, Check, X, FileText, ShieldAlert, PackageOpen, ChevronDown, ChevronUp, UserCheck, AlertTriangle, Search, Edit2, Trash2, Paperclip, Eye, Loader2, Sparkles, Image as ImageIcon, Calendar, Clock, Split, RefreshCw, CheckCircle2, AlertCircle, CalendarDays } from 'lucide-react';
-import { smartCompressUploadFile, formatFileSize } from '../utils/fileCompressor';
+import { Plus, Check, X, FileText, PackageOpen, ChevronDown, ChevronUp, UserCheck, AlertTriangle, Search, Edit2, Trash2, Paperclip, Eye, Loader2, Sparkles, Calendar, Clock, CheckCircle2, AlertCircle, CalendarDays } from 'lucide-react';
+import { smartCompressUploadFile } from '../utils/fileCompressor';
 
 const escapeHTML = (str) => {
   if (!str) return '';
@@ -198,8 +198,8 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
   const [activeTab, setActiveTab] = useState('list'); // 'list' or 'new'
   const [expandedAgreementId, setExpandedAgreementId] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [formSearchQuery, setFormSearchQuery] = useState('');
-  const [isFormDropdownOpen, setIsFormDropdownOpen] = useState(false);
+
+
 
   // File upload & smart compression status
   const [isUploading, setIsUploading] = useState(false);
@@ -208,8 +208,8 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
   // Editing state
   const [editingAgreementId, setEditingAgreementId] = useState(null);
   const [editForm, setEditForm] = useState(null);
-  const [isEditFormDropdownOpen, setIsEditFormDropdownOpen] = useState(false);
-  const [editFormSearchQuery, setEditFormSearchQuery] = useState('');
+
+
 
   // Deleting state
   const [deleteAgreementId, setDeleteAgreementId] = useState(null);
@@ -276,8 +276,8 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
       tentativeSchedule: (agreement.tentativeSchedule || []).map(s => ({ ...s })),
       attachments: agreement.attachments || []
     });
-    setEditFormSearchQuery('');
-    setIsEditFormDropdownOpen(false);
+
+
   };
 
   const handleSaveEdit = (e) => {
@@ -736,7 +736,7 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
       const dateStr = `${yyyy}-${mm}-${dd}`;
 
       newRounds.push({
-        id: `tentative-${Date.now()}-${r}-${Math.random().toString(36).substr(2, 4)}`,
+        id: `tentative-${startDateStr}-${selectedItemIndex}-${r}`,
         round: r,
         date: dateStr,
         itemName: targetItem.itemName,
@@ -982,8 +982,8 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
         const currentCumulative = prevCumulative + plannedQty;
         cumulativeDeliveredPerItem[targetItemName] = currentCumulative;
 
-        let fulfilledQty = 0;
-        let status = 'Pending'; // 'Completed' | 'Partial' | 'Pending' | 'Overdue'
+        let fulfilledQty;
+        let status; // 'Completed' | 'Partial' | 'Pending' | 'Overdue'
 
         if (totalAcceptedForItem >= currentCumulative) {
           fulfilledQty = plannedQty;
@@ -2500,10 +2500,10 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
 
               const isExpanded = expandedAgreementId === agreement.id;
               
-              // Tri-color bar calculation
-              const acceptedPct = Math.min(100, (agreement.acceptedQty / agreement.totalQty) * 100);
-              const pendingPct = Math.min(100 - acceptedPct, (agreement.pendingQty / agreement.totalQty) * 100);
-              const remainingPct = Math.max(0, 100 - acceptedPct - pendingPct);
+
+
+
+
 
               return (
                 <div 

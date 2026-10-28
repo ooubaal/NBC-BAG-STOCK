@@ -1,13 +1,13 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { Camera, Plus, Download, Edit2, Trash2, X, Search, Printer, FileText, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Maximize2, FileCheck, RefreshCw } from 'lucide-react';
+import { Camera, Plus, Download, Edit2, Trash2, X, Search, Printer, FileText, ChevronLeft, ChevronRight, ZoomIn, ZoomOut } from 'lucide-react';
 import * as pdfjsLib from 'pdfjs-dist';
 import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.mjs?url';
 
 // Configure pdfjs worker for Vite
 try {
   pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
-} catch (e) {
+} catch {
   pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.worker.min.mjs`;
 }
 

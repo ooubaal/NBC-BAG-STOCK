@@ -31,7 +31,7 @@ export const initFirebase = (config) => {
           tabManager: persistentMultipleTabManager()
         })
       });
-    } catch (e) {
+    } catch {
       // Fallback if already initialized (e.g. HMR or multiple calls)
       db = getFirestore(app);
     }
