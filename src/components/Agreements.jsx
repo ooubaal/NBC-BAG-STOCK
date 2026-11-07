@@ -1545,7 +1545,7 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
             รายละเอียดสัญญาจัดซื้อใหม่
           </h3>
           <form onSubmit={handleSaveAgreement} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+            <div className="responsive-grid-2col" style={{ gap: '1.25rem' }}>
               <div>
                 <label style={{ display: 'block', marginBottom: '0.4rem', fontSize: '0.85rem' }}>เลขที่สัญญาจัดซื้อ <span style={{ color: 'var(--danger)' }}>*</span></label>
                 <input 
@@ -1644,7 +1644,7 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
               </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+            <div className="responsive-grid-2col" style={{ gap: '1.25rem' }}>
               <div>
                 <label style={{ display: 'block', marginBottom: '0.4rem', fontSize: '0.85rem' }}>วันเริ่มสัญญา</label>
                 <input 
@@ -2077,7 +2077,7 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
                       <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>(ไม่สามารถแก้ไขเลขที่สัญญาเพื่อรักษาประวัติรับเข้าได้)</span>
                     </h3>
                     <form onSubmit={handleSaveEdit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+                      <div className="responsive-grid-2col" style={{ gap: '1.25rem' }}>
                         <div>
                           <label style={{ display: 'block', marginBottom: '0.4rem', fontSize: '0.85rem' }}>ชื่อผู้จัดจำหน่าย (Supplier) <span style={{ color: 'var(--danger)' }}>*</span></label>
                           <input 
@@ -2164,8 +2164,8 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
                         </div>
                       </div>
 
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', gridColumn: 'span 2' }}>
+                      <div className="responsive-grid-2col" style={{ gap: '1.25rem' }}>
+                        <div className="responsive-grid-2col" style={{ gap: '1rem', gridColumn: 'span 2' }}>
                           <div>
                             <label style={{ display: 'block', marginBottom: '0.4rem', fontSize: '0.85rem' }}>วันเริ่มสัญญา</label>
                             <input 

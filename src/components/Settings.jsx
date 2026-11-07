@@ -130,7 +130,7 @@ const Settings = ({ config, onSaveConfig, onDisconnect, onMigrate, syncStats, is
         <p className="page-subtitle">แชร์คลังพัสดุและซิงค์ข้อมูลการตัดจ่ายกับเครื่องเพื่อนร่วมงานแบบ Real-time</p>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '2rem' }}>
+      <div className="responsive-grid-2col">
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
           
           {/* Status Card */}

@@ -883,7 +883,7 @@ const NCP = ({ inventory, items, claims, setClaims }) => {
       {isAdding && (
         <div className="glass card" style={{ marginBottom: '2rem', border: '2px solid var(--accent-color)' }}>
           <h3 style={{ marginBottom: '1.5rem' }}>รายละเอียด NCP ใหม่</h3>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '1.5rem' }}>
+          <div className="responsive-grid-2col" style={{ marginBottom: '1.5rem' }}>
             <div>
               <label style={{ display: 'block', marginBottom: '0.5rem' }}>ชื่อสินค้า</label>
               <SearchableSelect
@@ -922,7 +922,7 @@ const NCP = ({ inventory, items, claims, setClaims }) => {
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '1.5rem' }}>
+          <div className="responsive-grid-2col" style={{ marginBottom: '1.5rem' }}>
             <div>
               <label style={{ display: 'block', marginBottom: '0.5rem' }}>จำนวนที่พบปัญหา</label>
               <input type="number" value={newClaim.quantity} onChange={e => setNewClaim({...newClaim, quantity: e.target.value})} placeholder="ระบุจำนวน" />
@@ -1037,7 +1037,7 @@ const NCP = ({ inventory, items, claims, setClaims }) => {
         </div>
       </div>
 
-      <div className="claims-list" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(400px, 1fr))', gap: '1.5rem' }}>
+      <div className="claims-list" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 320px), 1fr))', gap: '1.25rem' }}>
         {claims.length === 0 ? (
           <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: '4rem', color: 'var(--text-muted)' }}>ยังไม่มีประวัติการเคลมสินค้า</div>
         ) : filteredClaims.length === 0 ? (
@@ -1368,7 +1368,7 @@ const NCP = ({ inventory, items, claims, setClaims }) => {
               <Edit2 size={20} color="var(--accent-color)" /> แก้ไขข้อมูลเคส NCP
             </h3>
             
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.2rem', marginBottom: '1.2rem' }}>
+            <div className="responsive-grid-2col" style={{ marginBottom: '1.2rem' }}>
               <div>
                 <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '0.4rem', color: 'var(--text-secondary)' }}>ชื่อสินค้า</label>
                 <SearchableSelect
@@ -1406,7 +1406,7 @@ const NCP = ({ inventory, items, claims, setClaims }) => {
               </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.2rem', marginBottom: '1.2rem' }}>
+            <div className="responsive-grid-2col" style={{ marginBottom: '1.2rem' }}>
               <div>
                 <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '0.4rem', color: 'var(--text-secondary)' }}>จำนวนที่พบปัญหา</label>
                 <input 

@@ -1571,7 +1571,7 @@ const Dashboard = ({ inventory, items, claims, agreements = [], setActiveTab }) 
       </div>
 
       {/* Main Content Grid: Left Column (Inbound & Deliveries) vs Right Column (Alerts & Top Usage) */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.4fr) minmax(0, 1fr)', gap: '1.5rem' }}>
+      <div className="dashboard-main-grid">
         
         {/* Left Column */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
@@ -1622,8 +1622,8 @@ const Dashboard = ({ inventory, items, claims, agreements = [], setActiveTab }) 
                       }}
                     >
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem', overflow: 'hidden' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                          <span style={{ fontWeight: 700, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '200px' }} title={item.itemName}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                          <span style={{ fontWeight: 700, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '240px' }} title={item.itemName}>
                             {item.itemName}
                           </span>
                           <span style={{ fontSize: '0.72rem', background: 'rgba(255,255,255,0.06)', padding: '0.1rem 0.4rem', borderRadius: '4px', color: 'var(--text-secondary)' }}>
@@ -1687,14 +1687,14 @@ const Dashboard = ({ inventory, items, claims, agreements = [], setActiveTab }) 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
                 {recentEntries.map(item => (
                   <div key={item.id} className="glass" style={{ padding: '0.8rem 1rem', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.82rem' }}>
-                    <div>
-                      <div style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        {item.itemName}
+                    <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
+                      <div style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '200px' }}>{item.itemName}</span>
                         <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--accent-secondary)' }}>
                           ({item.quantity} {item.unit || 'ชิ้น'})
                         </span>
                       </div>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.15rem' }}>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.15rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                         Lot: <strong>{item.supplierLot}</strong> {item.inhouseLot ? `| QC Lot: ${item.inhouseLot}` : ''} | {formatDateToDDMMYYYY(item.date)}
                       </div>
                     </div>

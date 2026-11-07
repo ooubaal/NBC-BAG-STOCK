@@ -2658,12 +2658,12 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
 
       {inboundTab === 'draft' ? (
         <>
-          <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+          <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: '1rem' }}>
             <div>
               <h1 className="page-title">ทำรายการรับเข้าพัสดุ (Mod 2)</h1>
               <p className="page-subtitle">เพิ่มรายการพัสดุใหม่เข้าสู่คลังสินค้า</p>
             </div>
-            <div style={{ display: 'flex', gap: '1rem' }}>
+            <div className="inbound-action-buttons" style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap' }}>
               <button className="btn btn-secondary" onClick={printPDF} style={{ background: 'rgba(14, 165, 233, 0.1)', color: '#0ea5e9', border: '1px solid rgba(14, 165, 233, 0.2)' }}>
                 <Printer size={18} /> พิมพ์ใบพัสดุ (PDF)
               </button>
@@ -2746,23 +2746,24 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
             </div>
           </div>
 
-          <div className="glass card" style={{ overflow: 'visible', padding: '1rem' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
-              <thead>
-                <tr style={{ textAlign: 'left', borderBottom: '1px solid var(--glass-border)', color: 'var(--text-muted)' }}>
-                  <th style={{ padding: '0.5rem 0.25rem', fontSize: '0.72rem', width: '9%' }}>วันที่รับ</th>
-                  <th style={{ padding: '0.5rem 0.25rem', fontSize: '0.72rem', width: '20%' }}>รายการสินค้า</th>
-                  <th style={{ padding: '0.5rem 0.25rem', fontSize: '0.72rem', width: '12%' }}>สัญญาจัดซื้อ</th>
-                  <th style={{ padding: '0.5rem 0.25rem', fontSize: '0.72rem', width: '10%' }}>Supplier Lot</th>
-                  <th style={{ padding: '0.5rem 0.25rem', fontSize: '0.72rem', width: '11%' }}>QC Lot</th>
-                  <th style={{ padding: '0.5rem 0.25rem', fontSize: '0.72rem', width: '9%' }}>สถานะ QC</th>
-                  <th style={{ padding: '0.5rem 0.25rem', fontSize: '0.72rem', width: '8%' }}>Pack Size</th>
-                  <th style={{ padding: '0.5rem 0.25rem', fontSize: '0.72rem', width: '7%' }}>จำนวน</th>
-                  <th style={{ padding: '0.5rem 0.25rem', fontSize: '0.72rem', width: '5%' }}>หน่วย</th>
-                  <th style={{ padding: '0.5rem 0.25rem', fontSize: '0.72rem', width: '6%' }}>ที่เก็บ</th>
-                  <th style={{ padding: '0.5rem 0.25rem', fontSize: '0.72rem', width: '3%' }}></th>
-                </tr>
-              </thead>
+          <div className="glass card" style={{ padding: '1rem' }}>
+            <div className="table-responsive-wrapper" style={{ width: '100%', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+              <table className="inbound-draft-table" style={{ width: '100%', minWidth: '1080px', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ textAlign: 'left', borderBottom: '1px solid var(--glass-border)', color: 'var(--text-muted)' }}>
+                    <th style={{ padding: '0.6rem 0.35rem', fontSize: '0.75rem', minWidth: '120px', width: '11%' }}>วันที่รับ</th>
+                    <th style={{ padding: '0.6rem 0.35rem', fontSize: '0.75rem', minWidth: '200px', width: '20%' }}>รายการสินค้า</th>
+                    <th style={{ padding: '0.6rem 0.35rem', fontSize: '0.75rem', minWidth: '135px', width: '12%' }}>สัญญาจัดซื้อ</th>
+                    <th style={{ padding: '0.6rem 0.35rem', fontSize: '0.75rem', minWidth: '125px', width: '11%' }}>Supplier Lot</th>
+                    <th style={{ padding: '0.6rem 0.35rem', fontSize: '0.75rem', minWidth: '125px', width: '11%' }}>QC Lot</th>
+                    <th style={{ padding: '0.6rem 0.35rem', fontSize: '0.75rem', minWidth: '110px', width: '9%' }}>สถานะ QC</th>
+                    <th style={{ padding: '0.6rem 0.35rem', fontSize: '0.75rem', minWidth: '95px', width: '8%' }}>Pack Size</th>
+                    <th style={{ padding: '0.6rem 0.35rem', fontSize: '0.75rem', minWidth: '85px', width: '7%' }}>จำนวน</th>
+                    <th style={{ padding: '0.6rem 0.35rem', fontSize: '0.75rem', minWidth: '65px', width: '5%' }}>หน่วย</th>
+                    <th style={{ padding: '0.6rem 0.35rem', fontSize: '0.75rem', minWidth: '85px', width: '6%' }}>ที่เก็บ</th>
+                    <th style={{ padding: '0.6rem 0.35rem', fontSize: '0.75rem', minWidth: '40px', width: '3%' }}></th>
+                  </tr>
+                </thead>
               <tbody>
                 {entries.map((entry) => (
                   <tr key={entry.id} style={{ borderBottom: '1px solid var(--glass-border)' }}>
@@ -2961,6 +2962,7 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
         </>
       ) : inboundTab === 'claim_return' ? (

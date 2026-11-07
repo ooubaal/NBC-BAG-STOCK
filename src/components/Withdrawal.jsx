@@ -1748,7 +1748,7 @@ const Withdrawal = ({ inventory = [], setInventory, items = [] }) => {
 
       {withdrawalTab === 'new' ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
+          <div className="responsive-grid-2col">
             {/* Step 1: Selection */}
             <div className="glass card">
               <h3 style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -2726,7 +2726,7 @@ const Withdrawal = ({ inventory = [], setInventory, items = [] }) => {
                 />
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+              <div className="responsive-grid-2col" style={{ gap: '1rem' }}>
                 <div>
                   <label style={{ display: 'block', fontSize: '0.82rem', marginBottom: '0.3rem', color: 'var(--success)', fontWeight: 700 }}>
                     ✅ จำนวนของดีที่รับคืน (+เข้าคลัง)
@@ -2757,7 +2757,7 @@ const Withdrawal = ({ inventory = [], setInventory, items = [] }) => {
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+              <div className="responsive-grid-2col" style={{ gap: '1rem' }}>
                 <div>
                   <label style={{ display: 'block', fontSize: '0.82rem', marginBottom: '0.3rem', color: 'var(--text-secondary)' }}>
                     สถานที่จัดเก็บ

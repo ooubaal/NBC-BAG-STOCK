@@ -840,7 +840,7 @@ const Inventory = ({ inventory, setInventory }) => {
                   {expandedRow === item.id && (
                     <tr style={{ background: 'rgba(255,255,255,0.02)' }}>
                       <td colSpan="11" style={{ padding: '1.5rem' }}>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr', gap: '2rem' }}>
+                        <div className="responsive-grid-2col">
                           {/* Edit Status Section */}
                           <div className="glass card" style={{ padding: '1.2rem' }}>
                             <h4 style={{ marginBottom: '1.2rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
