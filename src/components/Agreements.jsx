@@ -1,6 +1,6 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Plus, Check, X, FileText, PackageOpen, ChevronDown, ChevronUp, UserCheck, AlertTriangle, Search, Edit2, Trash2, Paperclip, Eye, Loader2, Sparkles, Calendar, Clock, CheckCircle2, AlertCircle, CalendarDays } from 'lucide-react';
+import { Plus, Check, X, FileText, PackageOpen, ChevronDown, ChevronUp, UserCheck, AlertTriangle, Search, Edit2, Trash2, Paperclip, Eye, Loader2, Sparkles, Calendar, Clock, CheckCircle2, AlertCircle, CalendarDays, Download } from 'lucide-react';
 import { smartCompressUploadFile } from '../utils/fileCompressor';
 
 const escapeHTML = (str) => {
@@ -357,7 +357,11 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
         try {
           count++;
           setUploadStatus(`กำลังประมวลผลไฟล์ "${file.name}" (${count}/${files.length})...`);
-          const compressed = await smartCompressUploadFile(file);
+          const compressed = await smartCompressUploadFile(file, (p) => {
+            if (p && p.total > 1) {
+              setUploadStatus(`กำลังบีบอัดไฟล์ "${file.name}" (หน้า ${p.current}/${p.total})...`);
+            }
+          });
           if (compressed) {
             newAttachments.push(compressed);
           }
@@ -440,6 +444,8 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
             <div class="toolbar">
               <span style="font-weight: 600; font-size: 14px;">📄 ${escapeHTML(file.name)}</span>
               <span style="font-size: 12px; color: #94a3b8; background: rgba(255,255,255,0.08); padding: 2px 8px; border-radius: 12px;">${file.pages.length} หน้า</span>
+              ${file.savingsPercent > 0 ? `<span style="background: rgba(16, 185, 129, 0.2); color: #34d399; padding: 3px 10px; border-radius: 12px; font-size: 12px; font-weight: 600;">⚡ บีบอัดแล้ว ${file.compressedSizeFormatted || ''} (ลด ${file.savingsPercent}%)</span>` : (file.compressedSizeFormatted ? `<span style="color: #94a3b8; font-size: 12px;">${file.compressedSizeFormatted}</span>` : '')}
+              ${file.data ? `<a href="${file.data}" download="${escapeHTML(file.name)}" style="background: #10b981; color: white; border: none; padding: 7px 16px; border-radius: 20px; font-size: 13px; font-weight: bold; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;">⬇️ ดาวน์โหลด PDF</a>` : ''}
               <button onclick="window.print()">🖨️ พิมพ์ / บันทึก PDF</button>
             </div>
             ${pagesHtml}
@@ -1966,6 +1972,29 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
                         >
                           <Eye size={13} /> ดูเอกสาร
                         </button>
+                        {file.data && (
+                          <a
+                            href={file.data}
+                            download={file.name}
+                            style={{
+                              background: 'rgba(16, 185, 129, 0.1)',
+                              border: 'none',
+                              color: 'var(--success, #10b981)',
+                              cursor: 'pointer',
+                              padding: '0.35rem 0.55rem',
+                              borderRadius: '6px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '0.25rem',
+                              fontSize: '0.75rem',
+                              fontWeight: 600,
+                              textDecoration: 'none'
+                            }}
+                            title="ดาวน์โหลดไฟล์"
+                          >
+                            <Download size={13} /> โหลด
+                          </a>
+                        )}
                         <button 
                           type="button" 
                           onClick={() => removeAttachment(idx, false)}
@@ -2463,7 +2492,30 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
                                     title="ดูตัวอย่างเอกสาร"
                                   >
                                     <Eye size={13} /> ดูเอกสาร
-                                  </button>
+                        </button>
+                        {file.data && (
+                          <a
+                            href={file.data}
+                            download={file.name}
+                            style={{
+                              background: 'rgba(16, 185, 129, 0.1)',
+                              border: 'none',
+                              color: 'var(--success, #10b981)',
+                              cursor: 'pointer',
+                              padding: '0.35rem 0.55rem',
+                              borderRadius: '6px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '0.25rem',
+                              fontSize: '0.75rem',
+                              fontWeight: 600,
+                              textDecoration: 'none'
+                            }}
+                            title="ดาวน์โหลดไฟล์"
+                          >
+                            <Download size={13} /> โหลด
+                          </a>
+                        )}
                                   <button 
                                     type="button" 
                                     onClick={() => removeAttachment(idx, true)}
@@ -2855,6 +2907,23 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
                             )}
                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', marginLeft: '0.2rem' }}>
                               <Eye size={12} style={{ color: 'var(--accent-secondary)' }} title="ดูตัวอย่าง" />
+                              {file.data && (
+                                <a
+                                  href={file.data}
+                                  download={file.name}
+                                  onClick={(e) => e.stopPropagation()}
+                                  style={{
+                                    color: 'var(--success, #10b981)',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    padding: '0.1rem 0.2rem',
+                                    textDecoration: 'none'
+                                  }}
+                                  title={`ดาวน์โหลด ${file.name}`}
+                                >
+                                  <Download size={12} />
+                                </a>
+                              )}
                               <button
                                 type="button"
                                 onClick={(e) => {
