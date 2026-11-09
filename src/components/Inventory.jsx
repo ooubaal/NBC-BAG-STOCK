@@ -89,9 +89,10 @@ const Inventory = ({ inventory, setInventory }) => {
       return;
     }
     
+    const nowIso = new Date().toISOString();
     setInventory(prev => prev.map(item => {
-      if (selectedIds.includes(item.id)) {
-        const updated = { ...item };
+      if (selectedIds.some(sId => String(sId) === String(item.id))) {
+        const updated = { ...item, updatedAt: nowIso };
         if (bulkUpdateQC) {
           updated.qcStatus = bulkQCValue;
           updated.qcUpdateDate = bulkQCDate;
@@ -134,8 +135,9 @@ const Inventory = ({ inventory, setInventory }) => {
   const uniqueAgreements = Array.from(new Set(inventory.map(i => i.agreementId).filter(Boolean)));
 
   const handleUpdateStatus = (id) => {
+    const nowIso = new Date().toISOString();
     setInventory(prev => prev.map(item => {
-      if (item.id === id) {
+      if (String(item.id) === String(id)) {
         return {
           ...item,
           qcStatus: editQC,
@@ -144,7 +146,8 @@ const Inventory = ({ inventory, setInventory }) => {
           remarks: editRemarks,
           qcUpdateDate: editQCDate,
           acceptanceUpdateDate: editAcceptanceDate,
-          locationUpdateDate: editLocationDate
+          locationUpdateDate: editLocationDate,
+          updatedAt: nowIso
         };
       }
       return item;
