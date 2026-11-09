@@ -38,6 +38,7 @@ import StatusLabels from './components/StatusLabels';
 import { initFirebase } from './firebase';
 import { doc, setDoc, collection, onSnapshot, deleteDoc, getDocs, writeBatch } from 'firebase/firestore';
 import { idbGet, idbSet, idbDel } from './utils/idb';
+import { sanitizeForFirestore } from './utils/sanitize';
 
 const INITIAL_ITEMS = [];
 
@@ -233,6 +234,7 @@ function App() {
   // Flags to prevent circular sync loops when data arrives from remote Firestore
   const isRemoteItemsUpdateRef = useRef(false);
   const isRemoteInventoryUpdateRef = useRef(false);
+  const inventoryBucketsSyncedSignaturesRef = useRef(new Map());
   const isRemoteAgreementsUpdateRef = useRef(false);
   const isRemoteClaimsUpdateRef = useRef(false);
 
@@ -315,6 +317,11 @@ function App() {
           const data = docSnap.data();
           if (data && Array.isArray(data.lots)) {
             allLots.push(...data.lots);
+            // Record confirmed remote signature for this bucket
+            inventoryBucketsSyncedSignaturesRef.current.set(
+              docSnap.id, 
+              JSON.stringify(sanitizeForFirestore(data.lots))
+            );
           }
         });
 
@@ -322,7 +329,76 @@ function App() {
         allLots.sort((a, b) => Number(b.id || 0) - Number(a.id || 0));
 
         isRemoteInventoryUpdateRef.current = true;
-        setInventory(allLots);
+        setInventory(prevLocal => {
+          if (!prevLocal || prevLocal.length === 0) {
+            return allLots;
+          }
+
+          const remoteMap = new Map();
+          allLots.forEach(lot => {
+            if (lot && lot.id) remoteMap.set(String(lot.id), lot);
+          });
+
+          let needLocalResync = false;
+
+          const merged = prevLocal.map(localLot => {
+            if (!localLot || !localLot.id) return localLot;
+            const remoteLot = remoteMap.get(String(localLot.id));
+            if (!remoteLot) return localLot; // lot exists locally, keep it
+
+            const localWithdrawals = localLot.withdrawals || [];
+            const remoteWithdrawals = remoteLot.withdrawals || [];
+
+            // Check if local has active withdrawals that remote snapshot hasn't captured yet
+            const localHasExtraWithdrawals = localWithdrawals.some(lw => 
+              !remoteWithdrawals.some(rw => String(rw.id) === String(lw.id))
+            );
+
+            const localTime = new Date(localLot.updatedAt || localLot.createdAt || 0).getTime();
+            const remoteTime = new Date(remoteLot.updatedAt || remoteLot.createdAt || 0).getTime();
+
+            // PREVENT BLIND REMOTE OVERWRITE:
+            // If local lot has un-synced withdrawals OR local is newer and remainingQty is lower:
+            if (localHasExtraWithdrawals || (localTime > remoteTime && Number(localLot.remainingQty) < Number(remoteLot.remainingQty))) {
+              needLocalResync = true;
+              // Combine withdrawals non-destructively
+              const combinedWithdrawals = [...localWithdrawals];
+              remoteWithdrawals.forEach(rw => {
+                if (!combinedWithdrawals.some(cw => String(cw.id) === String(rw.id))) {
+                  combinedWithdrawals.push(rw);
+                }
+              });
+
+              return {
+                ...remoteLot,
+                ...localLot,
+                remainingQty: localLot.remainingQty,
+                withdrawals: combinedWithdrawals,
+                updatedAt: localLot.updatedAt || new Date().toISOString()
+              };
+            }
+
+            return remoteLot;
+          });
+
+          // Append any remote lots not present locally
+          const localIdSet = new Set(prevLocal.map(l => String(l.id)));
+          allLots.forEach(rLot => {
+            if (rLot && rLot.id && !localIdSet.has(String(rLot.id))) {
+              merged.push(rLot);
+            }
+          });
+
+          merged.sort((a, b) => Number(b.id || 0) - Number(a.id || 0));
+
+          if (needLocalResync) {
+            // Reset remote flag so synchronizer pushes the kept local withdrawals to Firestore
+            isRemoteInventoryUpdateRef.current = false;
+          }
+
+          return merged;
+        });
+
         if (firebaseConfig) {
           localStorage.setItem('wms_synced_project_id', firebaseConfig.projectId);
         }
@@ -341,8 +417,6 @@ function App() {
 
         if (list.length > 0) {
           list.sort((a, b) => Number(b.id || 0) - Number(a.id || 0));
-          isRemoteInventoryUpdateRef.current = true;
-          setInventory(list);
 
           // Partition into 20 buckets and save to Firestore
           const bucketsMap = {};
@@ -357,12 +431,20 @@ function App() {
           const batch = writeBatch(db);
           for (let i = 0; i < NUM_BUCKETS; i++) {
             const bId = `bucket_${i}`;
+            const cleanLots = sanitizeForFirestore(bucketsMap[bId]);
             batch.set(doc(db, 'inventory_buckets', bId), {
-              lots: bucketsMap[bId],
+              lots: cleanLots,
               updatedAt: new Date().toISOString()
             });
+            inventoryBucketsSyncedSignaturesRef.current.set(bId, JSON.stringify(cleanLots));
           }
           await batch.commit().catch(err => console.error("Error migrating inventory to buckets:", err));
+
+          isRemoteInventoryUpdateRef.current = true;
+          setInventory(prevLocal => {
+            if (!prevLocal || prevLocal.length === 0) return list;
+            return prevLocal;
+          });
         }
       }
     }, (error) => {
@@ -585,58 +667,79 @@ function App() {
   // 5b. Inventory synchronizer (Bucketed Storage = updates only affected buckets in 1 atomic batch)
   useEffect(() => {
     if (!db) return;
-    if (isRemoteInventoryUpdateRef.current) {
-      isRemoteInventoryUpdateRef.current = false;
+
+    const next = inventory || [];
+
+    // Group current inventory into 20 buckets
+    const currentBucketsMap = {};
+    for (let i = 0; i < NUM_BUCKETS; i++) {
+      currentBucketsMap[`bucket_${i}`] = [];
+    }
+    next.forEach(lot => {
+      if (lot && lot.id) {
+        const bId = getBucketId(lot.id);
+        currentBucketsMap[bId].push(lot);
+      }
+    });
+
+    // Check which buckets differ from the last confirmed remote signature
+    const affectedBucketIds = new Set();
+    const cleanBuckets = {};
+
+    for (let i = 0; i < NUM_BUCKETS; i++) {
+      const bId = `bucket_${i}`;
+      cleanBuckets[bId] = sanitizeForFirestore(currentBucketsMap[bId]);
+      const currentSignature = JSON.stringify(cleanBuckets[bId]);
+      const lastSignature = inventoryBucketsSyncedSignaturesRef.current.get(bId);
+
+      if (currentSignature !== lastSignature) {
+        affectedBucketIds.add(bId);
+      }
+    }
+
+    if (affectedBucketIds.size === 0) {
       prevInventoryRef.current = inventory;
       return;
     }
 
-    const prev = prevInventoryRef.current || [];
-    const next = inventory || [];
-
-    const affectedBucketIds = new Set();
-
-    next.forEach(item => {
-      if (item && item.id) {
-        const prevItem = prev.find(p => p && p.id === item.id);
-        let hasChanged = !prevItem;
-        if (prevItem) {
-          try {
-            hasChanged = JSON.stringify(prevItem) !== JSON.stringify(item);
-          } catch {
-            hasChanged = true;
-          }
-        }
-        if (hasChanged) {
-          affectedBucketIds.add(getBucketId(item.id));
-        }
-      }
-    });
-
-    prev.forEach(prevItem => {
-      if (prevItem && prevItem.id) {
-        const stillExists = next.some(n => n && n.id === prevItem.id);
-        if (!stillExists) {
-          affectedBucketIds.add(getBucketId(prevItem.id));
-        }
-      }
-    });
-
-    prevInventoryRef.current = inventory;
-
-    if (affectedBucketIds.size === 0) return;
-
     const syncAffectedBuckets = async () => {
       try {
         const batch = writeBatch(db);
+        const committedSignatures = [];
+
         affectedBucketIds.forEach(bucketId => {
-          const bucketLots = next.filter(lot => lot && lot.id && getBucketId(lot.id) === bucketId);
+          const bucketLots = cleanBuckets[bucketId];
           batch.set(doc(db, 'inventory_buckets', bucketId), {
             lots: bucketLots,
             updatedAt: new Date().toISOString()
           });
+          committedSignatures.push({ bucketId, signature: JSON.stringify(bucketLots) });
         });
+
         await batch.commit();
+
+        // Mark these buckets as successfully confirmed in Firestore
+        committedSignatures.forEach(({ bucketId, signature }) => {
+          inventoryBucketsSyncedSignaturesRef.current.set(bucketId, signature);
+        });
+        prevInventoryRef.current = inventory;
+
+        // Best-effort dual-write to legacy collection 'inventory'
+        try {
+          const legacyBatch = writeBatch(db);
+          let count = 0;
+          next.forEach(item => {
+            if (item && item.id && affectedBucketIds.has(getBucketId(item.id))) {
+              legacyBatch.set(doc(db, 'inventory', String(item.id)), sanitizeForFirestore(item));
+              count++;
+            }
+          });
+          if (count > 0 && count <= 400) {
+            await legacyBatch.commit().catch(() => {});
+          }
+        } catch {
+          // ignore legacy sync
+        }
       } catch (err) {
         console.error("Error batch syncing inventory buckets:", err);
       }
@@ -816,7 +919,7 @@ function App() {
     try {
       // Upload Items to Consolidated Catalog (1 Document = 1 Read)
       await setDoc(doc(db, 'system_catalog', 'items_registry'), {
-        items,
+        items: sanitizeForFirestore(items),
         updatedAt: new Date().toISOString()
       });
       
@@ -835,10 +938,12 @@ function App() {
       const invBatch = writeBatch(db);
       for (let i = 0; i < NUM_BUCKETS; i++) {
         const bId = `bucket_${i}`;
+        const cleanLots = sanitizeForFirestore(bucketsMap[bId]);
         invBatch.set(doc(db, 'inventory_buckets', bId), {
-          lots: bucketsMap[bId],
+          lots: cleanLots,
           updatedAt: new Date().toISOString()
         });
+        inventoryBucketsSyncedSignaturesRef.current.set(bId, JSON.stringify(cleanLots));
       }
       await invBatch.commit();
       

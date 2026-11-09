@@ -172,7 +172,8 @@ const Withdrawal = ({ inventory = [], setInventory, items = [] }) => {
           ...lot,
           remainingQty: newRem,
           location: claimModalLocation ? claimModalLocation : lot.location,
-          claimReturns: [...currentReturns, newClaimReturnRecord]
+          claimReturns: [...currentReturns, newClaimReturnRecord],
+          updatedAt: new Date().toISOString()
         };
       }
       return lot;
@@ -429,7 +430,7 @@ const Withdrawal = ({ inventory = [], setInventory, items = [] }) => {
       const amt = Number(lotWithdrawalAmounts[id]) || 0;
       if (amt <= 0) continue;
       
-      const lot = inventory.find(i => i.id === id);
+      const lot = inventory.find(i => String(i.id) === String(id));
       if (!lot) continue;
       
       const pendingAmt = lotPendingAmounts[lot.id] || 0;
@@ -481,30 +482,40 @@ const Withdrawal = ({ inventory = [], setInventory, items = [] }) => {
   const handleCommitCart = () => {
     if (cart.length === 0) return;
     
+    const nowIso = new Date().toISOString();
+    let totalDeductedLots = 0;
+
     setInventory(prev => {
       return prev.map(item => {
-        // Find all cart entries for this lot
-        const cartEntriesForLot = cart.filter(c => c.lotId === item.id);
+        // Find all cart entries for this lot using String id comparison
+        const cartEntriesForLot = cart.filter(c => String(c.lotId) === String(item.id));
         if (cartEntriesForLot.length > 0) {
-          const totalDeduction = cartEntriesForLot.reduce((sum, c) => sum + c.amount, 0);
+          totalDeductedLots++;
+          const totalDeduction = cartEntriesForLot.reduce((sum, c) => sum + (Number(c.amount) || 0), 0);
           const newWithdrawals = cartEntriesForLot.map(c => ({
-            id: c.id,
-            date: c.date,
-            amount: c.amount,
-            reason: c.finalReason
+            id: c.id || (Date.now() + Math.random()),
+            date: c.date || nowIso.split('T')[0],
+            amount: Number(c.amount) || 0,
+            reason: c.finalReason || '',
+            createdAt: nowIso,
+            isCancelled: false
           }));
           return {
             ...item,
-            remainingQty: item.remainingQty - totalDeduction,
-            withdrawals: [...(item.withdrawals || []), ...newWithdrawals]
+            remainingQty: Math.max(0, Number(item.remainingQty || 0) - totalDeduction),
+            withdrawals: [...(item.withdrawals || []), ...newWithdrawals],
+            updatedAt: nowIso
           };
         }
         return item;
       });
     });
     
-    alert(`บันทึกการตัดจ่ายทั้งหมดเรียบร้อยแล้ว (จำนวน ${cart.length} รายการ)`);
+    const cartCount = cart.length;
     setCart([]);
+    setTimeout(() => {
+      alert(`บันทึกการตัดจ่ายทั้งหมดเรียบร้อยแล้ว (จำนวน ${cartCount} รายการ ใน ${totalDeductedLots} Lot)`);
+    }, 50);
   };
 
   const handleSelectHistory = (id) => {
@@ -532,7 +543,7 @@ const Withdrawal = ({ inventory = [], setInventory, items = [] }) => {
     
     for (const lot of inventory) {
       if (lot.withdrawals && lot.withdrawals.length > 0) {
-        const found = lot.withdrawals.find(w => w.id === withdrawalId);
+        const found = lot.withdrawals.find(w => String(w.id) === String(withdrawalId));
         if (found) {
           targetLot = lot;
           targetW = found;
@@ -552,24 +563,28 @@ const Withdrawal = ({ inventory = [], setInventory, items = [] }) => {
     }
 
     if (window.confirm(`คุณแน่ใจหรือไม่ที่จะยกเลิกการตัดจ่ายพัสดุจำนวน -${targetW.amount} ${targetLot.unit || 'ชิ้น'} ของ Lot: ${targetLot.supplierLot}?\nการยกเลิกจะคืนจำนวนพัสดุนี้เข้าคลังคงเหลือ และทำเครื่องหมายสถานะเป็น "ยกเลิก"`)) {
+      const nowIso = new Date().toISOString();
       setInventory(prev => prev.map(item => {
-        if (item.id === targetLot.id) {
-          const updatedWithdrawals = item.withdrawals.map(w => {
-            if (w.id === withdrawalId) {
-              return { ...w, isCancelled: true };
+        if (String(item.id) === String(targetLot.id)) {
+          const updatedWithdrawals = (item.withdrawals || []).map(w => {
+            if (String(w.id) === String(withdrawalId)) {
+              return { ...w, isCancelled: true, cancelledAt: nowIso };
             }
             return w;
           });
-          const refundedQty = Math.min(item.quantity, item.remainingQty + targetW.amount);
+          const refundedQty = Math.min(Number(item.quantity || 0), Number(item.remainingQty || 0) + Number(targetW.amount || 0));
           return {
             ...item,
             remainingQty: refundedQty,
-            withdrawals: updatedWithdrawals
+            withdrawals: updatedWithdrawals,
+            updatedAt: nowIso
           };
         }
         return item;
       }));
-      alert("ยกเลิกการตัดจ่ายสำเร็จ และคืนยอดคงคลังเรียบร้อยแล้ว");
+      setTimeout(() => {
+        alert("ยกเลิกการตัดจ่ายสำเร็จ และคืนยอดคงคลังเรียบร้อยแล้ว");
+      }, 50);
     }
   };
 
