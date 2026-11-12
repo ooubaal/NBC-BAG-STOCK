@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { List, TrendingDown, ChevronDown, Zap, TrendingUp } from 'lucide-react';
+import { List, TrendingDown, ChevronDown, Zap, TrendingUp, MessageSquare, X } from 'lucide-react';
 
 const AcceptanceBadge = ({ status }) => {
   const normalizedStatus = status || '';
@@ -32,7 +32,7 @@ const formatDateToDDMMYYYY = (dateStr) => {
   return `${dd}/${mm}/${yyyy}`;
 };
 
-const Analytics = ({ inventory, items }) => {
+const Analytics = ({ inventory, items, agreements = [], claims = [] }) => {
   const [selectedItem, setSelectedItem] = useState((items && items.length > 0) ? items[0].name : '');
   const [searchQuery, setSearchQuery] = useState('');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -58,6 +58,7 @@ const Analytics = ({ inventory, items }) => {
   const [filterAcceptance, setFilterAcceptance] = useState('All');
   const [filterQcStatus, setFilterQcStatus] = useState('All');
   const [filterDate, setFilterDate] = useState('');
+  const [selectedNoteLot, setSelectedNoteLot] = useState(null);
 
   const currentUnit = useMemo(() => {
     const found = items.find(i => i.name === selectedItem);
@@ -75,12 +76,62 @@ const Analytics = ({ inventory, items }) => {
       status: i.qcStatus, 
       location: i.location,
       acceptanceStatus: i.acceptanceStatus,
-      date: i.date
+      date: i.date,
+      remarks: i.remarks || ''
     }));
     const qcStats = itemRecords.reduce((acc, curr) => {
       acc[curr.qcStatus] = (acc[curr.qcStatus] || 0) + 1;
       return acc;
     }, {});
+
+    const qcPassQty = itemRecords
+      .filter(i => i.qcStatus === 'Pass')
+      .reduce((acc, curr) => acc + Number(curr.remainingQty || 0), 0);
+    const qcQuarantineQty = itemRecords
+      .filter(i => i.qcStatus === 'Quarantine')
+      .reduce((acc, curr) => acc + Number(curr.remainingQty || 0), 0);
+    const qcRejectQty = itemRecords
+      .filter(i => i.qcStatus === 'Reject')
+      .reduce((acc, curr) => acc + Number(curr.remainingQty || 0), 0);
+
+    // Remaining quantity not yet called in under agreements (by agreement)
+    const contractBreakdowns = [];
+    (agreements || []).forEach(ag => {
+      if (ag.status === 'Completed') return;
+      const agItems = ag.itemsList || [
+        { itemName: ag.itemName, totalQty: ag.totalQty, unit: ag.unit }
+      ];
+      const matchedItems = agItems.filter(it => it.itemName === selectedItem);
+      if (matchedItems.length === 0) return;
+
+      const contractTotalQty = matchedItems.reduce((sum, it) => sum + Number(it.totalQty || 0), 0);
+      const acceptedQty = (inventory || [])
+        .filter(lot => lot.agreementId === ag.id && !lot.isCancelled && lot.itemName === selectedItem && lot.acceptanceStatus === 'Accepted')
+        .reduce((sum, lot) => {
+          const origQty = Number(lot.quantity || 0);
+          const totalDefective = (lot.claimReturns || []).reduce(
+            (cSum, cr) => cSum + (cr.syncContractAdjustment !== false ? Number(cr.defectiveQty || 0) : 0),
+            0
+          );
+          return sum + Math.max(0, origQty - totalDefective);
+        }, 0);
+
+      const outstandingQty = Math.max(0, contractTotalQty - acceptedQty);
+      if (outstandingQty > 0) {
+        contractBreakdowns.push({
+          agreementId: ag.id,
+          outstandingQty
+        });
+      }
+    });
+    const totalContractOutstanding = contractBreakdowns.reduce((sum, c) => sum + c.outstandingQty, 0);
+
+    // Open NCP claims not yet returned
+    const openClaims = (claims || []).filter(
+      c => c.itemName === selectedItem && c.status !== 'Returned' && c.status !== 'Closed'
+    );
+    const openClaimCount = openClaims.length;
+    const openClaimQty = openClaims.reduce((sum, c) => sum + Number(c.quantity || 0), 0);
     
     // Withdrawal rate analysis
     const allWithdrawals = itemRecords.flatMap(i => (i.withdrawals || []).map(w => ({ ...w, agreementId: i.agreementId || '' })));
@@ -130,11 +181,23 @@ const Analytics = ({ inventory, items }) => {
       predictionStatus = 'noUsage';
     }
     
+    const usageRate = (totalWithdrawn + totalStock) > 0
+      ? ((totalWithdrawn / (totalWithdrawn + totalStock)) * 100).toFixed(1)
+      : '0.0';
+
     return {
       totalStock,
       lots,
       qcStats,
+      qcPassQty,
+      qcQuarantineQty,
+      qcRejectQty,
+      contractBreakdowns,
+      totalContractOutstanding,
+      openClaimCount,
+      openClaimQty,
       totalWithdrawn,
+      usageRate,
       recordCount: itemRecords.length,
       withdrawals: allWithdrawals,
       dailyRate,
@@ -142,7 +205,7 @@ const Analytics = ({ inventory, items }) => {
       predictionDateStr,
       predictionStatus
     };
-  }, [inventory, selectedItem]);
+  }, [inventory, selectedItem, agreements, claims]);
 
   const recommendedItems = useMemo(() => {
     const activity = {};
@@ -442,17 +505,44 @@ const Analytics = ({ inventory, items }) => {
       <div className="stats-grid">
         <div className="stat-card glass" style={{ borderTop: '4px solid var(--accent-color)' }}>
           <div className="stat-label">คงเหลือรวม</div>
-          <div className="stat-value">{stats.totalStock} <span style={{ fontSize: '1rem', fontWeight: 400 }}>{currentUnit}</span></div>
-          <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>จากทั้งหมด {stats.recordCount} Lot</p>
+          <div className="stat-value">{stats.totalStock.toLocaleString()} <span style={{ fontSize: '1rem', fontWeight: 400 }}>{currentUnit}</span></div>
+          <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.4rem' }}>จากทั้งหมด {stats.recordCount} Lot</p>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem 0.75rem', fontSize: '0.78rem', paddingTop: '0.35rem', borderTop: '1px solid var(--glass-border)' }}>
+            <span style={{ color: '#10b981', fontWeight: 600 }}>
+              QC Pass: {stats.qcPassQty.toLocaleString()} {currentUnit}
+            </span>
+            <span style={{ color: '#f59e0b', fontWeight: 600 }}>
+              Quarantine: {stats.qcQuarantineQty.toLocaleString()} {currentUnit}
+            </span>
+            {stats.qcRejectQty > 0 && (
+              <span style={{ color: '#ef4444', fontWeight: 600 }}>
+                Reject: {stats.qcRejectQty.toLocaleString()} {currentUnit}
+              </span>
+            )}
+          </div>
         </div>
         <div className="stat-card glass" style={{ borderTop: '4px solid var(--accent-secondary)' }}>
-          <div className="stat-label">จำนวนที่ตัดจ่ายไปแล้ว</div>
-          <div className="stat-value">{stats.totalWithdrawn} <span style={{ fontSize: '1rem', fontWeight: 400 }}>{currentUnit}</span></div>
-          <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>อัตราการใช้: {stats.totalStock > 0 ? ((stats.totalWithdrawn / (stats.totalWithdrawn + stats.totalStock)) * 100).toFixed(1) : 0}%</p>
+          <div className="stat-label">ยังไม่ได้เรียกเข้าตามสัญญา</div>
+          <div className="stat-value">{stats.totalContractOutstanding.toLocaleString()} <span style={{ fontSize: '1rem', fontWeight: 400 }}>{currentUnit}</span></div>
+          {stats.contractBreakdowns.length === 0 ? (
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>ไม่มีสัญญาค้างเรียกเข้า</p>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', marginTop: '0.35rem', paddingTop: '0.35rem', borderTop: '1px solid var(--glass-border)', maxHeight: '95px', overflowY: 'auto' }}>
+              {stats.contractBreakdowns.map(c => (
+                <div key={c.agreementId} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.78rem', gap: '0.5rem' }}>
+                  <span style={{ color: 'var(--text-secondary)', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.agreementId}</span>
+                  <span style={{ color: 'var(--accent-secondary)', fontWeight: 600, whiteSpace: 'nowrap' }}>เหลือ {c.outstandingQty.toLocaleString()} {currentUnit}</span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
-        <div className="stat-card glass" style={{ borderTop: '4px solid var(--success)' }}>
-          <div className="stat-label">สถานะ QC (Pass)</div>
-          <div className="stat-value">{stats.qcStats['Pass'] || 0} Lot</div>
+        <div className="stat-card glass" style={{ borderTop: '4px solid #ef4444' }}>
+          <div className="stat-label">ส่งเคลมค้างรับคืน (NCP)</div>
+          <div className="stat-value">{stats.openClaimCount} <span style={{ fontSize: '1rem', fontWeight: 400 }}>เคส</span></div>
+          <p style={{ fontSize: '0.8rem', color: stats.openClaimQty > 0 ? '#ef4444' : 'var(--text-muted)', fontWeight: stats.openClaimQty > 0 ? 600 : 400 }}>
+            {stats.openClaimCount > 0 ? `รวมจำนวน ${stats.openClaimQty.toLocaleString()} ${currentUnit}` : 'ไม่มีเคสค้างรับคืน'}
+          </p>
         </div>
         <div className="stat-card glass" style={{ borderTop: `4px solid ${getPredictionColor()}` }}>
           <div className="stat-label">คาดการณ์ของหมด</div>
@@ -465,10 +555,13 @@ const Analytics = ({ inventory, items }) => {
               </>
             )}
           </div>
-          <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+          <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.35rem' }}>
             {stats.predictionStatus === 'outOfStock' && 'ไม่เหลือพัสดุในคลัง'}
             {stats.predictionStatus === 'noUsage' && 'ยังไม่มีประวัติการตัดจ่าย'}
             {stats.predictionStatus === 'runsOut' && `คาดว่าจะหมด: ${stats.predictionDateStr} (เฉลี่ย ${stats.dailyRate.toFixed(1)} ${currentUnit}/วัน)`}
+          </p>
+          <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', paddingTop: '0.35rem', borderTop: '1px solid var(--glass-border)' }}>
+            อัตราการใช้: <strong>{stats.usageRate}%</strong> (ตัดจ่ายแล้ว {stats.totalWithdrawn.toLocaleString()} {currentUnit})
           </p>
         </div>
       </div>
@@ -482,16 +575,26 @@ const Analytics = ({ inventory, items }) => {
             <table style={{ width: '100%', minWidth: '780px', fontSize: '0.9rem' }}>
               <thead>
                 <tr style={{ textAlign: 'left', borderBottom: '1px solid var(--glass-border)', color: 'var(--text-muted)' }}>
+                  {renderHeader('วันที่รับ', 'date')}
                   {renderHeader('Lot no.', 'lot')}
                   {renderHeader('QC Lot', 'inhouseLot')}
                   {renderHeader('เลขสัญญา', 'agreementId')}
-                  {renderHeader('วันที่รับ', 'date')}
                   {renderHeader(`คงเหลือ (${currentUnit})`, 'qty')}
                   {renderHeader('ที่เก็บ', 'location')}
                   {renderHeader('สถานะจัดซื้อ/วางบิล', 'acceptanceStatus')}
                   {renderHeader('สถานะ QC', 'status')}
+                  <th style={{ padding: '0.75rem 0.4rem', textAlign: 'center', fontSize: '0.75rem', width: '48px', whiteSpace: 'nowrap' }}>หมายเหตุ</th>
                 </tr>
                 <tr style={{ borderBottom: '1px solid var(--glass-border)' }}>
+                  <th style={{ padding: '0.25rem 0.5rem' }}>
+                    <input 
+                      type="text" 
+                      placeholder="กรอง..." 
+                      value={filterDate} 
+                      onChange={(e) => setFilterDate(e.target.value)} 
+                      style={{ width: '100%', padding: '0.3rem', fontSize: '0.8rem', border: '1px solid var(--glass-border)', borderRadius: '4px', background: 'var(--input-bg)', color: 'var(--text-primary)' }}
+                    />
+                  </th>
                   <th style={{ padding: '0.25rem 0.5rem' }}>
                     <input 
                       type="text" 
@@ -516,15 +619,6 @@ const Analytics = ({ inventory, items }) => {
                       placeholder="กรอง..." 
                       value={filterAgreement} 
                       onChange={(e) => setFilterAgreement(e.target.value)} 
-                      style={{ width: '100%', padding: '0.3rem', fontSize: '0.8rem', border: '1px solid var(--glass-border)', borderRadius: '4px', background: 'var(--input-bg)', color: 'var(--text-primary)' }}
-                    />
-                  </th>
-                  <th style={{ padding: '0.25rem 0.5rem' }}>
-                    <input 
-                      type="text" 
-                      placeholder="กรอง..." 
-                      value={filterDate} 
-                      onChange={(e) => setFilterDate(e.target.value)} 
                       style={{ width: '100%', padding: '0.3rem', fontSize: '0.8rem', border: '1px solid var(--glass-border)', borderRadius: '4px', background: 'var(--input-bg)', color: 'var(--text-primary)' }}
                     />
                   </th>
@@ -571,18 +665,19 @@ const Analytics = ({ inventory, items }) => {
                       <option value="Reject">Reject</option>
                     </select>
                   </th>
+                  <th style={{ padding: '0.25rem 0.4rem' }}></th>
                 </tr>
               </thead>
               <tbody>
                 {sortedLots.length === 0 ? (
-                  <tr><td colSpan="8" style={{ padding: '1rem', textAlign: 'center' }}>ไม่พบข้อมูลที่ตรงกับตัวกรอง</td></tr>
+                  <tr><td colSpan="9" style={{ padding: '1rem', textAlign: 'center' }}>ไม่พบข้อมูลที่ตรงกับตัวกรอง</td></tr>
                 ) : (
                   sortedLots.map((l, i) => (
                     <tr key={i} style={{ borderBottom: '1px solid var(--glass-border)' }}>
+                      <td style={{ padding: '0.75rem', whiteSpace: 'nowrap' }}>{formatDateToDDMMYYYY(l.date)}</td>
                       <td style={{ padding: '0.75rem' }}>{l.lot || '-'}</td>
                       <td style={{ padding: '0.75rem' }}>{l.inhouseLot || '-'}</td>
                       <td style={{ padding: '0.75rem' }}>{l.agreementId ? <span style={{ color: 'var(--accent-color)', fontWeight: 500 }}>{l.agreementId}</span> : '-'}</td>
-                      <td style={{ padding: '0.75rem' }}>{formatDateToDDMMYYYY(l.date)}</td>
                       <td style={{ padding: '0.75rem', fontWeight: 600 }}>{l.qty}</td>
                       <td style={{ padding: '0.75rem' }}>{l.location}</td>
                       <td style={{ padding: '0.75rem' }}>
@@ -590,6 +685,30 @@ const Analytics = ({ inventory, items }) => {
                       </td>
                       <td style={{ padding: '0.75rem' }}>
                         <span className={`status-badge status-${l.status.toLowerCase()}`} style={{ fontSize: '0.65rem' }}>{l.status}</span>
+                      </td>
+                      <td style={{ padding: '0.75rem 0.4rem', textAlign: 'center' }}>
+                        {l.remarks && l.remarks.trim() !== '' ? (
+                          <button
+                            type="button"
+                            onClick={() => setSelectedNoteLot(l)}
+                            title="คลิกเพื่อดูหมายเหตุ"
+                            style={{
+                              background: 'rgba(245, 158, 11, 0.12)',
+                              color: 'var(--accent-color, #f59e0b)',
+                              border: '1px solid rgba(245, 158, 11, 0.35)',
+                              borderRadius: '6px',
+                              padding: '0.3rem',
+                              cursor: 'pointer',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center'
+                            }}
+                          >
+                            <MessageSquare size={15} />
+                          </button>
+                        ) : (
+                          <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>-</span>
+                        )}
                       </td>
                     </tr>
                   ))
@@ -622,6 +741,86 @@ const Analytics = ({ inventory, items }) => {
           </div>
         </div>
       </div>
+
+      {selectedNoteLot && (
+        <div
+          onClick={() => setSelectedNoteLot(null)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(15, 23, 42, 0.5)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+            padding: '1rem'
+          }}
+        >
+          <div
+            className="glass card"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: '100%',
+              maxWidth: '460px',
+              margin: 0,
+              background: '#ffffff',
+              boxShadow: '0 20px 25px -5px rgba(0,0,0,0.2)',
+              border: '1px solid var(--glass-border)'
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', paddingBottom: '0.75rem', borderBottom: '1px solid var(--glass-border)' }}>
+              <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1.05rem' }}>
+                <MessageSquare size={18} color="var(--accent-color)" /> หมายเหตุพัสดุ
+              </h3>
+              <button
+                type="button"
+                onClick={() => setSelectedNoteLot(null)}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  cursor: 'pointer',
+                  color: 'var(--text-muted)',
+                  padding: '0.25rem',
+                  display: 'flex',
+                  alignItems: 'center'
+                }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginBottom: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+              <div><strong>รายการ:</strong> {selectedItem}</div>
+              <div>
+                <strong>Lot no.:</strong> {selectedNoteLot.lot || '-'} &nbsp;|&nbsp; <strong>QC Lot:</strong> {selectedNoteLot.inhouseLot || '-'}
+              </div>
+              <div><strong>วันที่รับ:</strong> {formatDateToDDMMYYYY(selectedNoteLot.date)}</div>
+            </div>
+            <div
+              style={{
+                padding: '0.85rem 1rem',
+                borderRadius: '8px',
+                background: 'rgba(15, 23, 42, 0.04)',
+                border: '1px solid var(--glass-border)',
+                color: 'var(--text-primary)',
+                fontSize: '0.9rem',
+                lineHeight: 1.5,
+                whiteSpace: 'pre-wrap',
+                wordBreak: 'break-word',
+                maxHeight: '260px',
+                overflowY: 'auto'
+              }}
+            >
+              {selectedNoteLot.remarks}
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1rem' }}>
+              <button type="button" className="btn btn-secondary" onClick={() => setSelectedNoteLot(null)}>
+                ปิด
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

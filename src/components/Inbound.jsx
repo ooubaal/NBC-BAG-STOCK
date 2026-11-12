@@ -8,6 +8,7 @@ const SearchableSelect = ({ value, onChange, options = [], placeholder, disabled
   const [search, setSearch] = useState('');
   const [coords, setCoords] = useState({ top: 0, left: 0, width: 0, showAbove: false });
   const containerRef = useRef(null);
+  const inputRef = useRef(null);
 
   const filtered = useMemo(() => {
     return options.filter(opt => 
@@ -22,7 +23,7 @@ const SearchableSelect = ({ value, onChange, options = [], placeholder, disabled
     if (containerRef.current) {
       const rect = containerRef.current.getBoundingClientRect();
       const spaceBelow = window.innerHeight - rect.bottom;
-      const showAbove = spaceBelow < 200 && rect.top > 200;
+      const showAbove = spaceBelow < 240 && rect.top > 240;
       setCoords({
         top: showAbove ? rect.top : (rect.bottom + 4),
         left: rect.left,
@@ -35,6 +36,9 @@ const SearchableSelect = ({ value, onChange, options = [], placeholder, disabled
   useEffect(() => {
     if (isOpen) {
       updatePosition();
+      if (inputRef.current) {
+        inputRef.current.focus();
+      }
       const handleScrollOrResize = () => {
         updatePosition();
       };
@@ -56,34 +60,61 @@ const SearchableSelect = ({ value, onChange, options = [], placeholder, disabled
 
   return (
     <div ref={containerRef} style={{ position: 'relative', width: '100%' }}>
-      <input 
-        type="text"
-        placeholder={placeholder}
-        value={isOpen ? search : displayLabel}
-        title={displayLabel}
-        onChange={(e) => {
-          if (!isOpen) handleOpen();
-          setSearch(e.target.value);
-          updatePosition();
-        }}
-        onClick={handleOpen}
-        disabled={disabled}
-        style={{
-          width: '100%',
-          fontSize: '0.78rem',
-          padding: '0.4rem 0.3rem',
-          background: 'var(--input-bg)',
-          color: 'var(--text-primary)',
-          border: '1px solid var(--glass-border)',
-          borderRadius: '4px',
-          cursor: disabled ? 'not-allowed' : 'pointer',
-          outline: 'none',
-          boxSizing: 'border-box',
-          textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap',
-          overflow: 'hidden'
-        }}
-      />
+      {isOpen && !disabled ? (
+        <input 
+          ref={inputRef}
+          type="text"
+          placeholder={placeholder}
+          value={search}
+          title={displayLabel}
+          onChange={(e) => {
+            setSearch(e.target.value);
+            updatePosition();
+          }}
+          style={{
+            width: '100%',
+            fontSize: '0.78rem',
+            padding: '0.4rem 0.3rem',
+            background: 'var(--input-bg)',
+            color: 'var(--text-primary)',
+            border: '1px solid var(--accent-secondary, #0284c7)',
+            borderRadius: '4px',
+            outline: 'none',
+            boxSizing: 'border-box'
+          }}
+        />
+      ) : (
+        <div
+          role="button"
+          tabIndex={disabled ? -1 : 0}
+          title={displayLabel}
+          onClick={handleOpen}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              handleOpen();
+            }
+          }}
+          style={{
+            width: '100%',
+            fontSize: '0.78rem',
+            padding: '0.4rem 0.3rem',
+            background: 'var(--input-bg)',
+            color: displayLabel ? 'var(--text-primary)' : 'var(--text-muted, #64748b)',
+            border: '1px solid var(--glass-border)',
+            borderRadius: '4px',
+            cursor: disabled ? 'not-allowed' : 'pointer',
+            outline: 'none',
+            boxSizing: 'border-box',
+            whiteSpace: 'normal',
+            wordBreak: 'break-word',
+            lineHeight: '1.35',
+            textAlign: 'left'
+          }}
+        >
+          {displayLabel || placeholder}
+        </div>
+      )}
       {isOpen && !disabled && typeof document !== 'undefined' && createPortal(
         <>
           <div 
@@ -108,7 +139,7 @@ const SearchableSelect = ({ value, onChange, options = [], placeholder, disabled
               bottom: coords.showAbove ? `${window.innerHeight - coords.top + 4}px` : 'auto',
               left: `${coords.left}px`,
               width: `${coords.width}px`,
-              maxHeight: '200px',
+              maxHeight: '240px',
               overflowY: 'auto',
               background: '#ffffff',
               border: '1.5px solid var(--accent-secondary, #0284c7)',
@@ -143,8 +174,9 @@ const SearchableSelect = ({ value, onChange, options = [], placeholder, disabled
                     textAlign: 'left',
                     fontWeight: opt.value === value ? '600' : 'normal',
                     display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between'
+                    alignItems: 'flex-start',
+                    justifyContent: 'space-between',
+                    gap: '0.4rem'
                   }}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.background = opt.value === value ? 'rgba(2, 132, 199, 0.18)' : '#f1f5f9';
@@ -153,8 +185,8 @@ const SearchableSelect = ({ value, onChange, options = [], placeholder, disabled
                     e.currentTarget.style.background = opt.value === value ? 'rgba(2, 132, 199, 0.12)' : 'transparent';
                   }}
                 >
-                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{opt.label}</span>
-                  {opt.value === value && <span style={{ fontSize: '0.75rem', color: 'var(--accent-secondary, #0284c7)', fontWeight: 'bold' }}>✓</span>}
+                  <span style={{ whiteSpace: 'normal', wordBreak: 'break-word', lineHeight: '1.35' }}>{opt.label}</span>
+                  {opt.value === value && <span style={{ fontSize: '0.75rem', color: 'var(--accent-secondary, #0284c7)', fontWeight: 'bold', flexShrink: 0 }}>✓</span>}
                 </div>
               ))
             )}

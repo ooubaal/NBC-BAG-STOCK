@@ -241,8 +241,8 @@
 
 .analytics-bottom-grid {
   display: grid;
-  grid-template-columns: 1.7fr 1fr;
-  gap: 2rem;
+  grid-template-columns: minmax(0, 2.7fr) minmax(260px, 1fr);
+  gap: 1.5rem;
 }
 
 .table-responsive-wrapper {
