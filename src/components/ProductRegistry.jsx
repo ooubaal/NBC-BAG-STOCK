@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import Pagination from './Pagination';
 import { Plus, Trash2, Edit2, Check, X, Upload, Download, AlertTriangle, Search } from 'lucide-react';
 
 const ProductRegistry = ({ items, setItems }) => {
@@ -13,10 +14,23 @@ const ProductRegistry = ({ items, setItems }) => {
   const [deletePassword, setDeletePassword] = useState('');
   const [deleteError, setDeleteError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
 
   const filteredItems = items.filter(item => 
     item && item.name && item.name.toLowerCase().includes(searchTerm.trim().toLowerCase())
   );
+
+  const effectivePageSize = pageSize === 'all' ? filteredItems.length : Number(pageSize);
+  const paginatedItems = useMemo(() => {
+    if (pageSize === 'all') return filteredItems;
+    const start = (currentPage - 1) * effectivePageSize;
+    return filteredItems.slice(start, start + effectivePageSize);
+  }, [filteredItems, currentPage, effectivePageSize, pageSize]);
 
   const addItem = () => {
     if (!newItemName.trim()) return;
@@ -339,7 +353,7 @@ const ProductRegistry = ({ items, setItems }) => {
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-          {filteredItems.map((item) => {
+          {paginatedItems.map((item) => {
             const originalIndex = items.findIndex(x => x && x.name === item.name);
             return (
               <div key={originalIndex} className="glass" style={{ padding: '1rem', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -400,6 +414,14 @@ const ProductRegistry = ({ items, setItems }) => {
             </div>
           )}
         </div>
+        <Pagination
+          currentPage={currentPage}
+          totalItems={filteredItems.length}
+          pageSize={pageSize}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={setPageSize}
+          itemName="รายการพัสดุ"
+        />
       </div>
 
       {/* Deletion Warning Modal */}

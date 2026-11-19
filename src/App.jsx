@@ -255,6 +255,11 @@ function App() {
   const isRemoteInventoryUpdateRef = useRef(false);
   const isRemoteAgreementsUpdateRef = useRef(false);
   const isRemoteClaimsUpdateRef = useRef(false);
+  // Refs for tracking previous state values for safe async syncing
+  const prevItemsRef = useRef(items);
+  const prevInventoryRef = useRef(inventory);
+  const prevAgreementsRef = useRef(agreements);
+  const prevClaimsRef = useRef(claims);
 
   // 2. Initialize Firebase dynamically on boot or when config changes
   useEffect(() => {
@@ -551,15 +556,23 @@ function App() {
         ]);
         if (!active) return;
         if (Array.isArray(cachedInv) && cachedInv.length > 0) {
+          isRemoteInventoryUpdateRef.current = true;
+          prevInventoryRef.current = cachedInv;
           setInventory(prev => prev.length === 0 ? cachedInv : prev);
         }
         if (Array.isArray(cachedItems) && cachedItems.length > 0) {
+          isRemoteItemsUpdateRef.current = true;
+          prevItemsRef.current = cachedItems;
           setItems(prev => prev.length === 0 ? cachedItems : prev);
         }
         if (Array.isArray(cachedAg) && cachedAg.length > 0) {
+          isRemoteAgreementsUpdateRef.current = true;
+          prevAgreementsRef.current = cachedAg;
           setAgreements(prev => prev.length === 0 ? cachedAg : prev);
         }
         if (Array.isArray(cachedClaims) && cachedClaims.length > 0) {
+          isRemoteClaimsUpdateRef.current = true;
+          prevClaimsRef.current = cachedClaims;
           setClaims(prev => prev.length === 0 ? cachedClaims : prev);
         }
       } catch (err) {
@@ -590,11 +603,7 @@ function App() {
     idbSet('wms_claims', claims);
   }, [claims]);
 
-  // Refs for tracking previous state values for safe async syncing
-  const prevItemsRef = useRef(items);
-  const prevInventoryRef = useRef(inventory);
-  const prevAgreementsRef = useRef(agreements);
-  const prevClaimsRef = useRef(claims);
+
 
   // 5. Asynchronous Firestore synchronizers using writeBatch and echo-prevention flags
   // 5a. Items synchronizer
@@ -745,30 +754,7 @@ function App() {
           await batch.commit();
         }
 
-        // Background bucket export (best-effort, non-blocking)
-        try {
-          const bucketsMap = {};
-          for (let i = 0; i < NUM_BUCKETS; i++) {
-            bucketsMap[`bucket_${i}`] = [];
-          }
-          next.forEach(lot => {
-            if (lot && lot.id) {
-              const bId = getBucketId(lot.id);
-              bucketsMap[bId].push(lot);
-            }
-          });
-          const bucketBatch = writeBatch(db);
-          for (let i = 0; i < NUM_BUCKETS; i++) {
-            const bId = `bucket_${i}`;
-            bucketBatch.set(doc(db, 'inventory_buckets', bId), {
-              lots: sanitizeForFirestore(bucketsMap[bId]),
-              updatedAt: new Date().toISOString()
-            });
-          }
-          await bucketBatch.commit().catch(() => {});
-        } catch {
-          // ignore bucket errors
-        }
+// Background bucket sync removed to eliminate quota burning
       } catch (err) {
         console.error("Error batch syncing inventory to Firestore:", err);
         setSyncState('error');
@@ -982,30 +968,7 @@ function App() {
         await batch.commit();
       }
 
-      // 3. Best-effort background upload to 20 buckets
-      try {
-        const bucketsMap = {};
-        for (let i = 0; i < NUM_BUCKETS; i++) {
-          bucketsMap[`bucket_${i}`] = [];
-        }
-        inventory.forEach(lot => {
-          if (lot && lot.id) {
-            bucketsMap[getBucketId(lot.id)].push(lot);
-          }
-        });
-        const invBatch = writeBatch(db);
-        for (let i = 0; i < NUM_BUCKETS; i++) {
-          const bId = `bucket_${i}`;
-          const cleanLots = sanitizeForFirestore(bucketsMap[bId]);
-          invBatch.set(doc(db, 'inventory_buckets', bId), {
-            lots: cleanLots,
-            updatedAt: new Date().toISOString()
-          });
-        }
-        await invBatch.commit().catch(() => {});
-      } catch (err) {
-        console.warn("Background bucket sync skipped:", err);
-      }
+// Background bucket sync removed to eliminate quota burning
       
       // Upload Agreements
       for (const ag of agreements) {

@@ -2,6 +2,7 @@ import { useState, useMemo, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Plus, Check, X, FileText, PackageOpen, ChevronDown, ChevronUp, UserCheck, AlertTriangle, Search, Edit2, Trash2, Paperclip, Eye, Loader2, Sparkles, Calendar, Clock, CheckCircle2, AlertCircle, CalendarDays, Download } from 'lucide-react';
 import { smartCompressUploadFile } from '../utils/fileCompressor';
+import Pagination from './Pagination';
 
 const escapeHTML = (str) => {
   if (!str) return '';
@@ -198,6 +199,12 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items,
   const [activeTab, setActiveTab] = useState('list'); // 'list' or 'new'
   const [expandedAgreementId, setExpandedAgreementId] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery]);
 
 
 
@@ -2108,7 +2115,7 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items,
               )}
             </div>
           ) : (
-            filteredAgreements.map(agreement => {
+            paginatedAgreements.map(agreement => {
               if (editingAgreementId === agreement.id) {
                 return (
                   <div 
@@ -3421,6 +3428,15 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items,
               );
             })
           )}
+          <Pagination
+            currentPage={currentPage}
+            totalItems={filteredAgreements.length}
+            pageSize={pageSize}
+            pageSizeOptions={[10, 25, 50, 'all']}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={setPageSize}
+            itemName="สัญญาจัดซื้อ"
+          />
         </div>
       )}
             {/* Auto Split Schedule Modal */}

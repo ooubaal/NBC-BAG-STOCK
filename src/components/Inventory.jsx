@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Loader2, Search, ChevronUp, History, Settings, Save, Trash2, AlertTriangle, FileSpreadsheet } from 'lucide-react';
 import ExcelJS from 'exceljs';
+import Pagination from './Pagination';
 
 const AcceptanceBadge = ({ status }) => {
   const normalizedStatus = status || '';
@@ -46,6 +47,12 @@ const Inventory = ({ inventory, setInventory, items, agreements, isSyncing = fal
   const [filterQtyStatus, setFilterQtyStatus] = useState('All');
   const [filterAgreement, setFilterAgreement] = useState('All');
   const [sortType, setSortType] = useState('date-desc'); // 'date-desc', 'date-asc', 'name-asc', 'name-desc'
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
+
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, filterQC, filterAcceptance, filterItem, filterStartDate, filterEndDate, filterLocation, filterQtyStatus, filterAgreement, sortType]);
 
   // Delete States
   const [deleteLotId, setDeleteLotId] = useState(null);
@@ -235,6 +242,13 @@ const Inventory = ({ inventory, setInventory, items, agreements, isSyncing = fal
     }
     return 0;
   });
+
+  const effectivePageSize = pageSize === 'all' ? sortedInventory.length : Number(pageSize);
+  const paginatedInventory = React.useMemo(() => {
+    if (pageSize === 'all') return sortedInventory;
+    const start = (currentPage - 1) * effectivePageSize;
+    return sortedInventory.slice(start, start + effectivePageSize);
+  }, [sortedInventory, currentPage, effectivePageSize, pageSize]);
 
   const selectedTotals = React.useMemo(() => {
     let totalReceived = {};
@@ -522,8 +536,16 @@ const Inventory = ({ inventory, setInventory, items, agreements, isSyncing = fal
                 <input 
                   type="checkbox"
                   style={{ cursor: 'pointer', width: '18px', height: '18px' }}
-                  checked={sortedInventory.length > 0 && selectedIds.length === sortedInventory.length}
-                  onChange={() => toggleSelectAll(sortedInventory.map(item => item.id))}
+                  checked={paginatedInventory.length > 0 && paginatedInventory.every(item => selectedIds.includes(item.id))}
+                  onChange={() => {
+                    const pageIds = paginatedInventory.map(item => item.id);
+                    const allSelected = pageIds.length > 0 && pageIds.every(id => selectedIds.includes(id));
+                    if (allSelected) {
+                      setSelectedIds(prev => prev.filter(id => !pageIds.includes(id)));
+                    } else {
+                      setSelectedIds(prev => Array.from(new Set([...prev, ...pageIds])));
+                    }
+                  }}
                 />
               </th>
               <th style={{ padding: '0.6rem 0.8rem', minWidth: '120px' }}>
@@ -766,7 +788,7 @@ const Inventory = ({ inventory, setInventory, items, agreements, isSyncing = fal
             {sortedInventory.length === 0 ? (
               <tr><td colSpan="11" style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>ไม่มีข้อมูลพัสดุ</td></tr>
             ) : (
-              sortedInventory.map((item) => (
+              paginatedInventory.map((item) => (
                 <React.Fragment key={item.id}>
                   <tr style={{ borderBottom: '1px solid var(--glass-border)', cursor: 'pointer', opacity: item.isCancelled ? 0.55 : 1 }}>
                     <td style={{ padding: '0.6rem 0.8rem', textAlign: 'center' }} onClick={(e) => e.stopPropagation()}>
@@ -1039,6 +1061,14 @@ const Inventory = ({ inventory, setInventory, items, agreements, isSyncing = fal
             )}
           </tbody>
         </table>
+        <Pagination
+          currentPage={currentPage}
+          totalItems={sortedInventory.length}
+          pageSize={pageSize}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={setPageSize}
+          itemName="Lot พัสดุ"
+        />
       </div>
 
       {/* Spacing block to prevent bulk panel from covering table rows when scrolling */}

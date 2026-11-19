@@ -2,6 +2,7 @@ import { useState, useMemo, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Plus, Trash2, Save, Printer, Copy, Search, Upload, Download, RotateCcw, AlertCircle, Calendar, CheckCircle2, Package, Edit2, X } from 'lucide-react';
 import ExcelJS from 'exceljs';
+import Pagination from './Pagination';
 
 const SearchableSelect = ({ value, onChange, options = [], placeholder, disabled }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -1613,6 +1614,13 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
     return Array.from(locs).sort((a, b) => String(a).localeCompare(String(b), 'th'));
   }, [inventory]);
 
+  const [historyPage, setHistoryPage] = useState(1);
+  const [historyPageSize, setHistoryPageSize] = useState(50);
+
+  useEffect(() => {
+    setHistoryPage(1);
+  }, [historySearch, historyStartDate, historyEndDate, historyFilterItem, historyFilterSupplierLot, historyFilterQC, historyFilterLocation, historySortType]);
+
   const filteredHistory = useMemo(() => {
     if (!Array.isArray(inventory)) return [];
     let result = inventory.filter(item => {
@@ -1703,6 +1711,13 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
       setSelectedHistoryIds([...selectedHistoryIds, id]);
     }
   };
+
+  const effectiveHistoryPageSize = historyPageSize === 'all' ? filteredHistory.length : Number(historyPageSize);
+  const paginatedHistory = useMemo(() => {
+    if (historyPageSize === 'all') return filteredHistory;
+    const start = (historyPage - 1) * effectiveHistoryPageSize;
+    return filteredHistory.slice(start, start + effectiveHistoryPageSize);
+  }, [filteredHistory, historyPage, effectiveHistoryPageSize, historyPageSize]);
 
   const toggleSelectAllHistory = () => {
     if (selectedHistoryIds.length === filteredHistory.length) {
@@ -3505,8 +3520,16 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
                   <th style={{ padding: '1rem', width: '50px', verticalAlign: 'middle' }}>
                     <input 
                       type="checkbox" 
-                      checked={filteredHistory.length > 0 && selectedHistoryIds.length === filteredHistory.length}
-                      onChange={toggleSelectAllHistory}
+                      checked={paginatedHistory.length > 0 && paginatedHistory.every(x => selectedHistoryIds.includes(x.id))}
+                      onChange={() => {
+                        const pageIds = paginatedHistory.map(x => x.id);
+                        const allSelected = pageIds.length > 0 && pageIds.every(id => selectedHistoryIds.includes(id));
+                        if (allSelected) {
+                          setSelectedHistoryIds(prev => prev.filter(id => !pageIds.includes(id)));
+                        } else {
+                          setSelectedHistoryIds(prev => Array.from(new Set([...prev, ...pageIds])));
+                        }
+                      }}
                       style={{ cursor: 'pointer', width: '18px', height: '18px' }}
                     />
                   </th>
@@ -3648,7 +3671,7 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
                     </td>
                   </tr>
                 ) : (
-                  filteredHistory.map((item) => (
+                  paginatedHistory.map((item) => (
                     <tr key={item.id} style={{ borderBottom: '1px solid var(--glass-border)', opacity: item.isCancelled ? 0.55 : 1 }}>
                       <td style={{ padding: '1rem' }}>
                         <input 
@@ -3779,6 +3802,14 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
                 )}
               </tbody>
             </table>
+            <Pagination
+              currentPage={historyPage}
+              totalItems={filteredHistory.length}
+              pageSize={historyPageSize}
+              onPageChange={setHistoryPage}
+              onPageSizeChange={setHistoryPageSize}
+              itemName="รายการรับเข้า"
+            />
           </div>
         </>
       )}

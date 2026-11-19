@@ -293,6 +293,13 @@ const Withdrawal = ({ inventory = [], setInventory, items = [] }) => {
     return Array.from(set).sort((a, b) => String(a).localeCompare(String(b), 'th'));
   }, [historicalWithdrawals]);
 
+  const [historyPage, setHistoryPage] = useState(1);
+  const [historyPageSize, setHistoryPageSize] = useState(50);
+
+  useEffect(() => {
+    setHistoryPage(1);
+  }, [historySearch, historyStartDate, historyEndDate, historyFilterItem, historyFilterSupplierLot, historyFilterLocation, historyFilterReason, historyFilterAgreement, historySortType]);
+
   // Filter historical list based on search term, date range, items, locations, reasons, agreements, and sorting
   const filteredWithdrawals = useMemo(() => {
     let result = (historicalWithdrawals || []).filter(w => {
@@ -527,6 +534,13 @@ const Withdrawal = ({ inventory = [], setInventory, items = [] }) => {
       }
     });
   };
+
+  const effectiveHistoryPageSize = historyPageSize === 'all' ? filteredWithdrawals.length : Number(historyPageSize);
+  const paginatedWithdrawals = useMemo(() => {
+    if (historyPageSize === 'all') return filteredWithdrawals;
+    const start = (historyPage - 1) * effectiveHistoryPageSize;
+    return filteredWithdrawals.slice(start, start + effectiveHistoryPageSize);
+  }, [filteredWithdrawals, historyPage, effectiveHistoryPageSize, historyPageSize]);
 
   const handleSelectAllHistory = (e) => {
     if (e.target.checked) {
@@ -2417,8 +2431,16 @@ const Withdrawal = ({ inventory = [], setInventory, items = [] }) => {
                   <th style={{ padding: '1rem', width: '40px', verticalAlign: 'middle' }}>
                     <input 
                       type="checkbox" 
-                      onChange={handleSelectAllHistory}
-                      checked={filteredWithdrawals.length > 0 && selectedHistoryIds.length === filteredWithdrawals.length}
+                      checked={paginatedWithdrawals.length > 0 && paginatedWithdrawals.every(w => selectedHistoryIds.includes(w.id))}
+                      onChange={() => {
+                        const pageIds = paginatedWithdrawals.map(w => w.id);
+                        const allSelected = pageIds.length > 0 && pageIds.every(id => selectedHistoryIds.includes(id));
+                        if (allSelected) {
+                          setSelectedHistoryIds(prev => prev.filter(id => !pageIds.includes(id)));
+                        } else {
+                          setSelectedHistoryIds(prev => Array.from(new Set([...prev, ...pageIds])));
+                        }
+                      }}
                     />
                   </th>
                   <th style={{ padding: '0.75rem 1rem' }}>
@@ -2564,7 +2586,7 @@ const Withdrawal = ({ inventory = [], setInventory, items = [] }) => {
                     </td>
                   </tr>
                 ) : (
-                  filteredWithdrawals.map(w => (
+                  paginatedWithdrawals.map(w => (
                     <tr key={w.id} style={{ borderBottom: '1px solid var(--glass-border)', opacity: w.isCancelled ? 0.55 : 1 }}>
                       <td style={{ padding: '1rem' }}>
                         <input 
@@ -2656,6 +2678,14 @@ const Withdrawal = ({ inventory = [], setInventory, items = [] }) => {
                 )}
               </tbody>
             </table>
+            <Pagination
+              currentPage={historyPage}
+              totalItems={filteredWithdrawals.length}
+              pageSize={historyPageSize}
+              onPageChange={setHistoryPage}
+              onPageSizeChange={setHistoryPageSize}
+              itemName="รายการตัดจ่าย"
+            />
           </div>
         </>
       )}
