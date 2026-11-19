@@ -99,14 +99,17 @@ const Analytics = ({ inventory, items, agreements = [], claims = [] }) => {
     (agreements || []).forEach(ag => {
       if (ag.status === 'Completed') return;
       const agItems = ag.itemsList || [
-        { itemName: ag.itemName, totalQty: ag.totalQty, unit: ag.unit }
+        { itemName: ag.itemName, totalQty: ag.totalQty, freeQty: ag.freeQty || 0, unit: ag.unit }
       ];
       const matchedItems = agItems.filter(it => it.itemName === selectedItem);
       if (matchedItems.length === 0) return;
 
-      const contractTotalQty = matchedItems.reduce((sum, it) => sum + Number(it.totalQty || 0), 0);
-      const acceptedQty = (inventory || [])
-        .filter(lot => lot.agreementId === ag.id && !lot.isCancelled && lot.itemName === selectedItem && lot.acceptanceStatus === 'Accepted')
+      const contractTotalQty = matchedItems.reduce((sum, it) => sum + Number(it.totalQty || 0) + Number(it.freeQty || 0), 0);
+      const itemDeliveries = (inventory || [])
+        .filter(lot => lot.agreementId === ag.id && !lot.isCancelled && lot.itemName === selectedItem);
+
+      const acceptedQty = itemDeliveries
+        .filter(lot => lot.acceptanceStatus === 'Accepted')
         .reduce((sum, lot) => {
           const origQty = Number(lot.quantity || 0);
           const totalDefective = (lot.claimReturns || []).reduce(
@@ -116,7 +119,13 @@ const Analytics = ({ inventory, items, agreements = [], claims = [] }) => {
           return sum + Math.max(0, origQty - totalDefective);
         }, 0);
 
-      const outstandingQty = Math.max(0, contractTotalQty - acceptedQty);
+      const pendingQty = itemDeliveries
+        .filter(lot => lot.acceptanceStatus === 'Pending')
+        .reduce((sum, lot) => sum + Number(lot.quantity || 0), 0);
+
+      const effectiveDelivered = acceptedQty + pendingQty;
+      const outstandingQty = Math.max(0, contractTotalQty - effectiveDelivered);
+
       if (outstandingQty > 0) {
         contractBreakdowns.push({
           agreementId: ag.id,

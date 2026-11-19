@@ -270,14 +270,15 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
     setEditingAgreementId(agreement.id);
     setEditForm({
       ...agreement,
-      itemsList: agreement.itemsList || [
-        { itemName: agreement.itemName, totalQty: agreement.totalQty, unit: agreement.unit }
-      ],
+      itemsList: (agreement.itemsList || [
+        { itemName: agreement.itemName, totalQty: agreement.totalQty, freeQty: agreement.freeQty || 0, unit: agreement.unit }
+      ]).map(item => ({
+        ...item,
+        freeQty: item.freeQty !== undefined && item.freeQty !== null ? item.freeQty : ''
+      })),
       tentativeSchedule: (agreement.tentativeSchedule || []).map(s => ({ ...s })),
       attachments: agreement.attachments || []
     });
-
-
   };
 
   const handleSaveEdit = (e) => {
@@ -319,7 +320,8 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
           supplier: editForm.supplier,
           itemsList: editForm.itemsList.map(item => ({
             ...item,
-            totalQty: Number(item.totalQty)
+            totalQty: Number(item.totalQty),
+            freeQty: item.freeQty !== '' && item.freeQty !== undefined ? Number(item.freeQty) : 0
           })),
           tentativeSchedule: cleanedTentative,
           // Fallback properties for compatibility with other parts of the application:
@@ -497,7 +499,7 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
       ...prev,
       itemsList: [
         ...(prev.itemsList || []),
-        { itemName: (items && items.length > 0) ? items[0].name : '', totalQty: '', unit: (items && items.length > 0) ? items[0].unit : 'ชิ้น' }
+        { itemName: (items && items.length > 0) ? items[0].name : '', totalQty: '', freeQty: '', unit: (items && items.length > 0) ? items[0].unit : 'ชิ้น' }
       ]
     }));
   };
@@ -535,7 +537,7 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
       ...prev,
       itemsList: [
         ...(prev.itemsList || []),
-        { itemName: (items && items.length > 0) ? items[0].name : '', totalQty: '', unit: (items && items.length > 0) ? items[0].unit : 'ชิ้น' }
+        { itemName: (items && items.length > 0) ? items[0].name : '', totalQty: '', freeQty: '', unit: (items && items.length > 0) ? items[0].unit : 'ชิ้น' }
       ]
     }));
   };
@@ -776,7 +778,7 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
   // New agreement form state
   const [newAgreement, setNewAgreement] = useState({
     id: '',
-    itemsList: [{ itemName: (items && items.length > 0) ? items[0].name : '', totalQty: '', unit: (items && items.length > 0) ? items[0].unit : 'ชิ้น' }],
+    itemsList: [{ itemName: (items && items.length > 0) ? items[0].name : '', totalQty: '', freeQty: '', unit: (items && items.length > 0) ? items[0].unit : 'ชิ้น' }],
     tentativeSchedule: [],
     supplier: '',
     startDate: new Date().toISOString().split('T')[0],
@@ -828,12 +830,14 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
       ...newAgreement,
       itemsList: newAgreement.itemsList.map(item => ({
         ...item,
-        totalQty: Number(item.totalQty)
+        totalQty: Number(item.totalQty),
+        freeQty: item.freeQty !== '' && item.freeQty !== undefined ? Number(item.freeQty) : 0
       })),
       tentativeSchedule: cleanedTentative,
       // Fallback properties for compatibility with other parts of the application:
       itemName: primaryItem.itemName,
       totalQty: Number(primaryItem.totalQty),
+      freeQty: primaryItem.freeQty !== '' && primaryItem.freeQty !== undefined ? Number(primaryItem.freeQty) : 0,
       unit: primaryItem.unit,
       status: 'Active', // Initial status
       createdAt: new Date().toISOString(),
@@ -846,7 +850,7 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
     // Reset form and go back to list
     setNewAgreement({
       id: '',
-      itemsList: [{ itemName: (items && items.length > 0) ? items[0].name : '', totalQty: '', unit: (items && items.length > 0) ? items[0].unit : 'ชิ้น' }],
+      itemsList: [{ itemName: (items && items.length > 0) ? items[0].name : '', totalQty: '', freeQty: '', unit: (items && items.length > 0) ? items[0].unit : 'ชิ้น' }],
       tentativeSchedule: [],
       supplier: '',
       startDate: new Date().toISOString().split('T')[0],
@@ -899,7 +903,7 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
 
       // Compute stats for each item in the itemsList
       const itemsListWithStats = (ag.itemsList || [
-        { itemName: ag.itemName, totalQty: ag.totalQty, unit: ag.unit }
+        { itemName: ag.itemName, totalQty: ag.totalQty, freeQty: ag.freeQty || 0, unit: ag.unit }
       ]).map(item => {
         const itemDeliveries = deliveries.filter(lot => lot.itemName === item.itemName);
 
@@ -921,7 +925,20 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
           .reduce((sum, lot) => sum + Number(lot.quantity || 0), 0);
 
         const totalDelivered = acceptedDeliveries.reduce((sum, lot) => sum + Number(lot.quantity || 0), 0) + pendingQty + rejectedQty;
-        const outstandingQty = Math.max(0, Number(item.totalQty || 0) - acceptedQty);
+
+        const baseTotalQty = Number(item.totalQty || 0);
+        const freeQty = Number(item.freeQty || 0);
+        const targetContractQty = baseTotalQty + freeQty;
+
+        // Effective delivered: goods that have arrived at the warehouse (accepted + pending inspection)
+        const effectiveArrivedQty = acceptedQty + pendingQty;
+
+        // Outstanding to be delivered by supplier (ผู้ขายยังต้องส่งมอบอีกเท่าไหร่)
+        // If supplier already delivered enough (effectiveArrivedQty >= targetContractQty), outstanding is 0!
+        const outstandingQty = Math.max(0, targetContractQty - effectiveArrivedQty);
+
+        // Over-delivered quantity (ส่วนที่ส่งเกินสัญญา / แถมเพิ่มนอกสัญญา)
+        const overDeliveredQty = Math.max(0, effectiveArrivedQty - targetContractQty);
 
         // Calculate Withdrawn (ตัดใช้ไปแล้ว) and Current Stock on Hand (คงเหลือในคลัง)
         const remainingStockQty = acceptedDeliveries.reduce((sum, lot) => {
@@ -944,11 +961,15 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
 
         return {
           ...item,
+          freeQty,
+          targetContractQty,
           acceptedQty,
           pendingQty,
           rejectedQty,
           totalDelivered,
+          effectiveArrivedQty,
           outstandingQty,
+          overDeliveredQty,
           withdrawnQty,
           remainingStockQty
         };
@@ -956,17 +977,19 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
 
       // Sum metrics for backwards compatibility and high-level card status
       const totalQty = itemsListWithStats.reduce((sum, item) => sum + Number(item.totalQty || 0), 0);
+      const totalFreeQty = itemsListWithStats.reduce((sum, item) => sum + Number(item.freeQty || 0), 0);
       const acceptedQty = itemsListWithStats.reduce((sum, item) => sum + item.acceptedQty, 0);
       const pendingQty = itemsListWithStats.reduce((sum, item) => sum + item.pendingQty, 0);
       const rejectedQty = itemsListWithStats.reduce((sum, item) => sum + item.rejectedQty, 0);
       const totalDelivered = acceptedQty + pendingQty + rejectedQty;
       const outstandingQty = itemsListWithStats.reduce((sum, item) => sum + item.outstandingQty, 0);
+      const overDeliveredQty = itemsListWithStats.reduce((sum, item) => sum + (item.overDeliveredQty || 0), 0);
       const withdrawnQty = itemsListWithStats.reduce((sum, item) => sum + item.withdrawnQty, 0);
       const remainingStockQty = itemsListWithStats.reduce((sum, item) => sum + item.remainingStockQty, 0);
 
       // Determine dynamic status
       let displayStatus = 'Active';
-      if (acceptedQty >= totalQty) {
+      if (acceptedQty >= (totalQty + totalFreeQty) && pendingQty === 0) {
         displayStatus = 'Completed';
       } else if (new Date(ag.endDate) < new Date()) {
         displayStatus = 'Expired';
@@ -1044,11 +1067,13 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
         ...ag,
         itemsListWithStats,
         totalQty,
+        totalFreeQty,
         acceptedQty,
         pendingQty,
         rejectedQty,
         totalDelivered,
         outstandingQty,
+        overDeliveredQty,
         withdrawnQty,
         remainingStockQty,
         displayStatus,
@@ -1594,9 +1619,10 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
                   <thead>
                     <tr style={{ background: 'rgba(255, 255, 255, 0.02)', borderBottom: '1px solid var(--glass-border)', textAlign: 'left', color: 'var(--text-muted)' }}>
-                      <th style={{ padding: '0.6rem 0.75rem', width: '55%' }}>รายการสินค้า</th>
-                      <th style={{ padding: '0.6rem 0.75rem', width: '30%' }}>จำนวนจัดซื้อตามสัญญา</th>
-                      <th style={{ padding: '0.6rem 0.75rem', width: '15%', textAlign: 'center' }}>ลบ</th>
+                      <th style={{ padding: '0.6rem 0.75rem', width: '44%' }}>รายการสินค้า</th>
+                      <th style={{ padding: '0.6rem 0.75rem', width: '25%' }}>จำนวนจัดซื้อตามสัญญา</th>
+                      <th style={{ padding: '0.6rem 0.75rem', width: '23%' }}>จำนวนแถม (ฟรี)</th>
+                      <th style={{ padding: '0.6rem 0.75rem', width: '8%', textAlign: 'center' }}>ลบ</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1619,6 +1645,20 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
                               placeholder="เช่น 1000"
                               style={{ width: '100%', padding: '0.4rem 0.5rem', fontSize: '0.8rem', outline: 'none' }}
                               required
+                            />
+                            <span style={{ color: 'var(--text-secondary)', fontWeight: 600, fontSize: '0.8rem', minWidth: '35px' }}>
+                              {itemRow.unit}
+                            </span>
+                          </div>
+                        </td>
+                        <td style={{ padding: '0.5rem 0.75rem' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <input
+                              type="number"
+                              value={itemRow.freeQty}
+                              onChange={(e) => handleUpdateNewAgreementItemRow(idx, 'freeQty', e.target.value)}
+                              placeholder="0 (ถ้ามีแถม)"
+                              style={{ width: '100%', padding: '0.4rem 0.5rem', fontSize: '0.8rem', outline: 'none' }}
                             />
                             <span style={{ color: 'var(--text-secondary)', fontWeight: 600, fontSize: '0.8rem', minWidth: '35px' }}>
                               {itemRow.unit}
@@ -2114,9 +2154,10 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
                           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
                             <thead>
                               <tr style={{ background: 'rgba(255, 255, 255, 0.02)', borderBottom: '1px solid var(--glass-border)', textAlign: 'left', color: 'var(--text-muted)' }}>
-                                <th style={{ padding: '0.6rem 0.75rem', width: '55%' }}>รายการสินค้า</th>
-                                <th style={{ padding: '0.6rem 0.75rem', width: '30%' }}>จำนวนจัดซื้อตามสัญญา</th>
-                                <th style={{ padding: '0.6rem 0.75rem', width: '15%', textAlign: 'center' }}>ลบ</th>
+                                <th style={{ padding: '0.6rem 0.75rem', width: '44%' }}>รายการสินค้า</th>
+                                <th style={{ padding: '0.6rem 0.75rem', width: '25%' }}>จำนวนจัดซื้อตามสัญญา</th>
+                                <th style={{ padding: '0.6rem 0.75rem', width: '23%' }}>จำนวนแถม (ฟรี)</th>
+                                <th style={{ padding: '0.6rem 0.75rem', width: '8%', textAlign: 'center' }}>ลบ</th>
                               </tr>
                             </thead>
                             <tbody>
@@ -2139,6 +2180,20 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
                                         placeholder="เช่น 1000"
                                         style={{ width: '100%', padding: '0.4rem 0.5rem', fontSize: '0.8rem', outline: 'none' }}
                                         required
+                                      />
+                                      <span style={{ color: 'var(--text-secondary)', fontWeight: 600, fontSize: '0.8rem', minWidth: '35px' }}>
+                                        {itemRow.unit}
+                                      </span>
+                                    </div>
+                                  </td>
+                                  <td style={{ padding: '0.5rem 0.75rem' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                      <input
+                                        type="number"
+                                        value={itemRow.freeQty}
+                                        onChange={(e) => handleUpdateEditAgreementItemRow(idx, 'freeQty', e.target.value)}
+                                        placeholder="0 (ถ้ามีแถม)"
+                                        style={{ width: '100%', padding: '0.4rem 0.5rem', fontSize: '0.8rem', outline: 'none' }}
                                       />
                                       <span style={{ color: 'var(--text-secondary)', fontWeight: 600, fontSize: '0.8rem', minWidth: '35px' }}>
                                         {itemRow.unit}
@@ -2619,16 +2674,24 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
                   {/* รายการสินค้าแยกย่อยและ Progress Bar ของแต่ละชนิด */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '1.25rem' }}>
                     {(agreement.itemsListWithStats || []).map((item, itemIdx) => {
-                      const itemAcceptedPct = Math.min(100, (item.acceptedQty / Number(item.totalQty || 1)) * 100);
-                      const itemPendingPct = Math.min(100 - itemAcceptedPct, (item.pendingQty / Number(item.totalQty || 1)) * 100);
-                      const itemRemainingPct = Math.max(0, 100 - itemAcceptedPct - itemPendingPct);
+                      const targetBase = Number(item.targetContractQty || item.totalQty || 1);
+                      const isOver = (item.overDeliveredQty || 0) > 0;
+                      const scaleTotal = Math.max(targetBase, item.effectiveArrivedQty || 1);
+
+                      // Proportions relative to scaleTotal (if over-delivered, scale encompasses the overage)
+                      const pctAccepted = (item.acceptedQty / scaleTotal) * 100;
+                      const pendingWithinTarget = Math.max(0, Math.min(item.effectiveArrivedQty, targetBase) - item.acceptedQty);
+                      const pctPending = (pendingWithinTarget / scaleTotal) * 100;
+                      const pctOutstanding = (item.outstandingQty / scaleTotal) * 100;
+                      const pctOver = isOver ? ((item.overDeliveredQty / scaleTotal) * 100) : 0;
+                      const targetMarkerPct = (targetBase / scaleTotal) * 100;
 
                       return (
                         <div 
                           key={itemIdx} 
                           style={{ 
                             background: 'rgba(255, 255, 255, 0.015)', 
-                            border: '1px solid var(--glass-border)', 
+                            border: isOver ? '1px solid rgba(239, 68, 68, 0.35)' : '1px solid var(--glass-border)', 
                             borderRadius: '10px', 
                             padding: '1rem 1.25rem',
                             boxShadow: '0 2px 4px rgba(0,0,0,0.02)'
@@ -2653,39 +2716,86 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
                                   ตัดใช้แล้ว {item.withdrawnQty.toLocaleString()} {item.unit}
                                 </span>
                               )}
+                              {isOver && (
+                                <span style={{ fontSize: '0.72rem', fontWeight: 700, padding: '0.15rem 0.5rem', borderRadius: '4px', background: 'rgba(239, 68, 68, 0.15)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.35)' }}>
+                                  🎁 ส่งเกินสัญญา +{item.overDeliveredQty.toLocaleString()} {item.unit}
+                                </span>
+                              )}
                             </div>
                             <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
                               ยอดตามสัญญา: <strong style={{ color: 'var(--text-primary)' }}>{Number(item.totalQty).toLocaleString()} {item.unit}</strong>
+                              {item.freeQty > 0 && (
+                                <span style={{ marginLeft: '0.4rem', color: 'var(--success)', fontWeight: 600 }}>
+                                  (+แถม {Number(item.freeQty).toLocaleString()} {item.unit})
+                                </span>
+                              )}
                             </div>
                           </div>
 
-                          {/* Tri-Color Progress Bar for this item */}
+                          {/* Progress Bar with Overflow Scale */}
                           <div style={{ marginBottom: '0.75rem' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', marginBottom: '0.35rem', flexWrap: 'wrap', gap: '0.4rem' }}>
                               <span style={{ color: 'var(--success)', fontWeight: 600 }}>
-                                ตรวจรับผ่านแล้ว: {item.acceptedQty.toLocaleString()} {item.unit} ({itemAcceptedPct.toFixed(1)}%)
+                                ตรวจรับผ่านแล้ว: {item.acceptedQty.toLocaleString()} {item.unit} ({((item.acceptedQty / (targetBase || 1)) * 100).toFixed(1)}%)
                               </span>
                               {item.pendingQty > 0 && (
                                 <span style={{ color: 'var(--quarantine)', fontWeight: 600 }}>
                                   รอตรวจรับ: {item.pendingQty.toLocaleString()} {item.unit}
                                 </span>
                               )}
-                              <span style={{ color: item.outstandingQty > 0 ? 'var(--accent-color)' : 'var(--text-muted)', fontWeight: 600 }}>
-                                ค้างรับ: {item.outstandingQty.toLocaleString()} {item.unit}
-                              </span>
+                              {isOver ? (
+                                <span style={{ color: '#ef4444', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '0.2rem' }}>
+                                  🚨 ส่งเกินสัญญา (แถม): +{item.overDeliveredQty.toLocaleString()} {item.unit} (+{((item.overDeliveredQty / targetBase) * 100).toFixed(1)}%)
+                                </span>
+                              ) : item.outstandingQty > 0 ? (
+                                <span style={{ color: 'var(--accent-color)', fontWeight: 600 }}>
+                                  ค้างส่งมอบ: {item.outstandingQty.toLocaleString()} {item.unit}
+                                </span>
+                              ) : (
+                                <span style={{ color: 'var(--success)', fontWeight: 600 }}>
+                                  ✅ ส่งมอบครบตามสัญญา
+                                </span>
+                              )}
                             </div>
                             
                             <div style={{ 
-                              height: '10px', 
+                              height: '12px', 
                               background: 'rgba(255,255,255,0.05)', 
                               borderRadius: '10px', 
                               overflow: 'hidden', 
                               display: 'flex',
-                              border: '1px solid var(--glass-border)'
+                              position: 'relative',
+                              border: isOver ? '1px solid rgba(239, 68, 68, 0.4)' : '1px solid var(--glass-border)'
                             }}>
-                              <div style={{ width: `${itemAcceptedPct}%`, height: '100%', background: 'var(--success)' }} title="ตรวจรับผ่านแล้ว" />
-                              <div style={{ width: `${itemPendingPct}%`, height: '100%', background: 'var(--quarantine)' }} title="อยู่ระหว่างรอตรวจรับ" />
-                              <div style={{ width: `${itemRemainingPct}%`, height: '100%', background: 'transparent' }} title="ค้างส่งมอบ" />
+                              <div style={{ width: `${pctAccepted}%`, height: '100%', background: 'var(--success)', transition: 'width 0.3s' }} title={`ตรวจรับผ่านแล้ว ${item.acceptedQty.toLocaleString()} ${item.unit}`} />
+                              <div style={{ width: `${pctPending}%`, height: '100%', background: 'var(--quarantine)', transition: 'width 0.3s' }} title={`รอตรวจรับ ${item.pendingQty.toLocaleString()} ${item.unit}`} />
+                              {pctOutstanding > 0 && (
+                                <div style={{ width: `${pctOutstanding}%`, height: '100%', background: 'transparent' }} title={`ค้างส่งมอบ ${item.outstandingQty.toLocaleString()} ${item.unit}`} />
+                              )}
+                              {pctOver > 0 && (
+                                <div style={{ 
+                                  width: `${pctOver}%`, 
+                                  height: '100%', 
+                                  background: '#ef4444', 
+                                  backgroundImage: 'repeating-linear-gradient(45deg, #ef4444, #ef4444 6px, #dc2626 6px, #dc2626 12px)',
+                                  transition: 'width 0.3s' 
+                                }} title={`ส่วนที่ส่งเกินสัญญา (ของแถม) +${item.overDeliveredQty.toLocaleString()} ${item.unit}`} />
+                              )}
+                              {isOver && (
+                                <div 
+                                  style={{
+                                    position: 'absolute',
+                                    left: `${targetMarkerPct}%`,
+                                    top: 0,
+                                    bottom: 0,
+                                    width: '2px',
+                                    background: '#ffffff',
+                                    boxShadow: '0 0 4px rgba(255,255,255,0.9)',
+                                    zIndex: 2
+                                  }} 
+                                  title="เป้าหมายตามสัญญา (100%)"
+                                />
+                              )}
                             </div>
 
                             {/* Secondary Stock Status summary line */}
@@ -2700,7 +2810,13 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
                                 📦 <strong>คงเหลือในคลัง:</strong> <span style={{ color: item.remainingStockQty > 0 ? '#10b981' : 'var(--danger)', fontWeight: 700 }}>{item.remainingStockQty.toLocaleString()} {item.unit}</span>
                               </span>
                               <span>
-                                ⏳ <strong>รอส่งมอบอีก:</strong> <span style={{ color: item.outstandingQty > 0 ? 'var(--accent-color)' : 'var(--text-muted)', fontWeight: 700 }}>{item.outstandingQty.toLocaleString()} {item.unit}</span>
+                                {isOver ? (
+                                  <>🎁 <strong>ส่งเกินสัญญา:</strong> <span style={{ color: '#ef4444', fontWeight: 700 }}>+{item.overDeliveredQty.toLocaleString()} {item.unit}</span></>
+                                ) : item.outstandingQty > 0 ? (
+                                  <>⏳ <strong>รอส่งมอบอีก:</strong> <span style={{ color: 'var(--accent-color)', fontWeight: 700 }}>{item.outstandingQty.toLocaleString()} {item.unit}</span></>
+                                ) : (
+                                  <>✅ <strong>ส่งมอบครบแล้ว:</strong> <span style={{ color: 'var(--success)', fontWeight: 700 }}>0 {item.unit}</span></>
+                                )}
                               </span>
                             </div>
                           </div>
@@ -2718,20 +2834,38 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
                           }}>
                             <div style={{ background: 'rgba(255,255,255,0.02)', padding: '0.45rem 0.6rem', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.05)' }}>
                               <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>ยอดตามสัญญา</div>
-                              <div style={{ fontWeight: 700, color: 'var(--text-primary)', marginTop: '0.15rem' }}>{Number(item.totalQty).toLocaleString()} {item.unit}</div>
+                              <div style={{ fontWeight: 700, color: 'var(--text-primary)', marginTop: '0.15rem' }}>
+                                {Number(item.totalQty).toLocaleString()} {item.unit}
+                                {item.freeQty > 0 && (
+                                  <span style={{ fontSize: '0.68rem', color: 'var(--success)', display: 'block', fontWeight: 600 }}>
+                                    (+แถม {Number(item.freeQty).toLocaleString()} {item.unit})
+                                  </span>
+                                )}
+                              </div>
                             </div>
                             <div style={{ background: 'rgba(255,255,255,0.02)', padding: '0.45rem 0.6rem', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.05)' }}>
                               <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>มาส่งแล้วทั้งหมด</div>
-                              <div style={{ fontWeight: 700, color: 'var(--accent-secondary)', marginTop: '0.15rem' }}>{item.totalDelivered.toLocaleString()} {item.unit}</div>
+                              <div style={{ fontWeight: 700, color: isOver ? '#ef4444' : 'var(--accent-secondary)', marginTop: '0.15rem' }}>
+                                {item.totalDelivered.toLocaleString()} {item.unit}
+                              </div>
                             </div>
                             <div style={{ background: 'rgba(16, 185, 129, 0.04)', padding: '0.45rem 0.6rem', borderRadius: '6px', border: '1px solid rgba(16, 185, 129, 0.18)' }}>
                               <div style={{ fontSize: '0.68rem', color: 'var(--success)' }}>ตรวจรับผ่านแล้ว</div>
                               <div style={{ fontWeight: 700, color: 'var(--success)', marginTop: '0.15rem' }}>{item.acceptedQty.toLocaleString()} {item.unit}</div>
                             </div>
-                            <div style={{ background: 'rgba(245, 158, 11, 0.04)', padding: '0.45rem 0.6rem', borderRadius: '6px', border: '1px solid rgba(245, 158, 11, 0.18)' }}>
-                              <div style={{ fontSize: '0.68rem', color: 'var(--accent-color)' }}>ยอดค้างส่งมอบ</div>
-                              <div style={{ fontWeight: 700, color: item.outstandingQty > 0 ? 'var(--accent-color)' : 'var(--text-muted)', marginTop: '0.15rem' }}>{item.outstandingQty.toLocaleString()} {item.unit}</div>
-                            </div>
+                            {isOver ? (
+                              <div style={{ background: 'rgba(239, 68, 68, 0.08)', padding: '0.45rem 0.6rem', borderRadius: '6px', border: '1px solid rgba(239, 68, 68, 0.28)' }}>
+                                <div style={{ fontSize: '0.68rem', color: '#ef4444', fontWeight: 600 }}>ส่งเกินสัญญา (ของแถม)</div>
+                                <div style={{ fontWeight: 800, color: '#ef4444', marginTop: '0.15rem' }}>+{item.overDeliveredQty.toLocaleString()} {item.unit}</div>
+                              </div>
+                            ) : (
+                              <div style={{ background: 'rgba(245, 158, 11, 0.04)', padding: '0.45rem 0.6rem', borderRadius: '6px', border: '1px solid rgba(245, 158, 11, 0.18)' }}>
+                                <div style={{ fontSize: '0.68rem', color: item.outstandingQty > 0 ? 'var(--accent-color)' : 'var(--text-muted)' }}>ยอดค้างส่งมอบ</div>
+                                <div style={{ fontWeight: 700, color: item.outstandingQty > 0 ? 'var(--accent-color)' : 'var(--text-muted)', marginTop: '0.15rem' }}>
+                                  {item.outstandingQty > 0 ? `${item.outstandingQty.toLocaleString()} ${item.unit}` : 'ส่งมอบครบแล้ว'}
+                                </div>
+                              </div>
+                            )}
                             <div style={{ background: 'rgba(245, 158, 11, 0.08)', padding: '0.45rem 0.6rem', borderRadius: '6px', border: '1px solid rgba(245, 158, 11, 0.28)' }}>
                               <div style={{ fontSize: '0.68rem', color: '#f59e0b', fontWeight: 600 }}>📤 ตัดใช้ไปแล้ว</div>
                               <div style={{ fontWeight: 800, color: '#f59e0b', marginTop: '0.15rem' }}>{item.withdrawnQty.toLocaleString()} {item.unit}</div>
