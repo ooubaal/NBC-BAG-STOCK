@@ -324,6 +324,8 @@ function App() {
             if (lot && lot.id) remoteMap.set(String(lot.id), lot);
           });
 
+          let needLocalResync = false;
+
           const merged = prevLocal.map(localLot => {
             if (!localLot || !localLot.id) return localLot;
             const remoteLot = remoteMap.get(String(localLot.id));
@@ -336,11 +338,15 @@ function App() {
               !remoteWithdrawals.some(rw => String(rw.id) === String(lw.id))
             );
 
-            const localTime = new Date(localLot.updatedAt || localLot.createdAt || 0).getTime();
-            const remoteTime = new Date(remoteLot.updatedAt || remoteLot.createdAt || 0).getTime();
+            const localTime = new Date(localLot.updatedAt || localLot.lastEditedAt || localLot.createdAt || 0).getTime();
+            const remoteTime = new Date(remoteLot.updatedAt || remoteLot.lastEditedAt || remoteLot.createdAt || 0).getTime();
 
             // PREVENT BLIND REMOTE OVERWRITE:
-            if (localHasExtraWithdrawals || (localTime > remoteTime && Number(localLot.remainingQty) < Number(remoteLot.remainingQty))) {
+            // Preserve local changes if:
+            // 1. Local lot has un-synced withdrawals (localHasExtraWithdrawals)
+            // 2. Local lot was updated more recently than remote (localTime > remoteTime)
+            if (localHasExtraWithdrawals || localTime > remoteTime) {
+              needLocalResync = true;
               const combinedWithdrawals = [...localWithdrawals];
               remoteWithdrawals.forEach(rw => {
                 if (!combinedWithdrawals.some(cw => String(cw.id) === String(rw.id))) {
@@ -369,6 +375,12 @@ function App() {
           });
 
           merged.sort((a, b) => Number(b.id || 0) - Number(a.id || 0));
+
+          if (needLocalResync) {
+            // Re-enable sync so synchronizer pushes the kept local changes to Firestore
+            isRemoteInventoryUpdateRef.current = false;
+          }
+
           return merged;
         });
 

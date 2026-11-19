@@ -859,11 +859,15 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
 
   // Handle Accept Delivery
   const handleAcceptDelivery = (lotId) => {
+    const nowIso = new Date().toISOString();
+    const todayStr = nowIso.split('T')[0];
     setInventory(prev => prev.map(lot => {
-      if (lot.id === lotId) {
+      if (String(lot.id) === String(lotId)) {
         return {
           ...lot,
-          acceptanceStatus: 'Accepted'
+          acceptanceStatus: 'Accepted',
+          acceptanceUpdateDate: todayStr,
+          updatedAt: nowIso
         };
       }
       return lot;
@@ -872,11 +876,15 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
 
   // Handle Reject Delivery
   const handleRejectDelivery = (lotId) => {
+    const nowIso = new Date().toISOString();
+    const todayStr = nowIso.split('T')[0];
     setInventory(prev => prev.map(lot => {
-      if (lot.id === lotId) {
+      if (String(lot.id) === String(lotId)) {
         return {
           ...lot,
-          acceptanceStatus: 'Rejected'
+          acceptanceStatus: 'Rejected',
+          acceptanceUpdateDate: todayStr,
+          updatedAt: nowIso
         };
       }
       return lot;

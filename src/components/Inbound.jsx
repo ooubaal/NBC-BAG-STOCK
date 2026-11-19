@@ -1713,8 +1713,9 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
   };
 
   const handleUpdateAgreement = (id, newAgreementId) => {
+    const nowIso = new Date().toISOString();
     setInventory(prev => prev.map(item => {
-      if (item.id === id) {
+      if (String(item.id) === String(id)) {
         let nextAcceptance = item.acceptanceStatus || '';
         if (newAgreementId && !item.acceptanceStatus) {
           nextAcceptance = 'Pending';
@@ -1724,7 +1725,8 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
         return {
           ...item,
           agreementId: newAgreementId,
-          acceptanceStatus: nextAcceptance
+          acceptanceStatus: nextAcceptance,
+          updatedAt: nowIso
         };
       }
       return item;
