@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, ChevronUp, History, Settings, Save, Trash2, AlertTriangle, FileSpreadsheet } from 'lucide-react';
+import { Loader2, Search, ChevronUp, History, Settings, Save, Trash2, AlertTriangle, FileSpreadsheet } from 'lucide-react';
 import ExcelJS from 'exceljs';
 
 const AcceptanceBadge = ({ status }) => {
@@ -32,7 +32,7 @@ const formatDateToDDMMYYYY = (dateStr) => {
   return `${dd}/${mm}/${yyyy}`;
 };
 
-const Inventory = ({ inventory, setInventory }) => {
+const Inventory = ({ inventory, setInventory, items, agreements, isSyncing = false }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [expandedRow, setExpandedRow] = useState(null);
   
@@ -934,10 +934,27 @@ const Inventory = ({ inventory, setInventory }) => {
                               </div>
                               <button 
                                 className="btn btn-primary" 
-                                style={{ width: '100%', justifyContent: 'center', marginTop: '0.5rem' }}
+                                style={{ 
+                                  width: '100%', 
+                                  justifyContent: 'center', 
+                                  marginTop: '0.5rem',
+                                  opacity: isSyncing ? 0.65 : 1,
+                                  cursor: isSyncing ? 'not-allowed' : 'pointer'
+                                }}
                                 onClick={() => handleUpdateStatus(item.id)}
+                                disabled={isSyncing}
                               >
-                                <Save size={16} /> อัปเดตสถานะ
+                                {isSyncing ? (
+                                  <>
+                                    <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} />
+                                    <span>กำลังซิงค์ข้อมูล... (Loading)</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Save size={16} /> 
+                                    <span>อัปเดตสถานะ</span>
+                                  </>
+                                )}
                               </button>
 
                               <button 
@@ -1331,9 +1348,26 @@ const Inventory = ({ inventory, setInventory }) => {
             <button 
               className="btn btn-primary" 
               onClick={handleBulkUpdate}
-              style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+              disabled={isSyncing}
+              style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '0.5rem',
+                opacity: isSyncing ? 0.65 : 1,
+                cursor: isSyncing ? 'not-allowed' : 'pointer'
+              }}
             >
-              <Save size={16} /> บันทึกการอัปเดตกลุ่ม
+              {isSyncing ? (
+                <>
+                  <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} />
+                  <span>กำลังซิงค์ข้อมูล... (Loading)</span>
+                </>
+              ) : (
+                <>
+                  <Save size={16} /> 
+                  <span>บันทึกการอัปเดตกลุ่ม</span>
+                </>
+              )}
             </button>
           </div>
         </div>

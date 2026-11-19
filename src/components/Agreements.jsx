@@ -194,7 +194,7 @@ const SearchableSelect = ({ value, onChange, options = [], placeholder, disabled
   );
 };
 
-const Agreements = ({ agreements, setAgreements, inventory, setInventory, items }) => {
+const Agreements = ({ agreements, setAgreements, inventory, setInventory, items, isSyncing = false }) => {
   const [activeTab, setActiveTab] = useState('list'); // 'list' or 'new'
   const [expandedAgreementId, setExpandedAgreementId] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -3359,6 +3359,7 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
                                                 <button 
                                                   className="btn btn-primary"
                                                   onClick={() => handleAcceptDelivery(del.id)}
+                                                  disabled={isSyncing}
                                                   style={{ 
                                                     background: 'var(--success)', 
                                                     color: '#fff', 
@@ -3366,14 +3367,18 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
                                                     fontSize: '0.7rem',
                                                     display: 'flex',
                                                     alignItems: 'center',
-                                                    gap: '0.2rem'
+                                                    gap: '0.2rem',
+                                                    opacity: isSyncing ? 0.6 : 1,
+                                                    cursor: isSyncing ? 'not-allowed' : 'pointer'
                                                   }}
                                                 >
-                                                  <Check size={12} /> ตรวจรับผ่าน
+                                                  {isSyncing ? <Loader2 size={12} style={{ animation: 'spin 1s linear infinite' }} /> : <Check size={12} />} 
+                                                  {isSyncing ? 'กำลังซิงค์...' : 'ตรวจรับผ่าน'}
                                                 </button>
                                                 <button 
                                                   className="btn"
                                                   onClick={() => handleRejectDelivery(del.id)}
+                                                  disabled={isSyncing}
                                                   style={{ 
                                                     background: 'var(--danger)', 
                                                     color: '#fff', 
@@ -3381,10 +3386,13 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items 
                                                     fontSize: '0.7rem',
                                                     display: 'flex',
                                                     alignItems: 'center',
-                                                    gap: '0.2rem'
+                                                    gap: '0.2rem',
+                                                    opacity: isSyncing ? 0.6 : 1,
+                                                    cursor: isSyncing ? 'not-allowed' : 'pointer'
                                                   }}
                                                 >
-                                                  <X size={12} /> ปฏิเสธการรับ
+                                                  {isSyncing ? <Loader2 size={12} style={{ animation: 'spin 1s linear infinite' }} /> : <X size={12} />} 
+                                                  {isSyncing ? 'กำลังซิงค์...' : 'ปฏิเสธการรับ'}
                                                 </button>
                                               </div>
                                             ) : del.acceptanceStatus === 'Accepted' ? (

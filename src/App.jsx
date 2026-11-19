@@ -21,7 +21,9 @@ import {
   Truck,
   Flame,
   ShieldAlert,
-  AlertTriangle
+  AlertTriangle,
+  Loader2,
+  Cloud
 } from 'lucide-react';
 import './App.css';
 
@@ -230,6 +232,23 @@ function App() {
   });
 
   const [db, setDb] = useState(null);
+
+  // Global sync state tracking for loading indicator & duplicate prevention
+  const [syncCount, setSyncCount] = useState(0);
+  const [syncState, setSyncState] = useState('idle'); // 'idle' | 'syncing' | 'synced' | 'error'
+  const isSyncing = syncCount > 0;
+
+  useEffect(() => {
+    if (syncCount > 0) {
+      setSyncState('syncing');
+    } else if (syncState === 'syncing') {
+      setSyncState('synced');
+      const timer = setTimeout(() => {
+        setSyncState('idle');
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [syncCount]);
 
   // Flags to prevent circular sync loops when data arrives from remote Firestore
   const isRemoteItemsUpdateRef = useRef(false);
@@ -623,6 +642,7 @@ function App() {
     if (changedItems.length === 0 && deletedItems.length === 0) return;
 
     const syncItemsBatch = async () => {
+      setSyncCount(c => c + 1);
       try {
         const allOps = [
           ...changedItems.map(item => ({ type: 'set', id: encodeURIComponent(item.name.trim()), data: sanitizeForFirestore(item) })),
@@ -650,6 +670,9 @@ function App() {
         }).catch(() => {});
       } catch (err) {
         console.error("Error batch syncing items to Firestore:", err);
+        setSyncState('error');
+      } finally {
+        setSyncCount(c => Math.max(0, c - 1));
       }
     };
 
@@ -701,6 +724,7 @@ function App() {
     if (changedLots.length === 0 && deletedLots.length === 0) return;
 
     const syncInventoryBatch = async () => {
+      setSyncCount(c => c + 1);
       try {
         const allOps = [
           ...changedLots.map(item => ({ type: 'set', id: String(item.id), data: sanitizeForFirestore(item) })),
@@ -747,6 +771,9 @@ function App() {
         }
       } catch (err) {
         console.error("Error batch syncing inventory to Firestore:", err);
+        setSyncState('error');
+      } finally {
+        setSyncCount(c => Math.max(0, c - 1));
       }
     };
 
@@ -798,6 +825,7 @@ function App() {
     if (changedAgreements.length === 0 && deletedAgreements.length === 0) return;
 
     const syncAgreementsBatch = async () => {
+      setSyncCount(c => c + 1);
       try {
         const allOps = [
           ...changedAgreements.map(ag => ({ type: 'set', id: String(ag.id), data: ag })),
@@ -819,9 +847,12 @@ function App() {
         }
       } catch (err) {
         console.error("Error syncing agreements:", err);
+        setSyncState('error');
         if (err.code === 'resource-exhausted' || err.message?.includes('too large') || err.message?.includes('exceeds')) {
           alert("⚠️ ไม่สามารถบันทึกไฟล์แนบลงคลาวด์ได้ เนื่องจากขนาดเอกสารรวมกันใหญ่เกินข้อจำกัด (1 MB) ของ Firestore\nแต่อุปกรณ์เครื่องนี้ยังจดจำข้อมูลของคุณไว้ชั่วคราวได้");
         }
+      } finally {
+        setSyncCount(c => Math.max(0, c - 1));
       }
     };
     syncAgreementsBatch();
@@ -872,6 +903,7 @@ function App() {
     if (changedClaims.length === 0 && deletedClaims.length === 0) return;
 
     const syncClaimsBatch = async () => {
+      setSyncCount(c => c + 1);
       try {
         const allOps = [
           ...changedClaims.map(c => ({ type: 'set', id: String(c.id), data: c })),
@@ -893,6 +925,9 @@ function App() {
         }
       } catch (err) {
         console.error("Error syncing claims:", err);
+        setSyncState('error');
+      } finally {
+        setSyncCount(c => Math.max(0, c - 1));
       }
     };
     syncClaimsBatch();
@@ -1158,17 +1193,17 @@ function App() {
       case 'items':
         return <ProductRegistry items={items} setItems={updateItems} />;
       case 'inventory':
-        return <Inventory inventory={inventory} setInventory={updateInventory} items={items} agreements={agreements} />;
+        return <Inventory inventory={inventory} setInventory={updateInventory} items={items} agreements={agreements} isSyncing={isSyncing} />;
       case 'inbound':
-        return <Inbound setInventory={updateInventory} items={items} inventory={inventory} agreements={agreements} />;
+        return <Inbound setInventory={updateInventory} items={items} inventory={inventory} agreements={agreements} isSyncing={isSyncing} />;
       case 'withdrawal':
-        return <Withdrawal inventory={inventory} setInventory={updateInventory} items={items} agreements={agreements} />;
+        return <Withdrawal inventory={inventory} setInventory={updateInventory} items={items} agreements={agreements} isSyncing={isSyncing} />;
       case 'analytics':
         return <Analytics inventory={inventory} items={items} agreements={agreements} claims={claims} />;
       case 'ncp':
         return <NCP inventory={inventory} items={items} claims={claims} setClaims={updateClaims} />;
       case 'agreements':
-        return <Agreements agreements={agreements} setAgreements={updateAgreements} inventory={inventory} setInventory={updateInventory} items={items} />;
+        return <Agreements agreements={agreements} setAgreements={updateAgreements} inventory={inventory} setInventory={updateInventory} items={items} isSyncing={isSyncing} />;
       case 'labels':
         return <StatusLabels inventory={inventory} />;
       case 'settings':
@@ -1201,6 +1236,60 @@ function App() {
 
   return (
     <div className="app-container">
+      {/* Global Cloud Sync Status Indicator */}
+      {syncState !== 'idle' && (
+        <div 
+          style={{
+            position: 'fixed',
+            top: '1rem',
+            right: '1.5rem',
+            zIndex: 99999,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.6rem',
+            padding: '0.55rem 1.1rem',
+            borderRadius: '30px',
+            fontSize: '0.84rem',
+            fontWeight: 600,
+            backdropFilter: 'blur(12px)',
+            boxShadow: '0 4px 25px rgba(0, 0, 0, 0.45)',
+            pointerEvents: 'none',
+            transition: 'all 0.3s ease',
+            background: syncState === 'syncing' 
+              ? 'rgba(15, 23, 42, 0.94)' 
+              : syncState === 'synced' 
+                ? 'rgba(6, 78, 59, 0.94)' 
+                : 'rgba(127, 29, 29, 0.94)',
+            color: syncState === 'syncing' ? '#38bdf8' : syncState === 'synced' ? '#34d399' : '#f87171',
+            border: `1px solid ${
+              syncState === 'syncing' 
+                ? 'rgba(56, 189, 248, 0.45)' 
+                : syncState === 'synced' 
+                  ? 'rgba(52, 211, 153, 0.45)' 
+                  : 'rgba(248, 113, 113, 0.45)'
+            }`
+          }}
+        >
+          {syncState === 'syncing' && (
+            <>
+              <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} />
+              <span>กำลังซิงค์ข้อมูลกับคลาวด์... (Loading)</span>
+            </>
+          )}
+          {syncState === 'synced' && (
+            <>
+              <CheckCircle2 size={16} />
+              <span>ซิงค์ข้อมูลขึ้นคลาวด์เรียบร้อย</span>
+            </>
+          )}
+          {syncState === 'error' && (
+            <>
+              <AlertTriangle size={16} />
+              <span>ซิงค์ข้อมูลขัดข้อง (กรุณาตรวจสอบเน็ต)</span>
+            </>
+          )}
+        </div>
+      )}
       {/* Mobile Header */}
       <header className="mobile-header glass">
         <button className="menu-toggle-btn" onClick={() => setIsMobileMenuOpen(true)}>
@@ -1291,7 +1380,35 @@ function App() {
           />
         </nav>
 
-        <div style={{ marginTop: 'auto', paddingTop: '2rem' }}>
+        <div style={{ marginTop: 'auto', paddingTop: '1.5rem' }}>
+          {/* Cloud Sync Status Indicator in Sidebar */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.45rem',
+            fontSize: '0.73rem',
+            fontWeight: 600,
+            padding: '0.45rem 0.8rem',
+            borderRadius: '6px',
+            margin: '0 0.8rem 0.75rem 0.8rem',
+            background: isSyncing ? 'rgba(56, 189, 248, 0.12)' : 'rgba(16, 185, 129, 0.08)',
+            border: isSyncing ? '1px solid rgba(56, 189, 248, 0.35)' : '1px solid rgba(16, 185, 129, 0.22)',
+            color: isSyncing ? '#38bdf8' : '#10b981',
+            transition: 'all 0.3s'
+          }}>
+            {isSyncing ? (
+              <>
+                <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} />
+                <span>กำลังซิงค์ข้อมูล...</span>
+              </>
+            ) : (
+              <>
+                <Cloud size={13} />
+                <span>คลาวด์: ข้อมูลล่าสุด</span>
+              </>
+            )}
+          </div>
+
           <NavItem 
             active={activeTab === 'settings'} 
             onClick={() => { setActiveTab('settings'); setIsMobileMenuOpen(false); }}
