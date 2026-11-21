@@ -44,6 +44,18 @@ import { sanitizeForFirestore } from './utils/sanitize';
 
 const INITIAL_ITEMS = [];
 
+const QUICK_SHORTCUTS = [
+  { id: 'dashboard', label: 'Dashboard', shortLabel: 'Dashboard', icon: LayoutDashboard },
+  { id: 'inventory', label: 'คลังพัสดุ', shortLabel: 'คลังพัสดุ', icon: History },
+  { id: 'inbound', label: 'รับเข้า', shortLabel: 'รับเข้า', icon: Plus },
+  { id: 'withdrawal', label: 'การตัดจ่าย', shortLabel: 'ตัดจ่าย', icon: MinusCircle },
+  { id: 'agreements', label: 'สัญญาจัดซื้อ', shortLabel: 'สัญญา', icon: ClipboardList },
+  { id: 'analytics', label: 'วิเคราะห์ Stock', shortLabel: 'วิเคราะห์', icon: BarChart3 },
+  { id: 'items', label: 'ทะเบียนพัสดุ', shortLabel: 'ทะเบียน', icon: Package },
+  { id: 'ncp', label: 'เคลมสินค้า NCP', shortLabel: 'เคลม', icon: AlertOctagon },
+  { id: 'labels', label: 'พิมพ์ป้ายสถานะ', shortLabel: 'ป้ายพัสดุ', icon: Tag },
+];
+
 const NUM_BUCKETS = 20;
 
 const getBucketId = (id) => {
@@ -260,6 +272,16 @@ function App() {
   const prevInventoryRef = useRef(inventory);
   const prevAgreementsRef = useRef(agreements);
   const prevClaimsRef = useRef(claims);
+  const shortcutScrollRef = useRef(null);
+
+  useEffect(() => {
+    if (shortcutScrollRef.current) {
+      const activeEl = shortcutScrollRef.current.querySelector('.quick-shortcut-btn.active');
+      if (activeEl) {
+        activeEl.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+      }
+    }
+  }, [activeTab]);
 
   // 2. Initialize Firebase dynamically on boot or when config changes
   useEffect(() => {
@@ -1253,16 +1275,38 @@ function App() {
           )}
         </div>
       )}
-      {/* Mobile Header */}
+      {/* Mobile Sticky Quick Shortcut Header */}
       <header className="mobile-header glass">
-        <button className="menu-toggle-btn" onClick={() => setIsMobileMenuOpen(true)}>
-          <Menu size={24} />
+        <button 
+          className="menu-toggle-btn" 
+          onClick={() => setIsMobileMenuOpen(true)}
+          title="เปิดเมนูหลักทั้งหมด"
+          style={{ flexShrink: 0 }}
+        >
+          <Menu size={22} />
         </button>
-        <div className="mobile-logo" onClick={() => { setActiveTab('dashboard'); setIsMobileMenuOpen(false); }}>
-          <Package size={24} color="var(--accent-color)" />
-          <span>NBC STOCK</span>
+
+        <div className="quick-shortcuts-scroll" ref={shortcutScrollRef}>
+          {QUICK_SHORTCUTS.map(sc => {
+            const Icon = sc.icon;
+            const isActive = activeTab === sc.id;
+            return (
+              <button
+                key={sc.id}
+                type="button"
+                className={`quick-shortcut-btn ${isActive ? 'active' : ''}`}
+                onClick={() => {
+                  setActiveTab(sc.id);
+                  setIsMobileMenuOpen(false);
+                }}
+                title={sc.label}
+              >
+                <Icon size={14} />
+                <span>{sc.shortLabel}</span>
+              </button>
+            );
+          })}
         </div>
-        <div style={{ width: 24 }} /> {/* placeholder for spacing balance */}
       </header>
 
       {/* Backdrop overlay */}
