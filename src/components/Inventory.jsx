@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Loader2, Search, ChevronUp, History, Settings, Save, Trash2, AlertTriangle, FileSpreadsheet } from 'lucide-react';
+import { Loader2, Search, ChevronUp, History, Settings, Save, Trash2, AlertTriangle, FileSpreadsheet, Camera } from 'lucide-react';
 import ExcelJS from 'exceljs';
 import Pagination from './Pagination';
+import SmartCameraModal from './SmartCameraModal';
 
 const AcceptanceBadge = ({ status }) => {
   const normalizedStatus = status || '';
@@ -35,6 +36,7 @@ const formatDateToDDMMYYYY = (dateStr) => {
 
 const Inventory = ({ inventory, setInventory, items, agreements, isSyncing = false }) => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [expandedRow, setExpandedRow] = useState(null);
   
   // Filter States
@@ -488,6 +490,28 @@ const Inventory = ({ inventory, setInventory, items, agreements, isSyncing = fal
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={() => setIsCameraOpen(true)}
+            style={{
+              padding: '0.35rem 0.75rem',
+              fontSize: '0.75rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.35rem',
+              whiteSpace: 'nowrap',
+              background: 'linear-gradient(135deg, rgba(14, 165, 233, 0.15), rgba(99, 102, 241, 0.15))',
+              border: '1px solid rgba(14, 165, 233, 0.35)',
+              color: 'var(--accent-color, #0ea5e9)',
+              fontWeight: 600,
+              borderRadius: '8px',
+              cursor: 'pointer'
+            }}
+            title="เปิดกล้องสแกนข้อความหรือ Lot ข้างกล่อง เพื่อค้นหาพัสดุอัตโนมัติ"
+          >
+            <Camera size={15} /> สแกนพัสดุ (AI)
+          </button>
         </div>
         <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
           <button
@@ -1402,6 +1426,16 @@ const Inventory = ({ inventory, setInventory, items, agreements, isSyncing = fal
           </div>
         </div>
       )}
+      {/* Smart Camera Scanner Modal */}
+      <SmartCameraModal
+        isOpen={isCameraOpen}
+        onClose={() => setIsCameraOpen(false)}
+        onSelectMatch={(keyword) => {
+          setSearchTerm(keyword);
+        }}
+        inventory={inventory}
+        items={items}
+      />
     </div>
   );
 };
