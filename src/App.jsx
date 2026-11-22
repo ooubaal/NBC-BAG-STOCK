@@ -58,17 +58,6 @@ const QUICK_SHORTCUTS = [
 
 const NUM_BUCKETS = 20;
 
-const getBucketId = (id) => {
-  const str = String(id || '');
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    hash = ((hash << 5) - hash) + str.charCodeAt(i);
-    hash |= 0;
-  }
-  const index = Math.abs(hash) % NUM_BUCKETS;
-  return `bucket_${index}`;
-};
-
 const formatDateToDDMMYYYY = (dateStr) => {
   if (!dateStr) return '';
   const cleanDate = dateStr.split('T')[0];

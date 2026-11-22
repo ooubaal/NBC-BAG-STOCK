@@ -1106,6 +1106,13 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items,
     );
   }, [processedAgreements, searchQuery]);
 
+  const effectiveAgPageSize = pageSize === 'all' ? filteredAgreements.length : Number(pageSize);
+  const paginatedAgreements = useMemo(() => {
+    if (pageSize === 'all') return filteredAgreements;
+    const start = (currentPage - 1) * effectiveAgPageSize;
+    return filteredAgreements.slice(start, start + effectiveAgPageSize);
+  }, [filteredAgreements, currentPage, effectiveAgPageSize, pageSize]);
+
   const printOutstandingReport = () => {
     const outstandingAgreements = processedAgreements.filter(ag => ag.outstandingQty > 0);
 

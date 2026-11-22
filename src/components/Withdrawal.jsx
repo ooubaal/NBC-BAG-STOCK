@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { MinusCircle, Search, Calendar, Package, AlertCircle, MapPin, Printer, ChevronDown, Zap, RotateCcw, X, CheckCircle2 } from 'lucide-react';
+import Pagination from './Pagination';
 
 const formatDateToDDMMYYYY = (dateStr) => {
   if (!dateStr) return '';
@@ -298,7 +299,7 @@ const Withdrawal = ({ inventory = [], setInventory, items = [] }) => {
 
   useEffect(() => {
     setHistoryPage(1);
-  }, [historySearch, historyStartDate, historyEndDate, historyFilterItem, historyFilterSupplierLot, historyFilterLocation, historyFilterReason, historyFilterAgreement, historySortType]);
+  }, [historySearch, historyStartDate, historyEndDate, historyFilterItem, historyFilterLocation, historyFilterReason, historyFilterAgreement, historySortType]);
 
   // Filter historical list based on search term, date range, items, locations, reasons, agreements, and sorting
   const filteredWithdrawals = useMemo(() => {

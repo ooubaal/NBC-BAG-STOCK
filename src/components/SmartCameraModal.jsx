@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { Camera, X, RefreshCw, Zap, Upload, Sparkles, Check, AlertCircle, Loader2, ArrowRight } from 'lucide-react';
 import { matchScannedText } from '../utils/smartMatcher';
 
@@ -25,34 +25,18 @@ const SmartCameraModal = ({
   const canvasRef = useRef(null);
   const tesseractWorkerRef = useRef(null);
 
-  // Initialize camera stream
-  useEffect(() => {
-    if (!isOpen) {
-      stopCamera();
-      return;
+  const stopCamera = useCallback(() => {
+    if (stream) {
+      stream.getTracks().forEach(t => t.stop());
+      setStream(null);
     }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+    setTorchOn(false);
+  }, [stream]);
 
-    setRecognizedText('');
-    setMatches([]);
-    setCameraError('');
-    startCamera();
-
-    return () => {
-      stopCamera();
-    };
-  }, [isOpen, currentDeviceId]);
-
-  // Clean up worker on unmount
-  useEffect(() => {
-    return () => {
-      if (tesseractWorkerRef.current) {
-        tesseractWorkerRef.current.terminate().catch(() => {});
-        tesseractWorkerRef.current = null;
-      }
-    };
-  }, []);
-
-  const startCamera = async () => {
+  const startCamera = useCallback(async () => {
     try {
       stopCamera();
       setCameraError('');
@@ -94,18 +78,34 @@ const SmartCameraModal = ({
         : 'ไม่สามารถเปิดกล้องได้ กรุณาตรวจสอบการเชื่อมต่อ หรือใช้วิธีอัปโหลดรูปภาพแทน'
       );
     }
-  };
+  }, [currentDeviceId, stopCamera]);
 
-  const stopCamera = () => {
-    if (stream) {
-      stream.getTracks().forEach(t => t.stop());
-      setStream(null);
+  // Initialize camera stream
+  useEffect(() => {
+    if (!isOpen) {
+      stopCamera();
+      return;
     }
-    if (videoRef.current) {
-      videoRef.current.srcObject = null;
-    }
-    setTorchOn(false);
-  };
+
+    setRecognizedText('');
+    setMatches([]);
+    setCameraError('');
+    startCamera();
+
+    return () => {
+      stopCamera();
+    };
+  }, [isOpen, currentDeviceId, startCamera, stopCamera]);
+
+  // Clean up worker on unmount
+  useEffect(() => {
+    return () => {
+      if (tesseractWorkerRef.current) {
+        tesseractWorkerRef.current.terminate().catch(() => {});
+        tesseractWorkerRef.current = null;
+      }
+    };
+  }, []);
 
   const toggleTorch = async () => {
     if (!stream) return;

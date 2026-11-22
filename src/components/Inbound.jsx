@@ -1619,7 +1619,7 @@ const Inbound = ({ setInventory, items, inventory = [], agreements = [] }) => {
 
   useEffect(() => {
     setHistoryPage(1);
-  }, [historySearch, historyStartDate, historyEndDate, historyFilterItem, historyFilterSupplierLot, historyFilterQC, historyFilterLocation, historySortType]);
+  }, [historySearch, historyStartDate, historyEndDate, historyFilterItem, historyFilterQC, historyFilterLocation, historyFilterContract, historySortType]);
 
   const filteredHistory = useMemo(() => {
     if (!Array.isArray(inventory)) return [];

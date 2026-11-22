@@ -42,7 +42,7 @@ function tokenize(text) {
   if (!text) return [];
   return text
     .toLowerCase()
-    .replace(/[^a-z0-9\u0E00-\u0E7F\/\-\.]+/g, ' ')
+    .replace(/[^a-z0-9\u0E00-\u0E7F/.-]+/g, ' ')
     .split(/\s+/)
     .filter(t => t.length >= 2);
 }
