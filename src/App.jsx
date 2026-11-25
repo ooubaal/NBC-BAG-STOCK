@@ -39,7 +39,7 @@ import Agreements from './components/Agreements';
 import StatusLabels from './components/StatusLabels';
 import LoginModal from './components/LoginModal';
 import UserProfileBar from './components/UserProfileBar';
-import { initFirebase, subscribeAuthState } from './firebase';
+import { initFirebase, subscribeAuthState, logoutFirebase } from './firebase';
 import { doc, setDoc, collection, onSnapshot, deleteDoc, getDocs, writeBatch } from 'firebase/firestore';
 import { idbGet, idbSet, idbDel } from './utils/idb';
 import { sanitizeForFirestore } from './utils/sanitize';
@@ -237,6 +237,7 @@ function App() {
   const [db, setDb] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
   const [authInitialized, setAuthInitialized] = useState(false);
+  const [isAccessDenied, setIsAccessDenied] = useState(false);
 
   // Subscribe to Firebase Auth state
   useEffect(() => {
@@ -244,10 +245,12 @@ function App() {
     if (firebaseConfig) {
       unsubscribe = subscribeAuthState((user) => {
         setCurrentUser(user);
+        setIsAccessDenied(false);
         setAuthInitialized(true);
       });
     } else {
       setCurrentUser(null);
+      setIsAccessDenied(false);
       setAuthInitialized(true);
     }
     return () => unsubscribe();
@@ -364,6 +367,9 @@ function App() {
       }
     }, (error) => {
       console.error("Error listening to items:", error);
+      if (error && (error.code === 'permission-denied' || String(error.message).includes('insufficient permissions'))) {
+        setIsAccessDenied(true);
+      }
     });
 
     return () => unsubscribe();
@@ -468,6 +474,9 @@ function App() {
       }
     }, (error) => {
       console.error("Error listening to inventory:", error);
+      if (error && (error.code === 'permission-denied' || String(error.message).includes('insufficient permissions'))) {
+        setIsAccessDenied(true);
+      }
     });
 
     return () => unsubscribe();
@@ -501,6 +510,9 @@ function App() {
       }
     }, (error) => {
       console.error("Error listening to agreements:", error);
+      if (error && (error.code === 'permission-denied' || String(error.message).includes('insufficient permissions'))) {
+        setIsAccessDenied(true);
+      }
     });
 
     return () => unsubscribe();
@@ -550,6 +562,9 @@ function App() {
       }
     }, (error) => {
       console.error("Error listening to claims:", error);
+      if (error && (error.code === 'permission-denied' || String(error.message).includes('insufficient permissions'))) {
+        setIsAccessDenied(true);
+      }
     });
 
     return () => unsubscribe();
@@ -1259,6 +1274,81 @@ function App() {
         onOpenSettings={() => setActiveTab('settings')}
         isFirebaseConfigured={Boolean(firebaseConfig && firebaseConfig.projectId)}
       />
+
+      {/* Access Denied / Pending Approval Screen */}
+      {isAccessDenied && currentUser && (
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(15, 23, 42, 0.92)',
+          backdropFilter: 'blur(10px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 99999,
+          padding: '1.5rem'
+        }}>
+          <div className="glass card fade-in" style={{
+            maxWidth: '460px',
+            width: '100%',
+            padding: '2.5rem 2rem',
+            textAlign: 'center',
+            border: '1px solid rgba(245, 158, 11, 0.35)',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
+            borderRadius: '16px'
+          }}>
+            <div style={{
+              width: '64px',
+              height: '64px',
+              borderRadius: '50%',
+              background: 'rgba(245, 158, 11, 0.15)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              margin: '0 auto 1.25rem auto'
+            }}>
+              <ShieldAlert size={34} color="#f59e0b" />
+            </div>
+
+            <h2 style={{ fontSize: '1.35rem', fontWeight: 800, margin: '0 0 0.5rem 0', color: 'var(--text-primary)' }}>
+              รอการอนุมัติสิทธิ์เข้าใช้งาน
+            </h2>
+            <p style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', margin: '0 0 1.25rem 0', lineHeight: 1.5 }}>
+              บัญชีนี้ยังไม่อยู่ในรายชื่อผู้มีสิทธิ์เข้าถึงฐานข้อมูลคลังพัสดุ (NBC STOCK)
+            </p>
+
+            <div style={{
+              background: 'rgba(0, 0, 0, 0.35)',
+              border: '1px solid var(--glass-border)',
+              borderRadius: '8px',
+              padding: '0.75rem 1rem',
+              marginBottom: '1.25rem',
+              fontSize: '0.82rem',
+              color: 'var(--text-primary)',
+              textAlign: 'left'
+            }}>
+              <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginBottom: '0.2rem' }}>บัญชี Google ของคุณ:</div>
+              <div style={{ fontWeight: 700, fontFamily: 'monospace', color: '#38bdf8' }}>{currentUser.email}</div>
+            </div>
+
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: '0 0 1.5rem 0', lineHeight: 1.4 }}>
+              👉 กรุณาแจ้งอีเมลด้านบนแก่ <strong>ผู้ดูแลระบบ (Admin)</strong> เพื่อเพิ่มสิทธิ์ให้บัญชีของคุณเข้าใช้งาน
+            </p>
+
+            <button
+              onClick={async () => {
+                await logoutFirebase();
+                setCurrentUser(null);
+                setIsAccessDenied(false);
+              }}
+              className="btn btn-secondary"
+              style={{ width: '100%', justifyContent: 'center' }}
+            >
+              สลับบัญชี / ออกจากระบบ
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Global Cloud Sync Status Indicator */}
       {syncState !== 'idle' && (
