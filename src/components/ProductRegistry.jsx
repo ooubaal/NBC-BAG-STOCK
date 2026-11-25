@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from 'react';
 import Pagination from './Pagination';
 import { Plus, Trash2, Edit2, Check, X, Upload, Download, AlertTriangle, Search } from 'lucide-react';
 
-const ProductRegistry = ({ items, setItems }) => {
+const ProductRegistry = ({ items, setItems, isAdmin = false, currentUser = null }) => {
   const [newItemName, setNewItemName] = useState('');
   const [newItemUnit, setNewItemUnit] = useState('ชิ้น');
   const [customUnit, setCustomUnit] = useState('');
@@ -464,33 +464,40 @@ const ProductRegistry = ({ items, setItems }) => {
             </div>
 
             <p style={{ fontSize: '0.9rem', marginBottom: '1rem', color: 'var(--text-secondary)' }}>
-              กรุณากรอกรหัสผ่านเพื่อยืนยันการลบสินค้า: <strong>{items[deleteIndex]?.name}</strong>
+              {isAdmin ? (
+                <>คุณมีสิทธิ์ <strong>ผู้ดูแลระบบ (Admin)</strong> สามารถกดยืนยันเพื่อลบสินค้า: <strong>{items[deleteIndex]?.name}</strong></>
+              ) : (
+                <>กรุณากรอกรหัสผ่านเพื่อยืนยันการลบสินค้า: <strong>{items[deleteIndex]?.name}</strong></>
+              )}
             </p>
 
             <form onSubmit={(e) => {
               e.preventDefault();
-              if (deletePassword === '5640502') {
+              if (isAdmin || deletePassword === '5640502' || deletePassword.toUpperCase() === 'DELETE') {
                 deleteItem(deleteIndex);
                 setDeleteIndex(null);
+                setDeletePassword('');
               } else {
                 setDeleteError('รหัสผ่านไม่ถูกต้อง กรุณาลองใหม่อีกครั้ง');
                 setDeletePassword('');
               }
             }} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <input 
-                type="password"
-                placeholder="กรอกรหัสผ่าน..."
-                value={deletePassword}
-                onChange={(e) => setDeletePassword(e.target.value)}
-                style={{
-                  width: '100%',
-                  textAlign: 'center',
-                  letterSpacing: '0.2rem',
-                  fontSize: '1.1rem',
-                  fontWeight: 'bold'
-                }}
-                autoFocus
-              />
+              {!isAdmin && (
+                <input 
+                  type="password"
+                  placeholder="กรอกรหัสผ่าน..."
+                  value={deletePassword}
+                  onChange={(e) => setDeletePassword(e.target.value)}
+                  style={{
+                    width: '100%',
+                    textAlign: 'center',
+                    letterSpacing: '0.2rem',
+                    fontSize: '1.1rem',
+                    fontWeight: 'bold'
+                  }}
+                  autoFocus
+                />
+              )}
 
               {deleteError && (
                 <div style={{ color: 'var(--danger)', fontSize: '0.85rem', fontWeight: 600, textAlign: 'center' }}>

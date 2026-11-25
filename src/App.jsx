@@ -37,7 +37,9 @@ import Withdrawal from './components/Withdrawal';
 import SettingsTab from './components/Settings';
 import Agreements from './components/Agreements';
 import StatusLabels from './components/StatusLabels';
-import { initFirebase } from './firebase';
+import LoginModal from './components/LoginModal';
+import UserProfileBar from './components/UserProfileBar';
+import { initFirebase, subscribeAuthState } from './firebase';
 import { doc, setDoc, collection, onSnapshot, deleteDoc, getDocs, writeBatch } from 'firebase/firestore';
 import { idbGet, idbSet, idbDel } from './utils/idb';
 import { sanitizeForFirestore } from './utils/sanitize';
@@ -233,6 +235,44 @@ function App() {
   });
 
   const [db, setDb] = useState(null);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [authInitialized, setAuthInitialized] = useState(false);
+
+  // Subscribe to Firebase Auth state
+  useEffect(() => {
+    let unsubscribe = () => {};
+    if (firebaseConfig) {
+      unsubscribe = subscribeAuthState((user) => {
+        setCurrentUser(user);
+        setAuthInitialized(true);
+      });
+    } else {
+      setCurrentUser(null);
+      setAuthInitialized(true);
+    }
+    return () => unsubscribe();
+  }, [firebaseConfig, db]);
+
+  // Determine if current user is an Admin
+  const isAdmin = useMemo(() => {
+    if (!currentUser || !currentUser.email) return false;
+    const email = currentUser.email.toLowerCase();
+    const savedAdmins = localStorage.getItem('wms_admin_emails');
+    if (!savedAdmins) {
+      // First user to log in automatically becomes initial admin
+      localStorage.setItem('wms_admin_emails', JSON.stringify([email]));
+      return true;
+    }
+    try {
+      const list = JSON.parse(savedAdmins);
+      if (Array.isArray(list) && list.map(e => String(e).toLowerCase()).includes(email)) {
+        return true;
+      }
+      return false;
+    } catch {
+      return true;
+    }
+  }, [currentUser]);
 
   // Global sync state tracking for loading indicator & duplicate prevention
   const [syncCount, setSyncCount] = useState(0);
@@ -1165,25 +1205,27 @@ function App() {
       case 'dashboard':
         return <Dashboard inventory={inventory} items={items} claims={claims} agreements={agreements} setActiveTab={setActiveTab} />;
       case 'items':
-        return <ProductRegistry items={items} setItems={updateItems} />;
+        return <ProductRegistry items={items} setItems={updateItems} isAdmin={isAdmin} currentUser={currentUser} />;
       case 'inventory':
-        return <Inventory inventory={inventory} setInventory={updateInventory} items={items} agreements={agreements} isSyncing={isSyncing} />;
+        return <Inventory inventory={inventory} setInventory={updateInventory} items={items} agreements={agreements} isSyncing={isSyncing} isAdmin={isAdmin} currentUser={currentUser} />;
       case 'inbound':
-        return <Inbound setInventory={updateInventory} items={items} inventory={inventory} agreements={agreements} isSyncing={isSyncing} />;
+        return <Inbound setInventory={updateInventory} items={items} inventory={inventory} agreements={agreements} isSyncing={isSyncing} currentUser={currentUser} />;
       case 'withdrawal':
-        return <Withdrawal inventory={inventory} setInventory={updateInventory} items={items} agreements={agreements} isSyncing={isSyncing} />;
+        return <Withdrawal inventory={inventory} setInventory={updateInventory} items={items} agreements={agreements} isSyncing={isSyncing} currentUser={currentUser} />;
       case 'analytics':
         return <Analytics inventory={inventory} items={items} agreements={agreements} claims={claims} />;
       case 'ncp':
-        return <NCP inventory={inventory} items={items} claims={claims} setClaims={updateClaims} />;
+        return <NCP inventory={inventory} items={items} claims={claims} setClaims={updateClaims} currentUser={currentUser} />;
       case 'agreements':
-        return <Agreements agreements={agreements} setAgreements={updateAgreements} inventory={inventory} setInventory={updateInventory} items={items} isSyncing={isSyncing} />;
+        return <Agreements agreements={agreements} setAgreements={updateAgreements} inventory={inventory} setInventory={updateInventory} items={items} isSyncing={isSyncing} isAdmin={isAdmin} currentUser={currentUser} />;
       case 'labels':
         return <StatusLabels inventory={inventory} />;
       case 'settings':
         return (
           <SettingsTab 
             config={firebaseConfig} 
+            currentUser={currentUser}
+            isAdmin={isAdmin}
             onSaveConfig={(newConfig) => {
               localStorage.setItem('wms_firebase_config', JSON.stringify(newConfig));
               setFirebaseConfig(newConfig);
@@ -1210,6 +1252,14 @@ function App() {
 
   return (
     <div className="app-container">
+      {/* Login Modal Gate when Firebase is active and user is not logged in */}
+      <LoginModal 
+        isOpen={Boolean(firebaseConfig && !currentUser && authInitialized)}
+        onLoginSuccess={(user) => setCurrentUser(user)}
+        onOpenSettings={() => setActiveTab('settings')}
+        isFirebaseConfigured={Boolean(firebaseConfig && firebaseConfig.projectId)}
+      />
+
       {/* Global Cloud Sync Status Indicator */}
       {syncState !== 'idle' && (
         <div 
@@ -1377,6 +1427,13 @@ function App() {
         </nav>
 
         <div style={{ marginTop: 'auto', paddingTop: '1.5rem' }}>
+          {/* User Profile & Logout Bar */}
+          <UserProfileBar 
+            currentUser={currentUser} 
+            isAdmin={isAdmin} 
+            onLogout={() => setCurrentUser(null)} 
+          />
+
           {/* Cloud Sync Status Indicator in Sidebar */}
           <div style={{
             display: 'flex',

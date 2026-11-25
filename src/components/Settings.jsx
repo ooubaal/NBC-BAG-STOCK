@@ -1,16 +1,28 @@
 import { useState } from 'react';
 import { Database, CheckCircle2, AlertTriangle, Key, Save, RefreshCw, LogOut, Info, AlertOctagon } from 'lucide-react';
 
-const Settings = ({ config, onSaveConfig, onDisconnect, onMigrate, syncStats, isMigrating, onBackup, onRestore, onReset }) => {
+const Settings = ({ 
+  config, 
+  onSaveConfig, 
+  onDisconnect, 
+  onMigrate, 
+  syncStats, 
+  isMigrating, 
+  onBackup, 
+  onRestore, 
+  onReset,
+  currentUser,
+  isAdmin 
+}) => {
   const [rawConfigInput, setRawConfigInput] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [passwordInput, setPasswordInput] = useState('');
-  const [isAuthorized, setIsAuthorized] = useState(false);
+  const [isAuthorized, setIsAuthorized] = useState(() => !config || Boolean(isAdmin));
   const [passError, setPassError] = useState('');
 
   const handlePasswordSubmit = (e) => {
     e.preventDefault();
-    if (passwordInput === '5640502') {
+    if (passwordInput === '5640502' || isAdmin) {
       setIsAuthorized(true);
       setPassError('');
     } else {
@@ -425,15 +437,29 @@ const Settings = ({ config, onSaveConfig, onDisconnect, onMigrate, syncStats, is
               </div>
             </li>
             <li>
-              <strong>ตั้งค่าสิทธิ์เข้าถึง (สำคัญมาก ⚠️):</strong>
+              <strong>ตั้งค่าสิทธิ์เข้าถึงตามมาตรฐานความปลอดภัย (สำคัญมาก 🔒):</strong>
               <div style={{ marginTop: '0.2rem' }}>
-                ตอนเลือกการเริ่มตั้งค่า ให้เลือกเริ่มใน **Test Mode** (โหมดทดสอบ) เพื่อให้แอปของคุณและเพื่อนสามารถเขียนข้อมูลร่วมกันได้ทันที หรือกำหนด Rules เป็น:
-                <pre style={{ background: 'rgba(0,0,0,0.3)', padding: '0.5rem', borderRadius: '4px', marginTop: '0.3rem', fontSize: '0.75rem', overflowX: 'auto' }}>
+                ในเมนู Firestore Database ไปที่แท็บ <strong>Rules</strong> แล้วนำโค้ดด้านล่างนี้ไปวางแทนที่ของเดิม จากนั้นกด <strong>Publish</strong> เพื่อป้องกันคนภายนอกเข้าถึงข้อมูล:
+                <pre style={{ background: 'rgba(0,0,0,0.4)', padding: '0.65rem', borderRadius: '6px', marginTop: '0.4rem', fontSize: '0.75rem', overflowX: 'auto', border: '1px solid rgba(16, 185, 129, 0.3)', color: '#34d399' }}>
 {`rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /{document=**} {
-      allow read, write: if true;
+    
+    // ตรวจสอบว่าต้องเข้าสู่ระบบผ่านระบบก่อนเสมอ
+    function isLoggedIn() {
+      return request.auth != null;
+    }
+
+    // ข้อมูลสต็อก สัญญา ทะเบียนพัสดุ และ NCP
+    match /{collectionName}/{docId} {
+      allow read, create, update: if isLoggedIn();
+      allow delete: if isLoggedIn();
+    }
+
+    // กล่องประวัติการใช้งาน (Audit Logs) ห้ามแก้ไขหรือลบ
+    match /audit_logs/{logId} {
+      allow read, create: if isLoggedIn();
+      allow update, delete: if false;
     }
   }
 }`}

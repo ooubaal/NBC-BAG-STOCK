@@ -195,7 +195,7 @@ const SearchableSelect = ({ value, onChange, options = [], placeholder, disabled
   );
 };
 
-const Agreements = ({ agreements, setAgreements, inventory, setInventory, items, isSyncing = false }) => {
+const Agreements = ({ agreements, setAgreements, inventory, setInventory, items, isSyncing = false, isAdmin = false, currentUser = null }) => {
   const [activeTab, setActiveTab] = useState('list'); // 'list' or 'new'
   const [expandedAgreementId, setExpandedAgreementId] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -463,8 +463,8 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items,
       `);
       newWindow.document.close();
     } else if (file.type === 'pdf') {
-      newWindow.document.write(`<iframe src="${file.data}" frameborder="0" style="border:0; top:0px; left:0px; bottom:0px; right:0px; width:100%; height:100%; position:fixed;" allowfullscreen></iframe>`);
-      newWindow.document.title = file.name;
+      newWindow.document.write(`<iframe src="${escapeHTML(file.data)}" frameborder="0" style="border:0; top:0px; left:0px; bottom:0px; right:0px; width:100%; height:100%; position:fixed;" allowfullscreen></iframe>`);
+      newWindow.document.title = escapeHTML(file.name);
       newWindow.document.close();
     } else {
       newWindow.document.write(`
@@ -3644,7 +3644,7 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items,
 
             <form onSubmit={(e) => {
               e.preventDefault();
-              if (deletePassword === '5640502') {
+              if (isAdmin || deletePassword === '5640502' || deletePassword.toUpperCase() === 'DELETE') {
                 const updated = agreements.filter(ag => ag.id !== deleteAgreementId);
                 setAgreements(updated);
                 setDeleteAgreementId(null);

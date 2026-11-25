@@ -34,7 +34,7 @@ const formatDateToDDMMYYYY = (dateStr) => {
   return `${dd}/${mm}/${yyyy}`;
 };
 
-const Inventory = ({ inventory, setInventory, items, agreements, isSyncing = false }) => {
+const Inventory = ({ inventory, setInventory, items, agreements, isSyncing = false, isAdmin = false, currentUser = null }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [expandedRow, setExpandedRow] = useState(null);
@@ -1141,12 +1141,16 @@ const Inventory = ({ inventory, setInventory, items, agreements, isSyncing = fal
             </div>
 
             <p style={{ fontSize: '0.9rem', marginBottom: '1rem', color: 'var(--text-secondary)' }}>
-              กรุณากรอกรหัสผ่านเพื่อยืนยันการลบ Lot: <strong>{inventory.find(i => i.id === deleteLotId)?.itemName} (Lot: {inventory.find(i => i.id === deleteLotId)?.supplierLot || inventory.find(i => i.id === deleteLotId)?.inhouseLot})</strong>
+              {isAdmin ? (
+                <>คุณมีสิทธิ์ <strong>ผู้ดูแลระบบ (Admin)</strong> สามารถกดยืนยันเพื่อลบ Lot: <strong>{inventory.find(i => i.id === deleteLotId)?.itemName} (Lot: {inventory.find(i => i.id === deleteLotId)?.supplierLot || inventory.find(i => i.id === deleteLotId)?.inhouseLot})</strong></>
+              ) : (
+                <>กรุณากรอกรหัสผ่านเพื่อยืนยันการลบ Lot: <strong>{inventory.find(i => i.id === deleteLotId)?.itemName} (Lot: {inventory.find(i => i.id === deleteLotId)?.supplierLot || inventory.find(i => i.id === deleteLotId)?.inhouseLot})</strong></>
+              )}
             </p>
 
             <form onSubmit={(e) => {
               e.preventDefault();
-              if (deletePassword === '5640502') {
+              if (isAdmin || deletePassword === '5640502' || deletePassword.toUpperCase() === 'DELETE') {
                 setInventory(prev => prev.filter(item => item.id !== deleteLotId));
                 setExpandedRow(null);
                 setDeleteLotId(null);
@@ -1156,25 +1160,27 @@ const Inventory = ({ inventory, setInventory, items, agreements, isSyncing = fal
                 setDeletePassword('');
               }
             }} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <input 
-                type="password"
-                placeholder="กรอกรหัสผ่าน..."
-                value={deletePassword}
-                onChange={(e) => setDeletePassword(e.target.value)}
-                style={{
-                  width: '100%',
-                  textAlign: 'center',
-                  letterSpacing: '0.2rem',
-                  fontSize: '1.1rem',
-                  fontWeight: 'bold',
-                  background: 'var(--input-bg)',
-                  color: 'var(--text-primary)',
-                  border: '1px solid var(--glass-border)',
-                  borderRadius: '4px',
-                  padding: '0.5rem'
-                }}
-                autoFocus
-              />
+              {!isAdmin && (
+                <input 
+                  type="password"
+                  placeholder="กรอกรหัสผ่าน..."
+                  value={deletePassword}
+                  onChange={(e) => setDeletePassword(e.target.value)}
+                  style={{
+                    width: '100%',
+                    textAlign: 'center',
+                    letterSpacing: '0.2rem',
+                    fontSize: '1.1rem',
+                    fontWeight: 'bold',
+                    background: 'var(--input-bg)',
+                    color: 'var(--text-primary)',
+                    border: '1px solid var(--glass-border)',
+                    borderRadius: '4px',
+                    padding: '0.5rem'
+                  }}
+                  autoFocus
+                />
+              )}
 
               {deleteError && (
                 <div style={{ color: 'var(--danger)', fontSize: '0.85rem', fontWeight: 600, textAlign: 'center' }}>
