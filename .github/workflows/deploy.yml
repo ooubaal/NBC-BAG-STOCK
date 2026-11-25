@@ -11,6 +11,7 @@ permissions:
   contents: read
   pages: write
   id-token: write
+  actions: read
 
 # Allow only one concurrent deployment, skipping queued runs
 concurrency:
@@ -52,6 +53,7 @@ jobs:
     permissions:
       pages: write
       id-token: write
+      actions: read
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
