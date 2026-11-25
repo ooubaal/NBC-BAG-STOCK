@@ -23,7 +23,8 @@ import {
   ShieldAlert,
   AlertTriangle,
   Loader2,
-  Cloud
+  Cloud,
+  Users
 } from 'lucide-react';
 import './App.css';
 
@@ -39,8 +40,9 @@ import Agreements from './components/Agreements';
 import StatusLabels from './components/StatusLabels';
 import LoginModal from './components/LoginModal';
 import UserProfileBar from './components/UserProfileBar';
+import UserManagement from './components/UserManagement';
 import { initFirebase, subscribeAuthState, logoutFirebase } from './firebase';
-import { doc, setDoc, collection, onSnapshot, deleteDoc, getDocs, writeBatch } from 'firebase/firestore';
+import { doc, setDoc, getDoc, collection, onSnapshot, deleteDoc, getDocs, writeBatch } from 'firebase/firestore';
 import { idbGet, idbSet, idbDel } from './utils/idb';
 import { sanitizeForFirestore } from './utils/sanitize';
 
@@ -236,8 +238,10 @@ function App() {
 
   const [db, setDb] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
+  const [currentUserProfile, setCurrentUserProfile] = useState(null);
   const [authInitialized, setAuthInitialized] = useState(false);
   const [isAccessDenied, setIsAccessDenied] = useState(false);
+  const [pendingUsersCount, setPendingUsersCount] = useState(0);
 
   // Subscribe to Firebase Auth state
   useEffect(() => {
@@ -250,6 +254,7 @@ function App() {
       });
     } else {
       setCurrentUser(null);
+      setCurrentUserProfile(null);
       setIsAccessDenied(false);
       setAuthInitialized(true);
     }
@@ -259,10 +264,16 @@ function App() {
   // Determine if current user is an Admin
   const isAdmin = useMemo(() => {
     if (!currentUser || !currentUser.email) return false;
+    
+    // 1. Check if Firestore user document marks role as admin
+    if (currentUserProfile && currentUserProfile.role === 'admin' && currentUserProfile.status === 'approved') {
+      return true;
+    }
+
+    // 2. Check local admin email list / bootstrap fallback
     const email = currentUser.email.toLowerCase();
     const savedAdmins = localStorage.getItem('wms_admin_emails');
     if (!savedAdmins) {
-      // First user to log in automatically becomes initial admin
       localStorage.setItem('wms_admin_emails', JSON.stringify([email]));
       return true;
     }
@@ -275,7 +286,91 @@ function App() {
     } catch {
       return true;
     }
-  }, [currentUser]);
+  }, [currentUser, currentUserProfile]);
+
+  // Sync / Auto-register User in 'users' collection & listen to real-time status/role
+  useEffect(() => {
+    if (!db || !currentUser || !currentUser.email) {
+      setCurrentUserProfile(null);
+      return;
+    }
+
+    const email = currentUser.email.toLowerCase();
+    const userDocRef = doc(db, 'users', email);
+
+    // Initial check & auto-registration
+    const syncUserProfile = async () => {
+      try {
+        const docSnap = await getDoc(userDocRef);
+        if (!docSnap.exists()) {
+          // Check if any users exist in collection
+          const allUsersSnap = await getDocs(collection(db, 'users'));
+          const isFirstUser = allUsersSnap.empty;
+
+          const newProfile = {
+            uid: currentUser.uid,
+            email: email,
+            displayName: currentUser.displayName || email.split('@')[0],
+            photoURL: currentUser.photoURL || null,
+            role: isFirstUser ? 'admin' : 'staff',
+            status: isFirstUser ? 'approved' : 'pending',
+            createdAt: new Date().toISOString(),
+            approvedAt: isFirstUser ? new Date().toISOString() : null,
+            approvedBy: isFirstUser ? 'system_bootstrap' : null
+          };
+
+          await setDoc(userDocRef, newProfile);
+          setCurrentUserProfile(newProfile);
+          if (newProfile.status === 'pending') {
+            setIsAccessDenied(true);
+          }
+        } else {
+          const profile = docSnap.data();
+          setCurrentUserProfile(profile);
+          if (profile.status === 'pending' || profile.status === 'blocked') {
+            setIsAccessDenied(true);
+          } else if (profile.status === 'approved') {
+            setIsAccessDenied(false);
+          }
+        }
+      } catch (err) {
+        console.warn("User profile sync error:", err);
+      }
+    };
+
+    syncUserProfile();
+
+    // Listen to real-time changes to this user's profile (unlocks immediately when Admin approves!)
+    const unsubscribe = onSnapshot(userDocRef, (snap) => {
+      if (snap.exists()) {
+        const profile = snap.data();
+        setCurrentUserProfile(profile);
+        if (profile.status === 'pending' || profile.status === 'blocked') {
+          setIsAccessDenied(true);
+        } else if (profile.status === 'approved') {
+          setIsAccessDenied(false);
+        }
+      }
+    }, (err) => {
+      console.warn("User profile listen error:", err);
+    });
+
+    return () => unsubscribe();
+  }, [db, currentUser]);
+
+  // Listen to pending users count for Admin notification badge
+  useEffect(() => {
+    if (!db || !isAdmin) return;
+    const usersRef = collection(db, 'users');
+    const unsubscribe = onSnapshot(usersRef, (snapshot) => {
+      let count = 0;
+      snapshot.forEach(docSnap => {
+        if (docSnap.data()?.status === 'pending') count++;
+      });
+      setPendingUsersCount(count);
+    }, () => {});
+    return () => unsubscribe();
+  }, [db, isAdmin]);
 
   // Global sync state tracking for loading indicator & duplicate prevention
   const [syncCount, setSyncCount] = useState(0);
@@ -1235,6 +1330,8 @@ function App() {
         return <Agreements agreements={agreements} setAgreements={updateAgreements} inventory={inventory} setInventory={updateInventory} items={items} isSyncing={isSyncing} isAdmin={isAdmin} currentUser={currentUser} />;
       case 'labels':
         return <StatusLabels inventory={inventory} />;
+      case 'users':
+        return <UserManagement db={db} currentUser={currentUser} isAdmin={isAdmin} />;
       case 'settings':
         return (
           <SettingsTab 
@@ -1311,10 +1408,12 @@ function App() {
             </div>
 
             <h2 style={{ fontSize: '1.35rem', fontWeight: 800, margin: '0 0 0.5rem 0', color: 'var(--text-primary)' }}>
-              รอการอนุมัติสิทธิ์เข้าใช้งาน
+              {currentUserProfile?.status === 'blocked' ? "บัญชีนี้ถูกระงับสิทธิ์การใช้งาน" : "รอการอนุมัติสิทธิ์เข้าใช้งาน"}
             </h2>
             <p style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', margin: '0 0 1.25rem 0', lineHeight: 1.5 }}>
-              บัญชีนี้ยังไม่อยู่ในรายชื่อผู้มีสิทธิ์เข้าถึงฐานข้อมูลคลังพัสดุ (NBC STOCK)
+              {currentUserProfile?.status === 'blocked' 
+                ? "ผู้ดูแลระบบได้ระงับสิทธิ์การเข้าถึงคลังพัสดุสำหรับบัญชีนี้ กรุณาติดต่อผู้ดูแลระบบเพื่อขอปลดระงับสิทธิ์"
+                : "ระบบได้ส่งคำขอไปยังผู้ดูแลระบบ (Admin) แล้ว เมื่อแอดมินกดอนุมัติสิทธิ์ หน้าจอของคุณจะเปิดให้ใช้งานทันทีแบบ Real-time"}
             </p>
 
             <div style={{
@@ -1332,7 +1431,9 @@ function App() {
             </div>
 
             <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: '0 0 1.5rem 0', lineHeight: 1.4 }}>
-              👉 กรุณาแจ้งอีเมลด้านบนแก่ <strong>ผู้ดูแลระบบ (Admin)</strong> เพื่อเพิ่มสิทธิ์ให้บัญชีของคุณเข้าใช้งาน
+              {currentUserProfile?.status === 'blocked' 
+                ? "หากมีข้อสงสัย กรุณาติดต่อเจ้าหน้าที่ผู้ดูแลระบบของศูนย์บริการโลหิตแห่งชาติ"
+                : "👉 คุณสามารถเปิดหน้านี้รอไว้ได้เลย เมื่อผู้ดูแลระบบกดปุ่มอนุมัติ หน้าจอจะโหลดข้อมูลเข้าสู่ระบบเองทันที"}
             </p>
 
             <button
@@ -1514,6 +1615,14 @@ function App() {
             icon={<Tag size={20} />}
             label="พิมพ์ป้ายสถานะ"
           />
+          {isAdmin && (
+            <NavItem 
+              active={activeTab === 'users'} 
+              onClick={() => { setActiveTab('users'); setIsMobileMenuOpen(false); }}
+              icon={<Users size={20} />} 
+              label={pendingUsersCount > 0 ? `จัดการผู้ใช้งาน (${pendingUsersCount})` : "จัดการผู้ใช้งาน"}
+            />
+          )}
         </nav>
 
         <div style={{ marginTop: 'auto', paddingTop: '1.5rem' }}>
