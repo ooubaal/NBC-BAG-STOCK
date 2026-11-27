@@ -24,7 +24,9 @@ import {
   AlertTriangle,
   Loader2,
   Cloud,
-  Users
+  Users,
+  RefreshCw,
+  WifiOff
 } from 'lucide-react';
 import './App.css';
 
@@ -42,9 +44,10 @@ import LoginModal from './components/LoginModal';
 import UserProfileBar from './components/UserProfileBar';
 import UserManagement from './components/UserManagement';
 import { initFirebase, subscribeAuthState, logoutFirebase } from './firebase';
-import { doc, setDoc, getDoc, collection, onSnapshot, deleteDoc, getDocs, writeBatch } from 'firebase/firestore';
+import { doc, setDoc, getDoc, collection, onSnapshot, deleteDoc, getDocs, getDocsFromServer, writeBatch } from 'firebase/firestore';
 import { idbGet, idbSet, idbDel } from './utils/idb';
 import { sanitizeForFirestore } from './utils/sanitize';
+import { formatSyncTime, formatSyncDateTime } from './utils/dateUtils';
 
 const INITIAL_ITEMS = [];
 
@@ -377,6 +380,39 @@ function App() {
   const [syncState, setSyncState] = useState('idle'); // 'idle' | 'syncing' | 'synced' | 'error'
   const isSyncing = syncCount > 0;
 
+  // Cloud cache & real-time connection freshness tracking
+  const [isDataFromCache, setIsDataFromCache] = useState(true);
+  const [lastCloudSync, setLastCloudSync] = useState(() => {
+    try {
+      const saved = localStorage.getItem('wms_last_cloud_sync');
+      return saved ? new Date(saved) : null;
+    } catch {
+      return null;
+    }
+  });
+  const [isOnline, setIsOnline] = useState(() => typeof navigator !== 'undefined' ? navigator.onLine : true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [syncToast, setSyncToast] = useState({ show: false, message: '', type: 'info' });
+
+  const lastSyncRef = useRef(lastCloudSync);
+  const isDataFromCacheRef = useRef(isDataFromCache);
+  useEffect(() => {
+    lastSyncRef.current = lastCloudSync;
+    isDataFromCacheRef.current = isDataFromCache;
+  }, [lastCloudSync, isDataFromCache]);
+
+  // Track online/offline status
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
   useEffect(() => {
     if (syncCount > 0) {
       setSyncState('syncing');
@@ -388,6 +424,118 @@ function App() {
       return () => clearTimeout(timer);
     }
   }, [syncCount]);
+
+  // Force fetch latest records directly from Firestore server (bypassing local cache)
+  const refreshCloudData = async (silent = false) => {
+    if (!db) {
+      if (!silent) {
+        setSyncToast({ show: true, message: 'ยังไม่ได้เชื่อมต่อฐานข้อมูลคลาวด์', type: 'warning' });
+        setTimeout(() => setSyncToast({ show: false, message: '', type: 'info' }), 3000);
+      }
+      return;
+    }
+    setIsRefreshing(true);
+    if (!silent) {
+      setSyncToast({ show: true, message: 'กำลังเชื่อมต่อและดึงข้อมูลล่าสุดจากเซิร์ฟเวอร์คลาวด์...', type: 'info' });
+    }
+    try {
+      // 1. Inventory
+      const invSnap = await getDocsFromServer(collection(db, 'inventory'));
+      const invList = [];
+      invSnap.forEach(docSnap => {
+        const data = docSnap.data();
+        if (data && data.id) invList.push(data);
+      });
+      if (invList.length > 0) {
+        invList.sort((a, b) => Number(b.id || 0) - Number(a.id || 0));
+        isRemoteInventoryUpdateRef.current = true;
+        setInventory(invList);
+        try { localStorage.setItem('wms_inventory', JSON.stringify(invList)); } catch {}
+      }
+
+      // 2. Agreements
+      const agSnap = await getDocsFromServer(collection(db, 'agreements'));
+      const agList = [];
+      agSnap.forEach(docSnap => {
+        const data = docSnap.data();
+        if (data && data.id) agList.push(data);
+      });
+      if (agList.length > 0) {
+        isRemoteAgreementsUpdateRef.current = true;
+        setAgreements(agList);
+        try { localStorage.setItem('wms_agreements', JSON.stringify(agList)); } catch {}
+      }
+
+      // 3. Items
+      const itemsSnap = await getDocsFromServer(collection(db, 'items'));
+      const itemsList = [];
+      itemsSnap.forEach(docSnap => {
+        const data = docSnap.data();
+        if (data && data.name && data.name.trim()) itemsList.push(data);
+      });
+      if (itemsList.length > 0) {
+        isRemoteItemsUpdateRef.current = true;
+        setItems(itemsList);
+        try { localStorage.setItem('wms_items', JSON.stringify(itemsList)); } catch {}
+      }
+
+      // 4. Claims
+      const claimsSnap = await getDocsFromServer(collection(db, 'claims'));
+      const claimsList = [];
+      claimsSnap.forEach(docSnap => {
+        const data = docSnap.data();
+        if (data && data.id) claimsList.push(data);
+      });
+      if (claimsList.length > 0) {
+        isRemoteClaimsUpdateRef.current = true;
+        setClaims(claimsList);
+        try { localStorage.setItem('wms_claims', JSON.stringify(claimsList)); } catch {}
+      }
+
+      const now = new Date();
+      setIsDataFromCache(false);
+      setLastCloudSync(now);
+      try { localStorage.setItem('wms_last_cloud_sync', now.toISOString()); } catch {}
+
+      setSyncToast({ 
+        show: true, 
+        message: `✅ ดึงข้อมูลล่าสุดจากคลาวด์เรียบร้อยแล้ว (${invList.length} Lot พัสดุ)`, 
+        type: 'success' 
+      });
+      setTimeout(() => setSyncToast({ show: false, message: '', type: 'info' }), 3000);
+    } catch (err) {
+      console.error("Error refreshing cloud data:", err);
+      if (!silent) {
+        setSyncToast({ 
+          show: true, 
+          message: '⚠️ ไม่สามารถดึงข้อมูลสดจากคลาวด์ได้ กรุณาตรวจสอบอินเทอร์เน็ต', 
+          type: 'error' 
+        });
+        setTimeout(() => setSyncToast({ show: false, message: '', type: 'info' }), 4000);
+      }
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  // Auto refresh when returning from background/unlocking mobile screen
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && db && firebaseConfig) {
+        const now = Date.now();
+        const last = lastSyncRef.current ? new Date(lastSyncRef.current).getTime() : 0;
+        if (now - last > 20000 || isDataFromCacheRef.current) {
+          refreshCloudData(true);
+        }
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleVisibilityChange);
+    };
+  }, [db, firebaseConfig]);
 
   // Flags to prevent circular sync loops when data arrives from remote Firestore
   const isRemoteItemsUpdateRef = useRef(false);
@@ -439,7 +587,12 @@ function App() {
     if (!db) return;
 
     const itemsRef = collection(db, 'items');
-    const unsubscribe = onSnapshot(itemsRef, (snapshot) => {
+    const unsubscribe = onSnapshot(itemsRef, { includeMetadataChanges: true }, (snapshot) => {
+      if (!snapshot.metadata.fromCache) {
+        const now = new Date();
+        setLastCloudSync(now);
+        try { localStorage.setItem('wms_last_cloud_sync', now.toISOString()); } catch {}
+      }
       const list = [];
       snapshot.forEach(docSnap => {
         const data = docSnap.data();
@@ -475,7 +628,15 @@ function App() {
     if (!db) return;
 
     const invRef = collection(db, 'inventory');
-    const unsubscribe = onSnapshot(invRef, (snapshot) => {
+    const unsubscribe = onSnapshot(invRef, { includeMetadataChanges: true }, (snapshot) => {
+      const fromCache = snapshot.metadata.fromCache;
+      setIsDataFromCache(fromCache);
+      if (!fromCache) {
+        const now = new Date();
+        setLastCloudSync(now);
+        try { localStorage.setItem('wms_last_cloud_sync', now.toISOString()); } catch {}
+      }
+
       const list = [];
       snapshot.forEach(docSnap => {
         const data = docSnap.data();
@@ -582,7 +743,12 @@ function App() {
     if (!db) return;
 
     const agreementsRef = collection(db, 'agreements');
-    const unsubscribe = onSnapshot(agreementsRef, (snapshot) => {
+    const unsubscribe = onSnapshot(agreementsRef, { includeMetadataChanges: true }, (snapshot) => {
+      if (!snapshot.metadata.fromCache) {
+        const now = new Date();
+        setLastCloudSync(now);
+        try { localStorage.setItem('wms_last_cloud_sync', now.toISOString()); } catch {}
+      }
       const list = [];
       snapshot.forEach(docSnap => {
         const data = docSnap.data();
@@ -618,7 +784,12 @@ function App() {
     if (!db) return;
 
     const claimsRef = collection(db, 'claims');
-    const unsubscribe = onSnapshot(claimsRef, (snapshot) => {
+    const unsubscribe = onSnapshot(claimsRef, { includeMetadataChanges: true }, (snapshot) => {
+      if (!snapshot.metadata.fromCache) {
+        const now = new Date();
+        setLastCloudSync(now);
+        try { localStorage.setItem('wms_last_cloud_sync', now.toISOString()); } catch {}
+      }
       const list = [];
       snapshot.forEach(docSnap => {
         const data = docSnap.data();
@@ -1317,7 +1488,21 @@ function App() {
       case 'items':
         return <ProductRegistry items={items} setItems={updateItems} isAdmin={isAdmin} currentUser={currentUser} />;
       case 'inventory':
-        return <Inventory inventory={inventory} setInventory={updateInventory} items={items} agreements={agreements} isSyncing={isSyncing} isAdmin={isAdmin} currentUser={currentUser} />;
+        return (
+          <Inventory 
+            inventory={inventory} 
+            setInventory={updateInventory} 
+            items={items} 
+            agreements={agreements} 
+            isSyncing={isSyncing} 
+            isAdmin={isAdmin} 
+            currentUser={currentUser}
+            isDataFromCache={isDataFromCache}
+            lastCloudSync={lastCloudSync}
+            isRefreshing={isRefreshing}
+            refreshCloudData={refreshCloudData}
+          />
+        );
       case 'inbound':
         return <Inbound setInventory={updateInventory} items={items} inventory={inventory} agreements={agreements} isSyncing={isSyncing} currentUser={currentUser} />;
       case 'withdrawal':
@@ -1327,7 +1512,22 @@ function App() {
       case 'ncp':
         return <NCP inventory={inventory} items={items} claims={claims} setClaims={updateClaims} currentUser={currentUser} />;
       case 'agreements':
-        return <Agreements agreements={agreements} setAgreements={updateAgreements} inventory={inventory} setInventory={updateInventory} items={items} isSyncing={isSyncing} isAdmin={isAdmin} currentUser={currentUser} />;
+        return (
+          <Agreements 
+            agreements={agreements} 
+            setAgreements={updateAgreements} 
+            inventory={inventory} 
+            setInventory={updateInventory} 
+            items={items} 
+            isSyncing={isSyncing} 
+            isAdmin={isAdmin} 
+            currentUser={currentUser}
+            isDataFromCache={isDataFromCache}
+            lastCloudSync={lastCloudSync}
+            isRefreshing={isRefreshing}
+            refreshCloudData={refreshCloudData}
+          />
+        );
       case 'labels':
         return <StatusLabels inventory={inventory} />;
       case 'users':
@@ -1451,6 +1651,60 @@ function App() {
         </div>
       )}
 
+      {/* Sync Toast Feedback Popup */}
+      {syncToast.show && (
+        <div
+          style={{
+            position: 'fixed',
+            top: '1rem',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 100000,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.6rem',
+            padding: '0.6rem 1.25rem',
+            borderRadius: '30px',
+            fontSize: '0.85rem',
+            fontWeight: 600,
+            backdropFilter: 'blur(12px)',
+            boxShadow: '0 8px 30px rgba(0, 0, 0, 0.45)',
+            animation: 'fadeInDown 0.25s ease',
+            maxWidth: '92vw',
+            textAlign: 'center',
+            background: syncToast.type === 'error' 
+              ? 'rgba(127, 29, 29, 0.95)' 
+              : syncToast.type === 'warning' 
+                ? 'rgba(120, 53, 15, 0.95)' 
+                : syncToast.type === 'info'
+                  ? 'rgba(15, 23, 42, 0.95)'
+                  : 'rgba(6, 78, 59, 0.95)',
+            color: syncToast.type === 'error' 
+              ? '#fca5a5' 
+              : syncToast.type === 'warning' 
+                ? '#fde68a' 
+                : syncToast.type === 'info'
+                  ? '#38bdf8'
+                  : '#6ee7b7',
+            border: `1px solid ${
+              syncToast.type === 'error' 
+                ? 'rgba(239, 68, 68, 0.45)' 
+                : syncToast.type === 'warning' 
+                  ? 'rgba(245, 158, 11, 0.45)' 
+                  : syncToast.type === 'info'
+                    ? 'rgba(56, 189, 248, 0.45)'
+                    : 'rgba(52, 211, 153, 0.45)'
+            }`
+          }}
+        >
+          {syncToast.type === 'info' && <Loader2 size={16} className="spin" />}
+          {syncToast.type === 'success' && <CheckCircle2 size={16} />}
+          {syncToast.type === 'warning' && <AlertTriangle size={16} />}
+          {syncToast.type === 'error' && <AlertOctagon size={16} />}
+          <span>{syncToast.message}</span>
+        </div>
+      )}
+
       {/* Global Cloud Sync Status Indicator */}
       {syncState !== 'idle' && (
         <div 
@@ -1537,7 +1791,87 @@ function App() {
             );
           })}
         </div>
+
+        {firebaseConfig && (
+          <button
+            type="button"
+            onClick={() => refreshCloudData(false)}
+            disabled={isRefreshing}
+            className="mobile-sync-btn"
+            title={
+              !isOnline 
+                ? "ออฟไลน์ (ไม่มีอินเทอร์เน็ต)" 
+                : isDataFromCache 
+                  ? "กำลังแสดงข้อมูลแคชในเครื่อง (แตะเพื่อดึงข้อมูลคลาวด์ล่าสุด)" 
+                  : `คลาวด์ล่าสุดแล้ว (ซิงค์: ${formatSyncTime(lastCloudSync)}) - แตะเพื่อรีเฟรช`
+            }
+            style={{
+              color: !isOnline ? '#ef4444' : isDataFromCache ? '#fbbf24' : '#10b981',
+              borderColor: !isOnline ? 'rgba(239, 68, 68, 0.4)' : isDataFromCache ? 'rgba(245, 158, 11, 0.4)' : 'rgba(16, 185, 129, 0.3)',
+              background: isDataFromCache ? 'rgba(245, 158, 11, 0.12)' : 'rgba(255, 255, 255, 0.04)'
+            }}
+          >
+            {isRefreshing || isSyncing ? (
+              <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} />
+            ) : !isOnline ? (
+              <WifiOff size={16} />
+            ) : isDataFromCache ? (
+              <AlertTriangle size={16} />
+            ) : (
+              <Cloud size={16} />
+            )}
+          </button>
+        )}
       </header>
+
+      {/* Mobile Cloud Sync Alert Banner */}
+      {firebaseConfig && (isDataFromCache || !isOnline) && (
+        <div className="mobile-sync-alert-banner" style={{
+          background: !isOnline 
+            ? 'linear-gradient(135deg, rgba(239, 68, 68, 0.22), rgba(185, 28, 28, 0.18))' 
+            : 'linear-gradient(135deg, rgba(245, 158, 11, 0.22), rgba(217, 119, 6, 0.18))',
+          borderBottom: !isOnline ? '1px solid rgba(239, 68, 68, 0.45)' : '1px solid rgba(245, 158, 11, 0.45)',
+          color: !isOnline ? '#fca5a5' : '#fde68a'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flex: 1, minWidth: 0 }}>
+            {!isOnline ? (
+              <WifiOff size={14} color="#ef4444" style={{ flexShrink: 0 }} />
+            ) : (
+              <Loader2 size={14} style={{ animation: 'spin 1s linear infinite', flexShrink: 0 }} color="#f59e0b" />
+            )}
+            <span style={{ lineHeight: 1.25, fontSize: '0.75rem' }}>
+              {!isOnline 
+                ? "ออฟไลน์: ไม่สามารถติดต่อคลาวด์ได้ (แสดงข้อมูลในเครื่อง)" 
+                : "กำลังเชื่อมต่อคลาวด์... (ขณะนี้แสดงข้อมูลแคชในเครื่อง)"}
+            </span>
+          </div>
+          {isOnline && (
+            <button
+              type="button"
+              onClick={() => refreshCloudData(false)}
+              disabled={isRefreshing}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.3rem',
+                padding: '0.25rem 0.6rem',
+                fontSize: '0.72rem',
+                fontWeight: 600,
+                borderRadius: '6px',
+                border: '1px solid rgba(245, 158, 11, 0.5)',
+                background: 'rgba(245, 158, 11, 0.25)',
+                color: '#ffffff',
+                cursor: isRefreshing ? 'not-allowed' : 'pointer',
+                whiteSpace: 'nowrap',
+                flexShrink: 0
+              }}
+            >
+              <RefreshCw size={11} className={isRefreshing ? 'spin' : ''} />
+              <span>{isRefreshing ? 'กำลังดึง...' : 'ดึงล่าสุด'}</span>
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Backdrop overlay */}
       {isMobileMenuOpen && (
@@ -1634,32 +1968,68 @@ function App() {
           />
 
           {/* Cloud Sync Status Indicator in Sidebar */}
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.45rem',
-            fontSize: '0.73rem',
-            fontWeight: 600,
-            padding: '0.45rem 0.8rem',
-            borderRadius: '6px',
-            margin: '0 0.8rem 0.75rem 0.8rem',
-            background: isSyncing ? 'rgba(56, 189, 248, 0.12)' : 'rgba(16, 185, 129, 0.08)',
-            border: isSyncing ? '1px solid rgba(56, 189, 248, 0.35)' : '1px solid rgba(16, 185, 129, 0.22)',
-            color: isSyncing ? '#38bdf8' : '#10b981',
-            transition: 'all 0.3s'
-          }}>
-            {isSyncing ? (
-              <>
-                <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} />
-                <span>กำลังซิงค์ข้อมูล...</span>
-              </>
-            ) : (
-              <>
-                <Cloud size={13} />
-                <span>คลาวด์: ข้อมูลล่าสุด</span>
-              </>
-            )}
-          </div>
+          {firebaseConfig && (
+            <div 
+              onClick={() => refreshCloudData(false)}
+              title="คลิกเพื่อดึงข้อมูลสดล่าสุดจากคลาวด์ทันที"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '0.45rem',
+                fontSize: '0.73rem',
+                fontWeight: 600,
+                padding: '0.45rem 0.8rem',
+                borderRadius: '6px',
+                margin: '0 0.8rem 0.75rem 0.8rem',
+                background: !isOnline 
+                  ? 'rgba(239, 68, 68, 0.12)' 
+                  : isRefreshing || isSyncing 
+                    ? 'rgba(56, 189, 248, 0.12)' 
+                    : isDataFromCache 
+                      ? 'rgba(245, 158, 11, 0.12)' 
+                      : 'rgba(16, 185, 129, 0.08)',
+                border: !isOnline 
+                  ? '1px solid rgba(239, 68, 68, 0.35)' 
+                  : isRefreshing || isSyncing 
+                    ? '1px solid rgba(56, 189, 248, 0.35)' 
+                    : isDataFromCache 
+                      ? '1px solid rgba(245, 158, 11, 0.35)' 
+                      : '1px solid rgba(16, 185, 129, 0.22)',
+                color: !isOnline 
+                  ? '#f87171' 
+                  : isRefreshing || isSyncing 
+                    ? '#38bdf8' 
+                    : isDataFromCache 
+                      ? '#fbbf24' 
+                      : '#10b981',
+                cursor: 'pointer',
+                transition: 'all 0.3s'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                {isRefreshing || isSyncing ? (
+                  <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} />
+                ) : !isOnline ? (
+                  <WifiOff size={13} />
+                ) : isDataFromCache ? (
+                  <AlertTriangle size={13} />
+                ) : (
+                  <Cloud size={13} />
+                )}
+                <span>
+                  {!isOnline 
+                    ? 'ออฟไลน์' 
+                    : isRefreshing || isSyncing 
+                      ? 'กำลังซิงค์คลาวด์...' 
+                      : isDataFromCache 
+                        ? 'แคชในเครื่อง (กดดึงใหม่)' 
+                        : `คลาวด์: ล่าสุด (${formatSyncTime(lastCloudSync)})`}
+                </span>
+              </div>
+              <RefreshCw size={11} className={isRefreshing ? 'spin' : ''} style={{ opacity: 0.75 }} />
+            </div>
+          )}
 
           <NavItem 
             active={activeTab === 'settings'} 

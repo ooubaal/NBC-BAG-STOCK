@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { Loader2, Search, ChevronUp, History, Settings, Save, Trash2, AlertTriangle, FileSpreadsheet, Camera } from 'lucide-react';
+import { Loader2, Search, ChevronUp, History, Settings, Save, Trash2, AlertTriangle, FileSpreadsheet, Camera, Cloud, RefreshCw } from 'lucide-react';
 import ExcelJS from 'exceljs';
 import Pagination from './Pagination';
 import SmartCameraModal from './SmartCameraModal';
+import { formatSyncDateTime } from '../utils/dateUtils';
 
 const AcceptanceBadge = ({ status }) => {
   const normalizedStatus = status || '';
@@ -34,7 +35,19 @@ const formatDateToDDMMYYYY = (dateStr) => {
   return `${dd}/${mm}/${yyyy}`;
 };
 
-const Inventory = ({ inventory, setInventory, items, agreements, isSyncing = false, isAdmin = false, currentUser = null }) => {
+const Inventory = ({ 
+  inventory = [], 
+  setInventory, 
+  items, 
+  agreements, 
+  isSyncing = false, 
+  isAdmin = false, 
+  currentUser = null,
+  isDataFromCache = false,
+  lastCloudSync = null,
+  isRefreshing = false,
+  refreshCloudData = null
+}) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [expandedRow, setExpandedRow] = useState(null);
@@ -513,7 +526,41 @@ const Inventory = ({ inventory, setInventory, items, agreements, isSyncing = fal
             <Camera size={15} /> สแกนพัสดุ (AI)
           </button>
         </div>
-        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+          {refreshCloudData && (
+            <button
+              type="button"
+              className="btn"
+              style={{
+                padding: '0.4rem 0.8rem',
+                fontSize: '0.75rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.4rem',
+                background: isDataFromCache 
+                  ? 'rgba(245, 158, 11, 0.15)' 
+                  : 'rgba(255, 255, 255, 0.05)',
+                borderColor: isDataFromCache 
+                  ? 'rgba(245, 158, 11, 0.45)' 
+                  : 'var(--glass-border)',
+                color: isDataFromCache ? '#fbbf24' : 'var(--text-primary)',
+                cursor: isRefreshing ? 'not-allowed' : 'pointer',
+                fontWeight: isDataFromCache ? 600 : 400
+              }}
+              onClick={() => refreshCloudData(false)}
+              disabled={isRefreshing}
+              title={isDataFromCache ? "ขณะนี้ข้อมูลมาจากแคชในเครื่อง กดเพื่อดึงข้อมูลสดจากเซิร์ฟเวอร์คลาวด์" : "กดเพื่อดึงข้อมูลล่าสุดจากคลาวด์ทันที"}
+            >
+              <RefreshCw size={14} className={isRefreshing ? 'spin' : ''} />
+              <span>
+                {isRefreshing 
+                  ? 'กำลังดึงข้อมูล...' 
+                  : isDataFromCache 
+                    ? '⚠️ ข้อมูลแคช (กดดึงล่าสุด)' 
+                    : 'ดึงข้อมูลคลาวด์ล่าสุด'}
+              </span>
+            </button>
+          )}
           <button
             className="btn btn-primary"
             style={{ 
@@ -1093,6 +1140,54 @@ const Inventory = ({ inventory, setInventory, items, agreements, isSyncing = fal
           onPageSizeChange={setPageSize}
           itemName="Lot พัสดุ"
         />
+        <div style={{ 
+          padding: '0.5rem 1rem', 
+          fontSize: '0.76rem', 
+          color: 'var(--text-muted)', 
+          borderTop: '1px solid var(--glass-border)',
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '0.5rem'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+            <Cloud size={14} color={isDataFromCache ? '#f59e0b' : '#10b981'} />
+            <span>
+              {isDataFromCache ? (
+                <span style={{ color: '#fbbf24', fontWeight: 600 }}>
+                  ⚠️ ข้อมูลบนอุปกรณ์นี้ยังเป็นข้อมูลแคชในเครื่อง (กำลังรอซิงค์หรือมีดีเลย์จากเครือข่าย)
+                </span>
+              ) : (
+                <span>
+                  สถานะข้อมูล: <strong style={{ color: '#10b981' }}>ซิงค์คลาวด์ล่าสุดแล้ว</strong> {lastCloudSync ? `(ซิงค์เมื่อ: ${formatSyncDateTime(lastCloudSync)})` : ''}
+                </span>
+              )}
+            </span>
+          </div>
+          {refreshCloudData && (
+            <button
+              type="button"
+              onClick={() => refreshCloudData(false)}
+              disabled={isRefreshing}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: 'var(--accent-color, #0ea5e9)',
+                fontSize: '0.75rem',
+                cursor: isRefreshing ? 'not-allowed' : 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.3rem',
+                padding: '0.2rem 0.4rem',
+                fontWeight: 600
+              }}
+            >
+              <RefreshCw size={12} className={isRefreshing ? 'spin' : ''} />
+              <span>{isRefreshing ? 'กำลังดึงข้อมูลล่าสุด...' : 'ดึงข้อมูลสดจากคลาวด์ทันที'}</span>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Spacing block to prevent bulk panel from covering table rows when scrolling */}

@@ -3,6 +3,8 @@ import { createPortal } from 'react-dom';
 import { Plus, Check, X, FileText, PackageOpen, ChevronDown, ChevronUp, UserCheck, AlertTriangle, Search, Edit2, Trash2, Paperclip, Eye, Loader2, Sparkles, Calendar, Clock, CheckCircle2, AlertCircle, CalendarDays, Download } from 'lucide-react';
 import { smartCompressUploadFile } from '../utils/fileCompressor';
 import Pagination from './Pagination';
+import { Cloud, RefreshCw } from 'lucide-react';
+import { formatSyncDateTime } from '../utils/dateUtils';
 
 const escapeHTML = (str) => {
   if (!str) return '';
@@ -195,7 +197,20 @@ const SearchableSelect = ({ value, onChange, options = [], placeholder, disabled
   );
 };
 
-const Agreements = ({ agreements, setAgreements, inventory, setInventory, items, isSyncing = false, isAdmin = false, currentUser = null }) => {
+const Agreements = ({ 
+  agreements, 
+  setAgreements, 
+  inventory, 
+  setInventory, 
+  items, 
+  isSyncing = false, 
+  isAdmin = false, 
+  currentUser = null,
+  isDataFromCache = false,
+  lastCloudSync = null,
+  isRefreshing = false,
+  refreshCloudData = null
+}) => {
   const [activeTab, setActiveTab] = useState('list'); // 'list' or 'new'
   const [expandedAgreementId, setExpandedAgreementId] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -3444,6 +3459,54 @@ const Agreements = ({ agreements, setAgreements, inventory, setInventory, items,
             onPageSizeChange={setPageSize}
             itemName="สัญญาจัดซื้อ"
           />
+          <div style={{ 
+            padding: '0.5rem 1rem', 
+            fontSize: '0.76rem', 
+            color: 'var(--text-muted)', 
+            borderTop: '1px solid var(--glass-border)',
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '0.5rem'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+              <Cloud size={14} color={isDataFromCache ? '#f59e0b' : '#10b981'} />
+              <span>
+                {isDataFromCache ? (
+                  <span style={{ color: '#fbbf24', fontWeight: 600 }}>
+                    ⚠️ ข้อมูลสัญญาบนอุปกรณ์นี้ยังเป็นแคชในเครื่อง (กำลังรอซิงค์จากคลาวด์)
+                  </span>
+                ) : (
+                  <span>
+                    สถานะข้อมูล: <strong style={{ color: '#10b981' }}>ซิงค์คลาวด์ล่าสุดแล้ว</strong> {lastCloudSync ? `(ซิงค์เมื่อ: ${formatSyncDateTime(lastCloudSync)})` : ''}
+                  </span>
+                )}
+              </span>
+            </div>
+            {refreshCloudData && (
+              <button
+                type="button"
+                onClick={() => refreshCloudData(false)}
+                disabled={isRefreshing}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--accent-color, #0ea5e9)',
+                  fontSize: '0.75rem',
+                  cursor: isRefreshing ? 'not-allowed' : 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.3rem',
+                  padding: '0.2rem 0.4rem',
+                  fontWeight: 600
+                }}
+              >
+                <RefreshCw size={12} className={isRefreshing ? 'spin' : ''} />
+                <span>{isRefreshing ? 'กำลังดึงข้อมูลล่าสุด...' : 'ดึงข้อมูลสดจากคลาวด์ทันที'}</span>
+              </button>
+            )}
+          </div>
         </div>
       )}
             {/* Auto Split Schedule Modal */}
